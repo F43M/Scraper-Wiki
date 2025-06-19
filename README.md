@@ -96,3 +96,14 @@ python cli.py monitor
 ```
 
 Essa interface lê `logs/progress.json` e exibe o total de páginas processadas, uso de CPU e memória, além dos clusters, tópicos e idiomas atuais.
+
+## Filas e Workers
+
+O módulo `task_queue.py` abstrai o uso de backends como RabbitMQ. Execute `worker.py`
+em contêiner separado para processar as tarefas enviadas por
+`DatasetBuilder.build_from_pages(use_queue=True)`.
+
+Um `Dockerfile.worker` está disponível para criar a imagem do worker e a pasta
+contém o exemplo `cluster.yaml` para configuração de múltiplos nós com Dask ou
+Ray. Em ambientes Kubernetes, basta criar um `Deployment` apontando para essa
+imagem e montar o arquivo de configuração se necessário.
