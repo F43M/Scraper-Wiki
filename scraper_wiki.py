@@ -2,6 +2,7 @@
 # CEO: Fabio | Engenharia de Nível Industrial
 
 import wikipediaapi
+import argparse
 import sys
 import os
 import re
@@ -1022,52 +1023,58 @@ class DatasetBuilder:
 # ============================
 # 🚦 Pipeline de Execução Principal
 # ============================
-def main():
+def main(langs: Optional[List[str]] = None,
+         categories: Optional[List[str]] = None,
+         fmt: str = "all"):
+    """Gera o dataset utilizando os parâmetros fornecidos."""
     logger.info("🚀 Iniciando Wikipedia Scraper Ultra Pro Max - GodMode++")
-    
-    # Prepara o builder de dataset
+
+    languages = langs or Config.LANGUAGES
+    cats = Config.CATEGORIES
+    if categories:
+        cats = {c: Config.CATEGORIES.get(c, 1.0) for c in categories}
+
     builder = DatasetBuilder()
-    
-    # Coleta páginas de todos os idiomas e categorias
-    all_pages = []
-    
-    for lang in Config.LANGUAGES:
+
+    all_pages: List[dict] = []
+    for lang in languages:
         logger.info(f"🌐 Processando idioma: {lang.upper()}")
         wiki = WikipediaAdvanced(lang)
-        
-        for category, weight in Config.CATEGORIES.items():
+
+        for category, weight in cats.items():
             logger.info(f"🔍 Buscando na categoria: {category} (peso: {weight})")
-            
-            # Obtém membros da categoria com peso
+
             pages = wiki.get_category_members(category)
             logger.info(f"📄 Páginas encontradas em {category}: {len(pages)}")
-            
-            # Adiciona peso às páginas
+
             for page in pages:
                 page['weight'] = weight
-            
+
             all_pages.extend(pages)
-            time.sleep(Config.RATE_LIMIT_DELAY * 2)  # Delay maior entre categorias
-    
+            time.sleep(Config.RATE_LIMIT_DELAY * 2)
+
     logger.info(f"📚 Total de páginas coletadas: {len(all_pages)}")
-    
-    # Processa as páginas e constrói o dataset
+
     builder.build_from_pages(all_pages, "Construindo dataset")
-    
-    # Aplica técnicas avançadas de aprimoramento
+
     logger.info("🧠 Aplicando técnicas avançadas de NLP...")
     builder.enhance_with_clustering()
-    
-    # Salva o dataset final
+
     logger.info("💾 Salvando dataset completo...")
-    builder.save_dataset()
-    
+    builder.save_dataset(format=fmt)
+
     logger.info("✅ Dataset finalizado com sucesso!")
     logger.info(f"📊 Estatísticas de cache: {cache.stats()}")
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Gerador de datasets da Wikipedia")
+    parser.add_argument("--lang", action="append", dest="langs", help="Idioma a processar (pode repetir)")
+    parser.add_argument("--category", action="append", dest="categories", help="Categoria específica (pode repetir)")
+    parser.add_argument("--format", dest="fmt", default="all", help="Formato de saída")
+    args = parser.parse_args()
+
     try:
-        main()
+        main(args.langs, args.categories, args.fmt)
     except KeyboardInterrupt:
         logger.info("⏹️ Execução interrompida pelo usuário")
         sys.exit(0)
