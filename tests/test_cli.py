@@ -190,3 +190,25 @@ def test_parallelism_options(monkeypatch):
     assert result.exit_code == 0
     assert cli.scraper_wiki.Config.MAX_THREADS == 5
     assert cli.scraper_wiki.Config.MAX_PROCESSES == 2
+
+def test_scrape_with_training_option(monkeypatch, tmp_path):
+    called = {}
+
+    def fake_main(lang, category, fmt, rate_limit_delay=None):
+        called["scrape"] = True
+
+    def fake_run(path):
+        called["train"] = str(path)
+
+    training_mod = ModuleType('training')
+    training_mod.pipeline = SimpleNamespace(run_pipeline=fake_run)
+    sys.modules['training'] = training_mod
+
+    monkeypatch.setattr(cli.scraper_wiki, "main", fake_main)
+    monkeypatch.setattr(cli.scraper_wiki.Config, "OUTPUT_DIR", str(tmp_path))
+    (tmp_path / "wikipedia_qa.json").write_text("[]")
+
+    runner = CliRunner()
+    result = runner.invoke(cli.app, ["scrape", "--lang", "pt", "--train"])
+    assert result.exit_code == 0
+    assert called.get("train")

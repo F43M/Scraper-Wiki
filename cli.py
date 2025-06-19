@@ -45,11 +45,17 @@ def scrape(
     fmt: str = typer.Option("all", "--format", help="Formato de saída"),
     rate_limit_delay: float = typer.Option(None, "--rate-limit-delay", help="Delay entre requisições", show_default=False),
     plugin: str = typer.Option("wikipedia", "--plugin", help="Plugin de scraping"),
+    train: bool = typer.Option(False, "--train", help="Executa conversões para treinamento"),
 ):
     """Executa o scraper imediatamente."""
     cats = [scraper_wiki.normalize_category(c) or c for c in category] if category else None
     if plugin == "wikipedia":
         scraper_wiki.main(lang, cats, fmt, rate_limit_delay)
+        if train:
+            from training import pipeline
+            dataset_file = Path(scraper_wiki.Config.OUTPUT_DIR) / "wikipedia_qa.json"
+            if dataset_file.exists():
+                pipeline.run_pipeline(dataset_file)
     else:
         from plugins import load_plugin, run_plugin
 
