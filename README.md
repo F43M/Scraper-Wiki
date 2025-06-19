@@ -31,6 +31,14 @@ Também é possível enfileirar execuções futuras:
 python cli.py queue --lang en --category "Algorithms"
 ```
 
+### Obter HTML de uma única página
+
+Use o script `click_cli.py` para baixar o HTML bruto de uma página específica da Wikipédia. O formato de saída é definido pela extensão do arquivo informada (`.json` ou `.csv`).
+
+```bash
+python click_cli.py --url https://en.wikipedia.org/wiki/Python_(programming_language) --output page.json
+```
+
 ### Normalização de categorias e busca automática
 
 Os nomes de categoria passam por um processo de normalização que remove
