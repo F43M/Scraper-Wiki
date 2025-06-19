@@ -2,8 +2,6 @@
 # CEO: Fabio | Engenharia de Nível Industrial
 
 import wikipediaapi
-import argparse
-import sys
 import os
 import re
 import time
@@ -1089,17 +1087,4 @@ def main(langs: Optional[List[str]] = None,
     logger.info(f"📊 Estatísticas de cache: {cache.stats()}")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Gerador de datasets da Wikipedia")
-    parser.add_argument("--lang", action="append", dest="langs", help="Idioma a processar (pode repetir)")
-    parser.add_argument("--category", action="append", dest="categories", help="Categoria específica (pode repetir)")
-    parser.add_argument("--format", dest="fmt", default="all", help="Formato de saída")
-    args = parser.parse_args()
-
-    try:
-        main(args.langs, args.categories, args.fmt)
-    except KeyboardInterrupt:
-        logger.info("⏹️ Execução interrompida pelo usuário")
-        sys.exit(0)
-    except Exception as e:
-        logger.critical(f"❌ Erro crítico: {e}", exc_info=True)
-        sys.exit(1)
+    main()
