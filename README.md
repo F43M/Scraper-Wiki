@@ -29,6 +29,12 @@ Também é possível enfileirar execuções futuras:
 python cli.py queue --lang en --category "Algorithms"
 ```
 
+Para listar os arquivos gerados e visualizar configurações chave use:
+
+```bash
+python cli.py status
+```
+
 ## API FastAPI
 
 Inicie a API executando:
