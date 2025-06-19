@@ -130,6 +130,34 @@ class Config:
     def get_random_user_agent(cls):
         return random.choice(cls.USER_AGENTS)
 
+
+# ============================
+# 🗂 Categoria Normalização
+# ============================
+
+# Mapas de alias para nomes canônicos de categorias. As chaves devem estar
+# normalizadas (sem acentos e em minúsculas) para facilitar a busca.
+CATEGORY_ALIASES = {
+    "programacao": "Programação",
+}
+
+
+def normalize_category(name: str) -> Optional[str]:
+    """Retorna o nome canônico de uma categoria.
+
+    A comparação ignora acentos e diferenças de maiúsculas/minúsculas.
+    Se a categoria ou um de seus aliases for encontrado, devolve o nome
+    oficial; caso contrário, ``None``.
+    """
+
+    normalized = unidecode(name).lower()
+
+    for canonical in Config.CATEGORIES:
+        if unidecode(canonical).lower() == normalized:
+            return canonical
+
+    return CATEGORY_ALIASES.get(normalized)
+
 # ============================
 # 📊 Logging Avançado
 # ============================
@@ -1063,7 +1091,8 @@ def main(langs: Optional[List[str]] = None,
     languages = langs or Config.LANGUAGES
     cats = Config.CATEGORIES
     if categories:
-        cats = {c: Config.CATEGORIES.get(c, 1.0) for c in categories}
+        normalized = [normalize_category(c) or c for c in categories]
+        cats = {c: Config.CATEGORIES.get(c, 1.0) for c in normalized}
 
     builder = DatasetBuilder()
 
