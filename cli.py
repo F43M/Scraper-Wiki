@@ -7,6 +7,19 @@ import dashboard
 
 app = typer.Typer(help="Scraper Wiki command line interface")
 
+
+@app.callback(invoke_without_command=False)
+def main(
+    ctx: typer.Context,
+    cache_backend: str = typer.Option(None, "--cache-backend", help="Backend de cache", show_default=False),
+    cache_ttl: int = typer.Option(None, "--cache-ttl", help="Tempo de vida do cache em segundos", show_default=False),
+):
+    if cache_backend is not None:
+        scraper_wiki.Config.CACHE_BACKEND = cache_backend
+        scraper_wiki.cache = scraper_wiki.init_cache()
+    if cache_ttl is not None:
+        scraper_wiki.Config.CACHE_TTL = cache_ttl
+
 QUEUE_FILE = Path("jobs_queue.jsonl")
 
 @app.command()
@@ -63,6 +76,13 @@ def status():
     }
     for key, value in settings.items():
         typer.echo(f"{key}: {value}")
+
+
+@app.command("clear-cache")
+def clear_cache_cmd():
+    """Remove entradas expiradas do cache."""
+    scraper_wiki.clear_cache()
+    typer.echo("Cache limpo")
 
 if __name__ == "__main__":
     app()

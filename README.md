@@ -51,6 +51,16 @@ Para listar os arquivos gerados e visualizar configurações chave use:
 python cli.py status
 ```
 
+### Cache
+
+Selecione o backend de cache com `--cache-backend` (`file`, `sqlite` ou `redis`)
+e defina o tempo de vida dos registros com `--cache-ttl` (segundos). Para
+remover entradas expiradas execute:
+
+```bash
+python cli.py clear-cache
+```
+
 ## API FastAPI
 
 Inicie a API executando:

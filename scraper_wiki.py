@@ -24,6 +24,7 @@ from tqdm import tqdm
 from unidecode import unidecode
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
 from datasets import Dataset, concatenate_datasets
+from pathlib import Path
 import hashlib
 import pickle
 import zlib
@@ -125,6 +126,7 @@ class Config:
     CACHE_BACKEND = 'file'
     REDIS_URL = 'redis://localhost:6379/0'
     SQLITE_PATH = os.path.join(CACHE_DIR, 'cache.sqlite')
+    CACHE_TTL: Optional[int] = int(os.environ.get("CACHE_TTL", "0")) or None
     
     @classmethod
     def get_random_user_agent(cls):
@@ -226,7 +228,7 @@ class CacheBackend(Protocol):
     def get(self, key: str):
         ...
 
-    def set(self, key: str, data):
+    def set(self, key: str, data, ttl: Optional[int] = None):
         ...
 
     def stats(self) -> dict:
@@ -261,7 +263,7 @@ class FileCache(CacheBackend):
         return None
 
     @backoff.on_exception(backoff.expo, Exception, max_tries=3)
-    def set(self, key: str, data):
+    def set(self, key: str, data, ttl: Optional[int] = None):
         cache_file = self._get_cache_path(key)
         try:
             compressed_data = zlib.compress(pickle.dumps(data))
@@ -307,9 +309,12 @@ class RedisCache(CacheBackend):
         self.misses += 1
         return None
 
-    def set(self, key: str, data):
+    def set(self, key: str, data, ttl: Optional[int] = None):
         val = zlib.compress(pickle.dumps(data))
-        self.client.set(key, val)
+        if ttl:
+            self.client.setex(key, ttl, val)
+        else:
+            self.client.set(key, val)
 
     def stats(self) -> dict:
         return {
@@ -324,17 +329,23 @@ class SQLiteCache(CacheBackend):
         os.makedirs(os.path.dirname(path), exist_ok=True)
         self.conn = sqlite3.connect(path, check_same_thread=False)
         self.conn.execute(
-            "CREATE TABLE IF NOT EXISTS cache (key TEXT PRIMARY KEY, value BLOB)"
+            "CREATE TABLE IF NOT EXISTS cache (key TEXT PRIMARY KEY, value BLOB, expires_at INTEGER)"
         )
         self.hits = 0
         self.misses = 0
 
     def get(self, key: str):
-        cur = self.conn.execute("SELECT value FROM cache WHERE key=?", (key,))
+        cur = self.conn.execute("SELECT value, expires_at FROM cache WHERE key=?", (key,))
         row = cur.fetchone()
         if row:
+            value, exp = row
+            if exp is not None and exp < int(time.time()):
+                self.conn.execute("DELETE FROM cache WHERE key=?", (key,))
+                self.conn.commit()
+                self.misses += 1
+                return None
             try:
-                data = pickle.loads(zlib.decompress(row[0]))
+                data = pickle.loads(zlib.decompress(value))
             except Exception:
                 self.conn.execute("DELETE FROM cache WHERE key=?", (key,))
                 self.conn.commit()
@@ -345,10 +356,11 @@ class SQLiteCache(CacheBackend):
         self.misses += 1
         return None
 
-    def set(self, key: str, data):
+    def set(self, key: str, data, ttl: Optional[int] = None):
         val = zlib.compress(pickle.dumps(data))
+        exp = int(time.time()) + ttl if ttl else None
         self.conn.execute(
-            "REPLACE INTO cache (key, value) VALUES (?, ?)", (key, val)
+            "REPLACE INTO cache (key, value, expires_at) VALUES (?, ?, ?)", (key, val, exp)
         )
         self.conn.commit()
 
@@ -369,6 +381,33 @@ def init_cache() -> CacheBackend:
 
 
 cache: CacheBackend = init_cache()
+
+
+def clear_cache() -> None:
+    """Remove arquivos ou registros expirados do cache."""
+    ttl = Config.CACHE_TTL
+    if Config.CACHE_BACKEND == 'sqlite':
+        if not os.path.exists(Config.SQLITE_PATH):
+            return
+        conn = sqlite3.connect(Config.SQLITE_PATH)
+        conn.execute(
+            "DELETE FROM cache WHERE expires_at IS NOT NULL AND expires_at < ?",
+            (int(time.time()),),
+        )
+        conn.commit()
+        conn.close()
+    elif Config.CACHE_BACKEND == 'file':
+        if ttl is None:
+            return
+        cutoff = time.time() - ttl
+        path = Path(Config.CACHE_DIR)
+        if path.exists():
+            for p in path.glob("*.pkl.gz"):
+                if p.stat().st_mtime < cutoff:
+                    p.unlink()
+    else:
+        # Redis remove chaves expiradas automaticamente
+        pass
 
 # Global rate limiter for all network operations
 rate_limiter = RateLimiter(Config.RATE_LIMIT_DELAY)
@@ -539,7 +578,7 @@ def fetch_html_content(title: str, lang: str) -> str:
 
     try:
         html = _request()
-        cache.set(cache_key, html)
+        cache.set(cache_key, html, ttl=Config.CACHE_TTL)
         return html
     except Exception as e:
         logger.error(f"Erro ao buscar HTML para {title}: {e}")
@@ -587,7 +626,7 @@ def search_category(keyword: str, lang: str) -> Optional[str]:
         if results:
             title = results[0].get("title", "")
             title = title.replace("Category:", "").replace("Categoria:", "")
-            cache.set(cache_key, title)
+            cache.set(cache_key, title, ttl=Config.CACHE_TTL)
             return title
     except Exception as e:  # pragma: no cover - network issues
         rate_limiter.record_error()
@@ -640,7 +679,7 @@ class WikipediaAdvanced:
                 page._html = fetch_html_content(page_title, self.lang)
                 page._html = extract_main_content(page._html)
 
-                cache.set(cache_key, page)
+                cache.set(cache_key, page, ttl=Config.CACHE_TTL)
                 return page
         except Exception as e:
             rate_limiter.record_error()
@@ -699,7 +738,7 @@ class WikipediaAdvanced:
                             'lang': self.lang
                         })
 
-            cache.set(cache_key, links)
+            cache.set(cache_key, links, ttl=Config.CACHE_TTL)
             return links
         except Exception as e:
             logger.error(f"Erro ao buscar páginas relacionadas para {page_title}: {e}")

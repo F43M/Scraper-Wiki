@@ -144,7 +144,7 @@ def test_fetch_html_content_error(monkeypatch):
     fake_cache = {}
     monkeypatch.setattr(sw, 'cache', SimpleNamespace(
         get=lambda k: fake_cache.get(k),
-        set=lambda k, v: fake_cache.__setitem__(k, v),
+        set=lambda k, v, ttl=None: fake_cache.__setitem__(k, v),
         stats=lambda: {}
     ))
 
@@ -257,7 +257,7 @@ def test_search_category(monkeypatch):
     fake_cache = {}
     monkeypatch.setattr(sw, 'cache', SimpleNamespace(
         get=lambda k: fake_cache.get(k),
-        set=lambda k, v: fake_cache.__setitem__(k, v),
+        set=lambda k, v, ttl=None: fake_cache.__setitem__(k, v),
         stats=lambda: {}
     ))
 
@@ -318,7 +318,7 @@ def test_main_collects_pages_unaccented(monkeypatch):
     fake_cache = {}
     monkeypatch.setattr(sw, 'cache', SimpleNamespace(
         get=lambda k: fake_cache.get(k),
-        set=lambda k, v: fake_cache.__setitem__(k, v),
+        set=lambda k, v, ttl=None: fake_cache.__setitem__(k, v),
         stats=lambda: {}
     ))
     original_norm = sw.normalize_category
@@ -371,7 +371,7 @@ def test_main_collects_pages_alias(monkeypatch):
     fake_cache = {}
     monkeypatch.setattr(sw, 'cache', SimpleNamespace(
         get=lambda k: fake_cache.get(k),
-        set=lambda k, v: fake_cache.__setitem__(k, v),
+        set=lambda k, v, ttl=None: fake_cache.__setitem__(k, v),
         stats=lambda: {}
     ))
     from unidecode import unidecode as real_unidecode
@@ -421,7 +421,7 @@ def test_get_category_members_search_requests(monkeypatch):
     fake_cache = {}
     monkeypatch.setattr(sw, 'cache', SimpleNamespace(
         get=lambda k: fake_cache.get(k),
-        set=lambda k, v: fake_cache.__setitem__(k, v),
+        set=lambda k, v, ttl=None: fake_cache.__setitem__(k, v),
         stats=lambda: {}
     ))
 
