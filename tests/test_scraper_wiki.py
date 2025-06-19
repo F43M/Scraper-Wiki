@@ -1,4 +1,5 @@
 import importlib
+import json
 import sys
 from types import SimpleNamespace, ModuleType
 from pathlib import Path
@@ -21,7 +22,13 @@ wiki_mod.ExtractFormat = SimpleNamespace(HTML=0)
 wiki_mod.WikipediaPage = object
 wiki_mod.Wikipedia = lambda *a, **k: SimpleNamespace(page=lambda *a, **k: SimpleNamespace(exists=lambda: False), api=SimpleNamespace(article_url=lambda x: ""))
 sys.modules.setdefault('wikipediaapi', wiki_mod)
-sys.modules.setdefault('aiohttp', SimpleNamespace(ClientSession=object))
+aiohttp_stub = SimpleNamespace(
+    ClientSession=object,
+    ClientTimeout=lambda *a, **k: None,
+    ClientError=Exception,
+    ClientResponseError=Exception,
+)
+sys.modules.setdefault('aiohttp', aiohttp_stub)
 sys.modules.setdefault('backoff', SimpleNamespace(on_exception=lambda *a, **k: (lambda f: f), expo=lambda *a, **k: None))
 sklearn_mod = ModuleType('sklearn')
 sklearn_mod.cluster = SimpleNamespace(KMeans=object)
@@ -141,9 +148,11 @@ def test_fetch_html_content_success(monkeypatch):
             self.text = '<html></html>'
         def raise_for_status(self):
             pass
-    def fake_get(*a, **k):
-        return DummyResp()
-    monkeypatch.setattr(sw.requests, 'get', fake_get)
+
+    async def fake_fetch(url, headers=None, **kw):
+        return 200, '<html></html>'
+
+    monkeypatch.setattr(sw, 'fetch_with_retry', fake_fetch)
     result = sw.fetch_html_content('Any', 'en')
     assert result == '<html></html>'
 
@@ -156,10 +165,10 @@ def test_fetch_html_content_error(monkeypatch):
         stats=lambda: {}
     ))
 
-    def fake_get(*a, **k):
-        raise sw.requests.exceptions.RequestException('fail')
+    async def fake_fetch(*a, **k):
+        raise Exception('fail')
 
-    monkeypatch.setattr(sw.requests, 'get', fake_get)
+    monkeypatch.setattr(sw, 'fetch_with_retry', fake_fetch)
     result = sw.fetch_html_content('Any', 'en')
     assert result == ''
 
@@ -269,20 +278,12 @@ def test_search_category(monkeypatch):
         stats=lambda: {}
     ))
 
-    class DummyResp:
-        def __init__(self):
-            pass
-        def raise_for_status(self):
-            pass
-        status_code = 200
-        def json(self):
-            return {"query": {"search": [{"title": "Category:Computing"}]}}
-
-    def fake_get(url, params=None, headers=None, timeout=None):
+    async def fake_fetch(url, params=None, headers=None):
         called['params'] = params
-        return DummyResp()
+        data = {"query": {"search": [{"title": "Category:Computing"}]}}
+        return 200, json.dumps(data)
 
-    monkeypatch.setattr(sw.requests, 'get', fake_get)
+    monkeypatch.setattr(sw, 'fetch_with_retry', fake_fetch)
     result = sw.search_category('comp', 'en')
     assert result == 'Computing'
     assert called['params']['srnamespace'] == 14
@@ -368,6 +369,7 @@ def test_main_collects_pages_unaccented(monkeypatch):
     monkeypatch.setattr(sw, 'WikipediaAdvanced', DummyWiki)
     monkeypatch.setattr(sw, 'DatasetBuilder', lambda: builder)
     monkeypatch.setattr(sw.time, 'sleep', lambda *a, **k: None)
+    monkeypatch.setattr(sw.metrics, 'start_metrics_server', lambda *a, **k: None)
 
     sw.main(langs=['pt'], categories=['ciencia da computacao'], fmt='json')
 
@@ -416,6 +418,7 @@ def test_main_collects_pages_alias(monkeypatch):
     monkeypatch.setattr(sw, 'WikipediaAdvanced', DummyWiki)
     monkeypatch.setattr(sw, 'DatasetBuilder', lambda: builder)
     monkeypatch.setattr(sw.time, 'sleep', lambda *a, **k: None)
+    monkeypatch.setattr(sw.metrics, 'start_metrics_server', lambda *a, **k: None)
 
     sw.main(langs=['pt'], categories=['programacao'], fmt='json')
 
@@ -443,25 +446,18 @@ def test_get_category_members_search_requests(monkeypatch):
         categorymembers={'p': dummy_member}
     )
 
-    def fake_fetch(self, name):
+    def fake_fetch_category(self, name):
         fetch_calls.append(name)
         if name == 'Found':
             return dummy_cat
         return None
 
-    class DummyResp:
-        def raise_for_status(self):
-            pass
-        status_code = 200
+    async def fake_fetch_http(url, params=None, headers=None):
+        data = {"query": {"search": [{"title": "Category:Found"}]}}
+        return 200, json.dumps(data)
 
-        def json(self):
-            return {"query": {"search": [{"title": "Category:Found"}]}}
-
-    def fake_get(url, params=None, headers=None, timeout=None):
-        return DummyResp()
-
-    monkeypatch.setattr(sw.WikipediaAdvanced, 'fetch_category', fake_fetch, raising=False)
-    monkeypatch.setattr(sw.requests, 'get', fake_get)
+    monkeypatch.setattr(sw.WikipediaAdvanced, 'fetch_category', fake_fetch_category, raising=False)
+    monkeypatch.setattr(sw, 'fetch_with_retry', fake_fetch_http)
 
     members = wiki.get_category_members('Missing')
     assert members == [{
