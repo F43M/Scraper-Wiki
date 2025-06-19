@@ -2,6 +2,17 @@
 # CEO: Fabio | Engenharia de Nível Industrial
 
 import wikipediaapi
+
+# Some versions of the wikipedia-api package do not expose
+# ``WikipediaException``.  This attribute is referenced throughout the
+# codebase when specifying retry logic for API calls.  To maintain
+# compatibility with those versions we provide a simple fallback to the
+# base ``Exception`` type when the attribute is missing.
+if not hasattr(wikipediaapi, "WikipediaException"):
+    class WikipediaException(Exception):
+        """Fallback exception used when ``wikipediaapi`` lacks one."""
+
+    wikipediaapi.WikipediaException = WikipediaException
 import os
 import re
 import time
