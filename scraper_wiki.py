@@ -47,6 +47,7 @@ from sumy.parsers.plaintext import PlaintextParser
 from sumy.nlp.tokenizers import Tokenizer
 from sumy.summarizers.lsa import LsaSummarizer
 import sqlite3
+import storage
 
 # ============================
 # 🔧 Configurações Avançadas
@@ -128,6 +129,7 @@ class Config:
     REDIS_URL = 'redis://localhost:6379/0'
     SQLITE_PATH = os.path.join(CACHE_DIR, 'cache.sqlite')
     CACHE_TTL: Optional[int] = int(os.environ.get("CACHE_TTL", "0")) or None
+    STORAGE_BACKEND = os.environ.get("STORAGE_BACKEND", "local")
     
     @classmethod
     def get_random_user_agent(cls):
@@ -1281,45 +1283,17 @@ class DatasetBuilder:
         # Ordena por idioma e tópico
         sorted_data = sorted(validated_data, key=lambda x: (x['language'], x['topic']))
         
-        # Salva em múltiplos formatos
-        if format in ['all', 'json']:
-            json_file = os.path.join(output_dir, 'wikipedia_qa.json')
-            with open(json_file, 'w', encoding='utf-8') as f:
-                json.dump(sorted_data, f, ensure_ascii=False, indent=4)
-            logger.info(f"Dataset salvo em JSON: {json_file}")
-        
-        if format in ['all', 'csv']:
-            csv_file = os.path.join(output_dir, 'wikipedia_qa.csv')
-            with open(csv_file, 'w', newline='', encoding='utf-8') as f:
-                writer = csv.DictWriter(f, fieldnames=sorted_data[0].keys())
-                writer.writeheader()
-                rows = []
-                for row in sorted_data:
-                    converted = {
-                        k: json.dumps(v, ensure_ascii=False) if isinstance(v, (list, dict)) else v
-                        for k, v in row.items()
-                    }
-                    rows.append(converted)
-                writer.writerows(rows)
-            logger.info(f"Dataset salvo em CSV: {csv_file}")
-        
-        if format in ['all', 'parquet']:
-            try:
-                import pyarrow as pa
-                import pyarrow.parquet as pq
-                
-                parquet_file = os.path.join(output_dir, 'wikipedia_qa.parquet')
-                table = pa.Table.from_pylist(sorted_data)
-                pq.write_table(table, parquet_file)
-                logger.info(f"Dataset salvo em Parquet: {parquet_file}")
-            except ImportError:
-                logger.warning("PyArrow não instalado, pulando salvamento Parquet")
-        
+        backend = storage.get_backend(Config.STORAGE_BACKEND, output_dir)
+        backend.save_dataset(sorted_data, format)
+        logger.info(f"Dataset salvo usando backend {Config.STORAGE_BACKEND}")
+
         if format in ['all', 'hf']:
             try:
                 hf_dataset = Dataset.from_list(sorted_data)
                 hf_dataset.save_to_disk(os.path.join(output_dir, 'huggingface'))
-                logger.info(f"Dataset salvo para HuggingFace: {os.path.join(output_dir, 'huggingface')}")
+                logger.info(
+                    f"Dataset salvo para HuggingFace: {os.path.join(output_dir, 'huggingface')}"
+                )
             except Exception as e:
                 logger.error(f"Erro ao salvar dataset HuggingFace: {e}")
 
