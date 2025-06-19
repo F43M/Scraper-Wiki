@@ -5,6 +5,8 @@ Scraper para criacao de datasets para fine tuning e treinamento de modelos de in
 
 Use o arquivo `requirements.txt` para instalar as dependências:
 
+O projeto requer **Python 3.11** ou superior.
+
 ```bash
 pip install -r requirements.txt
 ```
