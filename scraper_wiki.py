@@ -1123,36 +1123,64 @@ class DatasetBuilder:
         
         return (main_topic, subtopic)
     
-    def build_from_pages(self, pages: List[dict], progress_desc: str = "Processando páginas") -> List[dict]:
-        cpu_futures = []
-        with ThreadPoolExecutor(max_workers=Config.MAX_THREADS) as th_executor, \
-                ProcessPoolExecutor(max_workers=Config.MAX_PROCESSES) as pr_executor:
+    def build_from_pages(
+        self,
+        pages: List[dict],
+        progress_desc: str = "Processando páginas",
+        use_queue: bool = False,
+    ) -> List[dict]:
+        """Process pages locally or enfileira tarefas para processamento."""
+        if not use_queue:
+            cpu_futures = []
+            with ThreadPoolExecutor(max_workers=Config.MAX_THREADS) as th_executor, \
+                    ProcessPoolExecutor(max_workers=Config.MAX_PROCESSES) as pr_executor:
 
-            page_futures = {
-                th_executor.submit(self.process_page, page, pr_executor): page
-                for page in pages
-            }
+                page_futures = {
+                    th_executor.submit(self.process_page, page, pr_executor): page
+                    for page in pages
+                }
 
-            processed = 0
-            total = len(page_futures)
-            for future in tqdm(as_completed(page_futures), total=total, desc=progress_desc):
-                cpu_future = future.result()
-                processed += 1
-                if processed % 10 == 0 or processed == total:
-                    logger.info(f"Thread progress: {processed}/{total}")
-                if cpu_future:
-                    cpu_futures.append(cpu_future)
+                processed = 0
+                total = len(page_futures)
+                for future in tqdm(as_completed(page_futures), total=total, desc=progress_desc):
+                    cpu_future = future.result()
+                    processed += 1
+                    if processed % 10 == 0 or processed == total:
+                        logger.info(f"Thread progress: {processed}/{total}")
+                    if cpu_future:
+                        cpu_futures.append(cpu_future)
 
-            processed_cpu = 0
-            total_cpu = len(cpu_futures)
-            for future in tqdm(as_completed(cpu_futures), total=total_cpu, desc="Processando conteúdo"):
-                result = future.result()
-                processed_cpu += 1
-                if processed_cpu % 10 == 0 or processed_cpu == total_cpu:
-                    logger.info(f"Process progress: {processed_cpu}/{total_cpu}")
-                if result:
-                    self.dataset.append(result)
-                    self._update_progress()
+                processed_cpu = 0
+                total_cpu = len(cpu_futures)
+                for future in tqdm(as_completed(cpu_futures), total=total_cpu, desc="Processando conteúdo"):
+                    result = future.result()
+                    processed_cpu += 1
+                    if processed_cpu % 10 == 0 or processed_cpu == total_cpu:
+                        logger.info(f"Process progress: {processed_cpu}/{total_cpu}")
+                    if result:
+                        self.dataset.append(result)
+                        self._update_progress()
+
+            return self.dataset
+
+        # Queue based processing
+        from task_queue import publish, consume
+
+        for page in pages:
+            publish("scrape_tasks", page)
+
+        processed = 0
+        total = len(pages)
+        for result in consume("scrape_results"):
+            if result is None:
+                continue
+            processed += 1
+            self.dataset.append(result)
+            self._update_progress()
+            if processed % 10 == 0 or processed == total:
+                logger.info(f"Queue progress: {processed}/{total}")
+            if processed == total:
+                break
 
         return self.dataset
 
