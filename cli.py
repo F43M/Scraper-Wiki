@@ -36,5 +36,30 @@ def queue(
         f.write(json.dumps(job, ensure_ascii=False) + "\n")
     typer.echo(f"Job enfileirado: {job}")
 
+
+@app.command()
+def status():
+    """Mostra arquivos gerados e configurações principais."""
+    from scraper_wiki import Config
+
+    output_dir = Path(Config.OUTPUT_DIR)
+    typer.echo(f"Conteúdo de {output_dir}:")
+    if output_dir.exists():
+        for path in output_dir.iterdir():
+            typer.echo(f"- {path.name}")
+    else:
+        typer.echo("(diretório não encontrado)")
+
+    typer.echo("\nConfigurações chave:")
+    settings = {
+        "OUTPUT_DIR": Config.OUTPUT_DIR,
+        "CACHE_DIR": Config.CACHE_DIR,
+        "LOG_DIR": Config.LOG_DIR,
+        "MAX_THREADS": Config.MAX_THREADS,
+        "MAX_PROCESSES": Config.MAX_PROCESSES,
+    }
+    for key, value in settings.items():
+        typer.echo(f"{key}: {value}")
+
 if __name__ == "__main__":
     app()
