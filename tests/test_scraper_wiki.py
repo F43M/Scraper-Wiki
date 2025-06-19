@@ -1,14 +1,46 @@
 import importlib
 import sys
-from types import SimpleNamespace
+from types import SimpleNamespace, ModuleType
 from pathlib import Path
 
 # Ensure repository root is on sys.path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-# Stub sentence_transformers to avoid heavy dependency
+# Stub heavy dependencies to avoid installation
 sys.modules['sentence_transformers'] = SimpleNamespace(SentenceTransformer=object)
+sys.modules.setdefault('datasets', SimpleNamespace(Dataset=object, concatenate_datasets=lambda *a, **k: None))
+sys.modules.setdefault('spacy', SimpleNamespace(load=lambda *a, **k: None))
+sklearn_mod = ModuleType('sklearn')
+sklearn_mod.cluster = SimpleNamespace(KMeans=object)
+sklearn_mod.feature_extraction = SimpleNamespace(text=SimpleNamespace(TfidfVectorizer=object))
+sys.modules.setdefault('sklearn', sklearn_mod)
+sys.modules.setdefault('sklearn.cluster', sklearn_mod.cluster)
+sys.modules.setdefault('sklearn.feature_extraction', sklearn_mod.feature_extraction)
+sys.modules.setdefault('sklearn.feature_extraction.text', sklearn_mod.feature_extraction.text)
+sumy_mod = ModuleType('sumy')
+parsers_mod = ModuleType('sumy.parsers')
+plaintext_mod = ModuleType('sumy.parsers.plaintext')
+plaintext_mod.PlaintextParser = object
+parsers_mod.plaintext = plaintext_mod
+nlp_mod = ModuleType('sumy.nlp')
+tokenizers_mod = ModuleType('sumy.nlp.tokenizers')
+tokenizers_mod.Tokenizer = object
+nlp_mod.tokenizers = tokenizers_mod
+summarizers_mod = ModuleType('sumy.summarizers')
+lsa_mod = ModuleType('sumy.summarizers.lsa')
+lsa_mod.LsaSummarizer = object
+summarizers_mod.lsa = lsa_mod
+sumy_mod.parsers = parsers_mod
+sumy_mod.nlp = nlp_mod
+sumy_mod.summarizers = summarizers_mod
+sys.modules.setdefault('sumy', sumy_mod)
+sys.modules.setdefault('sumy.parsers', parsers_mod)
+sys.modules.setdefault('sumy.parsers.plaintext', plaintext_mod)
+sys.modules.setdefault('sumy.nlp', nlp_mod)
+sys.modules.setdefault('sumy.nlp.tokenizers', tokenizers_mod)
+sys.modules.setdefault('sumy.summarizers', summarizers_mod)
+sys.modules.setdefault('sumy.summarizers.lsa', lsa_mod)
 
 # Provide missing attribute in wikipediaapi
 import wikipediaapi
@@ -57,3 +89,25 @@ def test_extract_main_content():
     html = '<html><body><div id="mw-content-text">content</div><table></table></body></html>'
     result = sw.extract_main_content(html)
     assert 'content' in result and 'table' not in result
+
+
+def test_nlp_triple_fallback(monkeypatch):
+    import importlib
+
+    sw_reloaded = importlib.reload(sw)
+    sw_reloaded.NLPProcessor._instances = {}
+    sw_reloaded.NLPProcessor.get_embedding_model = classmethod(lambda cls: DummyEmbed())
+
+    calls = []
+
+    def fake_load(name, *args, **kwargs):
+        calls.append(name)
+        if len(calls) < 3:
+            raise OSError('missing')
+        return DummyNLP()
+
+    monkeypatch.setattr(sw_reloaded.spacy, 'load', fake_load)
+
+    nlp = sw_reloaded.NLPProcessor.get_instance('pt')
+    assert isinstance(nlp, DummyNLP)
+    assert calls == ['pt_core_news_lg', 'pt_core_news_sm', 'en_core_web_sm']
