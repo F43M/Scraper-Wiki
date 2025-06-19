@@ -21,7 +21,13 @@ wiki_mod.ExtractFormat = SimpleNamespace(HTML=0)
 wiki_mod.WikipediaPage = object
 wiki_mod.Wikipedia = lambda *a, **k: SimpleNamespace(page=lambda *a, **k: SimpleNamespace(exists=lambda: False), api=SimpleNamespace(article_url=lambda x: ""))
 sys.modules.setdefault('wikipediaapi', wiki_mod)
-sys.modules.setdefault('aiohttp', SimpleNamespace(ClientSession=object))
+aiohttp_stub = SimpleNamespace(
+    ClientSession=object,
+    ClientTimeout=lambda *a, **k: None,
+    ClientError=Exception,
+    ClientResponseError=Exception,
+)
+sys.modules.setdefault('aiohttp', aiohttp_stub)
 sys.modules.setdefault('backoff', SimpleNamespace(on_exception=lambda *a, **k: (lambda f: f), expo=lambda *a, **k: None))
 
 sklearn_mod = ModuleType('sklearn')

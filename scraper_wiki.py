@@ -31,6 +31,7 @@ import pickle
 import zlib
 from bs4 import BeautifulSoup
 import requests
+import aiohttp
 from urllib.parse import urlparse
 import html2text
 from typing import List, Dict, Tuple, Optional, Set, Protocol
@@ -640,30 +641,55 @@ def extract_main_content(page_html: str) -> str:
         logger.error(f"Erro ao extrair conteúdo principal: {e}")
         return page_html
 
+
+async def fetch_with_retry(url: str, *, params: dict | None = None,
+                           headers: dict | None = None) -> tuple[int, str]:
+    """Fetch a URL with retries on 5xx errors."""
+
+    async def _request() -> tuple[int, str]:
+        timeout = aiohttp.ClientTimeout(total=10)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.get(url, params=params, headers=headers) as resp:
+                if resp.status == 429:
+                    metrics.scrape_block.inc()
+                if 500 <= resp.status < 600:
+                    raise aiohttp.ClientResponseError(
+                        resp.request_info, resp.history,
+                        status=resp.status, message=resp.reason,
+                        headers=resp.headers,
+                    )
+                resp.raise_for_status()
+                return resp.status, await resp.text()
+
+    @backoff.on_exception(backoff.expo, aiohttp.ClientError,
+                         max_tries=Config.RETRIES)
+    async def _retry():
+        return await _request()
+
+    try:
+        return await _retry()
+    except Exception:
+        os.makedirs(Config.LOG_DIR, exist_ok=True)
+        with open(os.path.join(Config.LOG_DIR, 'failed_urls.log'), 'a') as fh:
+            fh.write(f"{url}\n")
+        raise
+
 def fetch_html_content(title: str, lang: str) -> str:
     """Retrieve the raw HTML for a Wikipedia page using the REST API."""
+
+    return asyncio.run(fetch_html_content_async(title, lang))
+
+
+async def fetch_html_content_async(title: str, lang: str) -> str:
+    """Asynchronous version of :func:`fetch_html_content`."""
     cache_key = f"html_{lang}_{title}"
     cached = cache.get(cache_key)
 
-    @backoff.on_exception(
-        backoff.expo,
-        (requests.exceptions.RequestException, wikipediaapi.WikipediaException),
-        max_tries=Config.RETRIES,
-    )
-    def _request() -> str:
-        url = f"https://{lang}.wikipedia.org/api/rest_v1/page/html/{title}"
-        response = requests.get(
-            url,
-            headers={"User-Agent": Config.get_random_user_agent()},
-            timeout=Config.TIMEOUT,
-        )
-        if response.status_code == 429:
-            metrics.scrape_block.inc()
-        response.raise_for_status()
-        return response.text
+    url = f"https://{lang}.wikipedia.org/api/rest_v1/page/html/{title}"
+    headers = {"User-Agent": Config.get_random_user_agent()}
 
     try:
-        html = _request()
+        _, html = await fetch_with_retry(url, headers=headers)
         metrics.scrape_success.inc()
         cache.set(cache_key, html, ttl=Config.CACHE_TTL)
         return html
@@ -674,9 +700,6 @@ def fetch_html_content(title: str, lang: str) -> str:
             return cached
         return ""
 
-async def fetch_html_content_async(title: str, lang: str) -> str:
-    """Asynchronous wrapper for :func:`fetch_html_content`."""
-    return await asyncio.to_thread(fetch_html_content, title, lang)
 
 def search_category(keyword: str, lang: str) -> Optional[str]:
     """Search for a similar category name using the Wikipedia API."""
@@ -694,38 +717,28 @@ def search_category(keyword: str, lang: str) -> Optional[str]:
         "format": "json",
     }
 
-    @backoff.on_exception(
-        backoff.expo,
-        (requests.exceptions.RequestException, wikipediaapi.WikipediaException),
-        max_tries=Config.RETRIES,
-    )
-    def _request():
+    async def _async_search() -> Optional[str]:
         rate_limiter.wait()
-        resp = requests.get(
-            url,
-            params=params,
-            headers={"User-Agent": Config.get_random_user_agent()},
-            timeout=Config.TIMEOUT,
+        status, text = await fetch_with_retry(
+            url, params=params, headers={"User-Agent": Config.get_random_user_agent()}
         )
-        if resp.status_code == 429:
+        if status == 429:
             rate_limiter.record_error()
-        resp.raise_for_status()
-        return resp.json()
-
-    try:
-        data = _request()
+        data = json.loads(text)
         results = data.get("query", {}).get("search", [])
         if results:
             title = results[0].get("title", "")
             title = title.replace("Category:", "").replace("Categoria:", "")
             cache.set(cache_key, title, ttl=Config.CACHE_TTL)
             return title
+        return None
+
+    try:
+        return asyncio.run(_async_search()) or cache.get(cache_key)
     except Exception as e:  # pragma: no cover - network issues
         rate_limiter.record_error()
         logger.error(f"Erro ao buscar categorias para {keyword}: {e}")
-
-    fallback = cache.get(cache_key)
-    return fallback
+        return cache.get(cache_key)
 
 # ============================
 # 🔗 Coletor Avançado com Retry

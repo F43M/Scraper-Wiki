@@ -4,6 +4,7 @@ unidecode>=1.4.0
 datasets>=3.6.0
 beautifulsoup4>=4.13.4
 requests>=2.32.4
+aiohttp>=3.9
 html2text>=2025.4.15
 backoff>=2.2.1
 numpy>=2.3.0
