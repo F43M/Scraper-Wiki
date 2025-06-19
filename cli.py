@@ -41,10 +41,19 @@ def scrape(
     category: list[str] = typer.Option(None, "--category", help="Categoria específica", show_default=False),
     fmt: str = typer.Option("all", "--format", help="Formato de saída"),
     rate_limit_delay: float = typer.Option(None, "--rate-limit-delay", help="Delay entre requisições", show_default=False),
+    plugin: str = typer.Option("wikipedia", "--plugin", help="Plugin de scraping"),
 ):
     """Executa o scraper imediatamente."""
     cats = [scraper_wiki.normalize_category(c) or c for c in category] if category else None
-    scraper_wiki.main(lang, cats, fmt, rate_limit_delay)
+    if plugin == "wikipedia":
+        scraper_wiki.main(lang, cats, fmt, rate_limit_delay)
+    else:
+        from plugins import load_plugin, run_plugin
+
+        plg = load_plugin(plugin)
+        languages = lang or scraper_wiki.Config.LANGUAGES
+        categories = cats or list(scraper_wiki.Config.CATEGORIES)
+        run_plugin(plg, languages, categories, fmt)
 
 @app.command()
 def monitor():
