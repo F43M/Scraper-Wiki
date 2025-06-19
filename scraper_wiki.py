@@ -12,7 +12,7 @@ import random
 import logging
 from tqdm import tqdm
 from unidecode import unidecode
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
 from datasets import Dataset, concatenate_datasets
 import hashlib
 import pickle
@@ -506,29 +506,55 @@ class WikipediaAdvanced:
 # ============================
 # 🏗️ Builder de Dataset Profissional
 # ============================
+
+def cpu_process_page(title: str, content: str, lang: str, category: str) -> dict:
+    """Executes CPU intensive operations for a page."""
+    builder = DatasetBuilder()
+    summary = summarize_text(content, lang)
+    return builder.generate_qa_pairs(
+        title=title,
+        content=content,
+        summary=summary,
+        lang=lang,
+        category=category,
+    )
+
 class DatasetBuilder:
     def __init__(self):
         self.embedding_model = NLPProcessor.get_embedding_model()
         self.dataset = []
         self.qa_pairs = []
-    
-    def process_page(self, page_info: dict) -> Optional[dict]:
+
+    def process_page(
+        self,
+        page_info: dict,
+        proc_executor: Optional[ProcessPoolExecutor] = None
+    ) -> Optional[object]:
         try:
             wiki = WikipediaAdvanced(page_info['lang'])
             page = wiki.fetch_page(page_info['title'])
-            
+
             if not page or not page.exists():
                 return None
-            
+
             # Extrai e limpa o texto
             clean_content = advanced_clean_text(page.text, page_info['lang'])
-            
+
             if len(clean_content) < Config.MIN_TEXT_LENGTH:
                 return None
-            
+
+            if proc_executor:
+                return proc_executor.submit(
+                    cpu_process_page,
+                    page_info['title'],
+                    clean_content,
+                    page_info['lang'],
+                    page_info.get('category', '')
+                )
+
             # Sumariza o conteúdo
             summary = summarize_text(clean_content, page_info['lang'])
-            
+
             # Gera QA pairs avançadas
             qa_data = self.generate_qa_pairs(
                 title=page_info['title'],
@@ -537,10 +563,12 @@ class DatasetBuilder:
                 lang=page_info['lang'],
                 category=page_info.get('category', '')
             )
-            
+
             return qa_data
         except Exception as e:
-            logger.error(f"Erro ao processar página {page_info.get('title', '')}: {e}")
+            logger.error(
+                f"Erro ao processar página {page_info.get('title', '')}: {e}"
+            )
             return None
     
     def generate_qa_pairs(self, title: str, content: str, summary: str, lang: str, category: str) -> dict:
@@ -755,14 +783,25 @@ class DatasetBuilder:
         return (main_topic, subtopic)
     
     def build_from_pages(self, pages: List[dict], progress_desc: str = "Processando páginas") -> List[dict]:
-        with ThreadPoolExecutor(max_workers=Config.MAX_THREADS) as executor:
-            futures = {executor.submit(self.process_page, page): page for page in pages}
-            
-            for future in tqdm(as_completed(futures), total=len(futures), desc=progress_desc):
+        cpu_futures = []
+        with ThreadPoolExecutor(max_workers=Config.MAX_THREADS) as th_executor, \
+                ProcessPoolExecutor(max_workers=Config.MAX_PROCESSES) as pr_executor:
+
+            page_futures = {
+                th_executor.submit(self.process_page, page, pr_executor): page
+                for page in pages
+            }
+
+            for future in tqdm(as_completed(page_futures), total=len(page_futures), desc=progress_desc):
+                cpu_future = future.result()
+                if cpu_future:
+                    cpu_futures.append(cpu_future)
+
+            for future in tqdm(as_completed(cpu_futures), total=len(cpu_futures), desc="Processando conteúdo"):
                 result = future.result()
                 if result:
                     self.dataset.append(result)
-        
+
         return self.dataset
     
     def enhance_with_clustering(self):
