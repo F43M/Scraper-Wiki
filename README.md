@@ -11,13 +11,23 @@ pip install -r requirements.txt
 
 ## Uso via linha de comando
 
-Execute o scraper diretamente especificando idiomas, categorias e formato de saída:
+Utilize o script `cli.py` para interagir com o scraper. Para executar uma coleta imediatamente:
 
 ```bash
-python scraper_wiki.py --lang pt --category "Programação" --format json
+python cli.py scrape --lang pt --category "Programação" --format json
 ```
 
-É possível repetir `--lang` e `--category` para processar múltiplos valores.
+É possível repetir `--lang` e `--category` para processar múltiplos valores. Para monitorar o progresso use:
+
+```bash
+python cli.py monitor
+```
+
+Também é possível enfileirar execuções futuras:
+
+```bash
+python cli.py queue --lang en --category "Algorithms"
+```
 
 ## API FastAPI
 
@@ -31,10 +41,10 @@ Envie uma requisição `POST /scrape` com um JSON contendo `lang`, `category` e 
 
 ## Dashboard
 
-Para acompanhar o progresso do scraper execute:
+Para acompanhar o progresso do scraper basta rodar:
 
 ```bash
-streamlit run dashboard.py
+python cli.py monitor
 ```
 
-A aplicação lê `logs/progress.json` e exibe o total de páginas processadas, uso de CPU e memória, além dos clusters, tópicos e idiomas atuais.
+Essa interface lê `logs/progress.json` e exibe o total de páginas processadas, uso de CPU e memória, além dos clusters, tópicos e idiomas atuais.
