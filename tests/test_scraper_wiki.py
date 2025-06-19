@@ -74,6 +74,16 @@ def test_translate_question_pt():
     question = qb._translate_question('What is Python?', 'pt')
     assert 'O que é' in question
 
+def test_translate_question_es():
+    qb = sw.DatasetBuilder()
+    question = qb._translate_question('How does Python relate to programacion?', 'es')
+    assert 'Cómo' in question and 'se relaciona con' in question
+
+def test_translate_question_fr():
+    qb = sw.DatasetBuilder()
+    question = qb._translate_question('How does Python relate to programmation?', 'fr')
+    assert 'Comment' in question and 'se rapporte à' in question
+
 def test_classify_topic_ai_nlp():
     qb = sw.DatasetBuilder()
     topic, sub = qb._classify_topic('Deep Learning', 'O processamento de linguagem natural evoluiu', 'pt')

@@ -808,8 +808,7 @@ class DatasetBuilder:
                 'What is the role of': 'Qual é o papel de',
                 'Can you explain': 'Você pode explicar',
                 'in the context of': 'no contexto de',
-                'What is the significance of': 'Qual é a importância de',
-                'How does': 'Como é que'
+                'What is the significance of': 'Qual é a importância de'
             },
             'es': {
                 'What is': 'Qué es',
@@ -818,8 +817,7 @@ class DatasetBuilder:
                 'What is the role of': 'Cuál es el papel de',
                 'Can you explain': 'Puedes explicar',
                 'in the context of': 'en el contexto de',
-                'What is the significance of': 'Cuál es la importancia de',
-                'How does': 'Cómo es que'
+                'What is the significance of': 'Cuál es la importancia de'
             },
             'fr': {
                 'What is': 'Qu\'est-ce que',
@@ -828,8 +826,7 @@ class DatasetBuilder:
                 'What is the role of': 'Quel est le rôle de',
                 'Can you explain': 'Pouvez-vous expliquer',
                 'in the context of': 'dans le contexte de',
-                'What is the significance of': 'Quelle est l\'importance de',
-                'How does': 'Comment se fait-il que'
+                'What is the significance of': 'Quelle est l\'importance de'
             }
         }
         
