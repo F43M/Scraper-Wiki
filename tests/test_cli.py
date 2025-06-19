@@ -1,3 +1,4 @@
+import json
 import sys
 from pathlib import Path
 from types import SimpleNamespace, ModuleType
@@ -66,3 +67,45 @@ def test_status_command(tmp_path, monkeypatch):
     assert result.exit_code == 0
     assert "example.json" in result.output
     assert str(tmp_path) in result.output
+
+
+def test_queue_command(tmp_path, monkeypatch):
+    monkeypatch.setattr(cli, "QUEUE_FILE", tmp_path / "queue.jsonl")
+
+    runner = CliRunner()
+    result = runner.invoke(cli.app, [
+        "queue", "--lang", "en", "--category", "Programming", "--format", "json"
+    ])
+
+    assert result.exit_code == 0
+    queue_content = (tmp_path / "queue.jsonl").read_text().strip()
+    assert queue_content
+    assert "en" in queue_content and "Programming" in queue_content and "json" in queue_content
+
+
+def test_scrape_command(monkeypatch):
+    called = {}
+
+    def fake_main(lang, category, fmt):
+        called["args"] = {"lang": lang, "category": category, "fmt": fmt}
+
+    monkeypatch.setattr(cli.scraper_wiki, "main", fake_main)
+    runner = CliRunner()
+    result = runner.invoke(cli.app, [
+        "scrape", "--lang", "pt", "--category", "AI", "--format", "csv"
+    ])
+
+    assert result.exit_code == 0
+    assert called["args"] == {
+        "lang": ["pt"], "category": ["AI"], "fmt": "csv"
+    }
+
+
+
+def test_load_progress(tmp_path, monkeypatch):
+    monkeypatch.setattr(cli.dashboard, "PROGRESS_FILE", tmp_path / "prog.json")
+    progress_data = {"pages_processed": 5}
+    (tmp_path / "prog.json").write_text(json.dumps(progress_data))
+
+    loaded = cli.dashboard.load_progress()
+    assert loaded == progress_data
