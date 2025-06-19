@@ -1,4 +1,5 @@
 import json
+import logging
 from pathlib import Path
 import typer
 
@@ -13,12 +14,18 @@ def main(
     ctx: typer.Context,
     cache_backend: str = typer.Option(None, "--cache-backend", help="Backend de cache", show_default=False),
     cache_ttl: int = typer.Option(None, "--cache-ttl", help="Tempo de vida do cache em segundos", show_default=False),
+    log_level: str = typer.Option(None, "--log-level", help="Nível de log (DEBUG, INFO, WARNING...)", show_default=False),
+    log_format: str = typer.Option("text", "--log-format", help="Formato do log (text ou json)"),
 ):
     if cache_backend is not None:
         scraper_wiki.Config.CACHE_BACKEND = cache_backend
         scraper_wiki.cache = scraper_wiki.init_cache()
     if cache_ttl is not None:
         scraper_wiki.Config.CACHE_TTL = cache_ttl
+
+    if log_level is not None or log_format != "text":
+        level = getattr(logging, log_level.upper(), logging.INFO) if log_level else logging.INFO
+        scraper_wiki.setup_logger("wiki_scraper", "scraper.log", level=level, fmt=log_format)
 
 QUEUE_FILE = Path("jobs_queue.jsonl")
 
