@@ -242,3 +242,57 @@ def test_main_uses_normalized_category(monkeypatch):
     sw.main(langs=['pt'], categories=['programacao'], fmt='json')
 
     assert called == ['Programação']
+
+def test_search_category(monkeypatch):
+    called = {}
+
+    class DummyResp:
+        def __init__(self):
+            pass
+        def raise_for_status(self):
+            pass
+        def json(self):
+            return {"query": {"search": [{"title": "Category:Computing"}]}}
+
+    def fake_get(url, params=None, headers=None, timeout=None):
+        called['params'] = params
+        return DummyResp()
+
+    monkeypatch.setattr(sw.requests, 'get', fake_get)
+    result = sw.search_category('comp', 'en')
+    assert result == 'Computing'
+    assert called['params']['srnamespace'] == 14
+
+
+def test_get_category_members_search(monkeypatch):
+    wiki = sw.WikipediaAdvanced('en')
+    fetch_calls = []
+
+    dummy_member = SimpleNamespace(
+        ns=sw.wikipediaapi.Namespace.MAIN,
+        title='Page',
+        fullurl='url'
+    )
+    dummy_cat = SimpleNamespace(
+        exists=lambda: True,
+        categorymembers={'p': dummy_member}
+    )
+
+    def fake_fetch(self, name):
+        fetch_calls.append(name)
+        if name == 'Missing':
+            return None
+        return dummy_cat
+
+    monkeypatch.setattr(sw.WikipediaAdvanced, 'fetch_category', fake_fetch, raising=False)
+    monkeypatch.setattr(sw, 'search_category', lambda keyword, lang: 'Found')
+
+    members = wiki.get_category_members('Missing')
+    assert members == [{
+        'title': 'Page',
+        'url': 'url',
+        'lang': 'en',
+        'category': 'Found',
+        'depth': 0
+    }]
+    assert fetch_calls == ['Missing', 'Found']
