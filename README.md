@@ -61,6 +61,16 @@ remover entradas expiradas execute:
 python cli.py clear-cache
 ```
 
+### Logs
+
+Use `--log-level` para ajustar a verbosidade (`DEBUG`, `INFO`, `WARNING`, etc.)
+e `--log-format` para escolher entre saída `text` (padrão) ou `json`.
+Exemplo:
+
+```bash
+python cli.py --log-level DEBUG --log-format json scrape --lang pt --category "Programação"
+```
+
 ## API FastAPI
 
 Inicie a API executando:

@@ -201,21 +201,39 @@ class CustomFormatter(logging.Formatter):
         formatter = logging.Formatter(log_fmt)
         return formatter.format(record)
 
-def setup_logger(name, log_file, level=logging.INFO):
+
+class JsonFormatter(logging.Formatter):
+    """Simple JSON formatter with standard fields."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        rec = {
+            "timestamp": self.formatTime(record, self.datefmt),
+            "level": record.levelname,
+            "name": record.name,
+            "message": record.getMessage(),
+            "file": record.filename,
+            "line": record.lineno,
+        }
+        return json.dumps(rec, ensure_ascii=False)
+
+def setup_logger(name, log_file, level: int = logging.INFO, fmt: str = "text"):
+    """Configure and return a logger with console and file handlers."""
     os.makedirs(Config.LOG_DIR, exist_ok=True)
-    
-    handler = logging.FileHandler(os.path.join(Config.LOG_DIR, log_file))
-    handler.setFormatter(CustomFormatter())
-    
+
     logger = logging.getLogger(name)
     logger.setLevel(level)
+    logger.handlers.clear()
+
+    formatter = JsonFormatter() if fmt == "json" else CustomFormatter()
+
+    handler = logging.FileHandler(os.path.join(Config.LOG_DIR, log_file))
+    handler.setFormatter(formatter)
     logger.addHandler(handler)
-    
-    # Adiciona também handler para console
+
     console_handler = logging.StreamHandler()
-    console_handler.setFormatter(CustomFormatter())
+    console_handler.setFormatter(formatter)
     logger.addHandler(console_handler)
-    
+
     return logger
 
 logger = setup_logger('wiki_scraper', 'scraper.log')
