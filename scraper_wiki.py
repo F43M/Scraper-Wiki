@@ -88,7 +88,7 @@ class Config:
     MAX_PROCESSES = multiprocessing.cpu_count()
     RETRIES = 5
     TIMEOUT = 30
-    RATE_LIMIT_DELAY = 0.5  # segundos entre requisições
+    RATE_LIMIT_DELAY = float(os.environ.get("RATE_LIMIT_DELAY", 0.5))
     MAX_PAGES_PER_CATEGORY = 1000
     MIN_TEXT_LENGTH = 150  # mínimo de caracteres para considerar uma página
     MAX_TEXT_LENGTH = 10000  # máximo de caracteres a extrair por página
@@ -129,6 +129,23 @@ class Config:
     @classmethod
     def get_random_user_agent(cls):
         return random.choice(cls.USER_AGENTS)
+
+
+class RateLimiter:
+    """Simple exponential backoff rate limiter."""
+
+    def __init__(self, delay: float):
+        self.base_delay = delay
+        self.delay = delay
+
+    def wait(self):
+        time.sleep(self.delay)
+
+    def record_error(self):
+        self.delay *= 2
+
+    def reset(self):
+        self.delay = self.base_delay
 
 
 # ============================
@@ -353,6 +370,9 @@ def init_cache() -> CacheBackend:
 
 cache: CacheBackend = init_cache()
 
+# Global rate limiter for all network operations
+rate_limiter = RateLimiter(Config.RATE_LIMIT_DELAY)
+
 # ============================
 # 🔍 Funções Avançadas de NLP
 # ============================
@@ -529,12 +549,15 @@ def search_category(keyword: str, lang: str) -> Optional[str]:
     }
 
     try:
+        rate_limiter.wait()
         resp = requests.get(
             url,
             params=params,
             headers={"User-Agent": Config.get_random_user_agent()},
             timeout=Config.TIMEOUT,
         )
+        if resp.status_code == 429:
+            rate_limiter.record_error()
         resp.raise_for_status()
         data = resp.json()
         results = data.get("query", {}).get("search", [])
@@ -544,6 +567,7 @@ def search_category(keyword: str, lang: str) -> Optional[str]:
             cache.set(cache_key, title)
             return title
     except Exception as e:  # pragma: no cover - network issues
+        rate_limiter.record_error()
         logger.error(f"Erro ao buscar categorias para {keyword}: {e}")
 
     return None
@@ -581,19 +605,21 @@ class WikipediaAdvanced:
             return cached
 
         self._prepare_session()
+        rate_limiter.wait()
 
         try:
             page = self.wiki.page(page_title)
             if page.exists():
                 # Melhora a qualidade do conteúdo
                 page._fullurl = self.wiki.api.article_url(page_title)
+                rate_limiter.wait()
                 page._html = fetch_html_content(page_title, self.lang)
                 page._html = extract_main_content(page._html)
 
                 cache.set(cache_key, page)
-                time.sleep(Config.RATE_LIMIT_DELAY)
                 return page
         except Exception as e:
+            rate_limiter.record_error()
             logger.error(f"Erro ao buscar página {page_title}: {e}")
             raise
         
@@ -606,6 +632,7 @@ class WikipediaAdvanced:
     def fetch_category(self, category_name: str) -> Optional[wikipediaapi.WikipediaPage]:
         category_title = f"Category:{category_name}" if self.lang != 'pt' else f"Categoria:{category_name}"
         self._prepare_session()
+        rate_limiter.wait()
         return self.fetch_page(category_title)
     
     def get_related_pages(self, page_title: str, limit: int = 10) -> List[dict]:
@@ -1126,9 +1153,15 @@ class DatasetBuilder:
 # ============================
 def main(langs: Optional[List[str]] = None,
          categories: Optional[List[str]] = None,
-         fmt: str = "all"):
+         fmt: str = "all",
+         rate_limit_delay: Optional[float] = None):
     """Gera o dataset utilizando os parâmetros fornecidos."""
     logger.info("🚀 Iniciando Wikipedia Scraper Ultra Pro Max - GodMode++")
+
+    if rate_limit_delay is not None:
+        Config.RATE_LIMIT_DELAY = rate_limit_delay
+        rate_limiter.base_delay = rate_limit_delay
+        rate_limiter.reset()
 
     languages = langs or Config.LANGUAGES
     cats = Config.CATEGORIES

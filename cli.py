@@ -14,10 +14,11 @@ def scrape(
     lang: list[str] = typer.Option(None, "--lang", help="Idioma a processar", show_default=False),
     category: list[str] = typer.Option(None, "--category", help="Categoria específica", show_default=False),
     fmt: str = typer.Option("all", "--format", help="Formato de saída"),
+    rate_limit_delay: float = typer.Option(None, "--rate-limit-delay", help="Delay entre requisições", show_default=False),
 ):
     """Executa o scraper imediatamente."""
     cats = [scraper_wiki.normalize_category(c) or c for c in category] if category else None
-    scraper_wiki.main(lang, cats, fmt)
+    scraper_wiki.main(lang, cats, fmt, rate_limit_delay)
 
 @app.command()
 def monitor():
