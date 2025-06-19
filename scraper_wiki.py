@@ -519,8 +519,16 @@ def extract_main_content(page_html: str) -> str:
 
 def fetch_html_content(title: str, lang: str) -> str:
     """Retrieve the raw HTML for a Wikipedia page using the REST API."""
-    url = f"https://{lang}.wikipedia.org/api/rest_v1/page/html/{title}"
-    try:
+    cache_key = f"html_{lang}_{title}"
+    cached = cache.get(cache_key)
+
+    @backoff.on_exception(
+        backoff.expo,
+        (requests.exceptions.RequestException, wikipediaapi.WikipediaException),
+        max_tries=Config.RETRIES,
+    )
+    def _request() -> str:
+        url = f"https://{lang}.wikipedia.org/api/rest_v1/page/html/{title}"
         response = requests.get(
             url,
             headers={"User-Agent": Config.get_random_user_agent()},
@@ -528,8 +536,15 @@ def fetch_html_content(title: str, lang: str) -> str:
         )
         response.raise_for_status()
         return response.text
+
+    try:
+        html = _request()
+        cache.set(cache_key, html)
+        return html
     except Exception as e:
         logger.error(f"Erro ao buscar HTML para {title}: {e}")
+        if cached is not None:
+            return cached
         return ""
 
 def search_category(keyword: str, lang: str) -> Optional[str]:
@@ -548,7 +563,12 @@ def search_category(keyword: str, lang: str) -> Optional[str]:
         "format": "json",
     }
 
-    try:
+    @backoff.on_exception(
+        backoff.expo,
+        (requests.exceptions.RequestException, wikipediaapi.WikipediaException),
+        max_tries=Config.RETRIES,
+    )
+    def _request():
         rate_limiter.wait()
         resp = requests.get(
             url,
@@ -559,7 +579,10 @@ def search_category(keyword: str, lang: str) -> Optional[str]:
         if resp.status_code == 429:
             rate_limiter.record_error()
         resp.raise_for_status()
-        data = resp.json()
+        return resp.json()
+
+    try:
+        data = _request()
         results = data.get("query", {}).get("search", [])
         if results:
             title = results[0].get("title", "")
@@ -570,7 +593,8 @@ def search_category(keyword: str, lang: str) -> Optional[str]:
         rate_limiter.record_error()
         logger.error(f"Erro ao buscar categorias para {keyword}: {e}")
 
-    return None
+    fallback = cache.get(cache_key)
+    return fallback
 
 # ============================
 # 🔗 Coletor Avançado com Retry
@@ -642,8 +666,13 @@ class WikipediaAdvanced:
             return cached
 
         self._prepare_session()
-        
-        try:
+
+        @backoff.on_exception(
+            backoff.expo,
+            (requests.exceptions.RequestException, wikipediaapi.WikipediaException),
+            max_tries=Config.RETRIES,
+        )
+        def _request():
             url = f"https://{self.lang}.wikipedia.org/w/api.php"
             params = {
                 'action': 'query',
@@ -652,14 +681,16 @@ class WikipediaAdvanced:
                 'pllimit': limit,
                 'format': 'json'
             }
-            
             response = self.session.get(url, params=params, timeout=Config.TIMEOUT)
             response.raise_for_status()
-            data = response.json()
-            
+            return response.json()
+
+        try:
+            data = _request()
+
             pages = data.get('query', {}).get('pages', {})
             links = []
-            
+
             for page in pages.values():
                 for link in page.get('links', []):
                     if 'ns' in link and link['ns'] == 0:  # Only main namespace
@@ -667,11 +698,14 @@ class WikipediaAdvanced:
                             'title': link['title'],
                             'lang': self.lang
                         })
-            
+
             cache.set(cache_key, links)
             return links
         except Exception as e:
             logger.error(f"Erro ao buscar páginas relacionadas para {page_title}: {e}")
+            fallback = cache.get(cache_key)
+            if fallback is not None:
+                return fallback
             return []
     
     def get_category_members(self, category_name: str, depth: int = 0, visited: Optional[Set[str]] = None) -> List[dict]:

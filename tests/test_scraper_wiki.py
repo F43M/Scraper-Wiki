@@ -141,8 +141,16 @@ def test_fetch_html_content_success(monkeypatch):
 
 
 def test_fetch_html_content_error(monkeypatch):
+    fake_cache = {}
+    monkeypatch.setattr(sw, 'cache', SimpleNamespace(
+        get=lambda k: fake_cache.get(k),
+        set=lambda k, v: fake_cache.__setitem__(k, v),
+        stats=lambda: {}
+    ))
+
     def fake_get(*a, **k):
         raise sw.requests.exceptions.RequestException('fail')
+
     monkeypatch.setattr(sw.requests, 'get', fake_get)
     result = sw.fetch_html_content('Any', 'en')
     assert result == ''
