@@ -342,6 +342,21 @@ def extract_main_content(page_html: str) -> str:
         logger.error(f"Erro ao extrair conteúdo principal: {e}")
         return page_html
 
+def fetch_html_content(title: str, lang: str) -> str:
+    """Retrieve the raw HTML for a Wikipedia page using the REST API."""
+    url = f"https://{lang}.wikipedia.org/api/rest_v1/page/html/{title}"
+    try:
+        response = requests.get(
+            url,
+            headers={"User-Agent": Config.get_random_user_agent()},
+            timeout=Config.TIMEOUT,
+        )
+        response.raise_for_status()
+        return response.text
+    except Exception as e:
+        logger.error(f"Erro ao buscar HTML para {title}: {e}")
+        return ""
+
 # ============================
 # 🔗 Coletor Avançado com Retry
 # ============================
@@ -371,8 +386,9 @@ class WikipediaAdvanced:
             if page.exists():
                 # Melhora a qualidade do conteúdo
                 page._fullurl = self.wiki.api.article_url(page_title)
-                page._html = extract_main_content(page.text)
-                
+                page._html = fetch_html_content(page_title, self.lang)
+                page._html = extract_main_content(page._html)
+
                 cache.set(cache_key, page)
                 time.sleep(Config.RATE_LIMIT_DELAY)
                 return page
