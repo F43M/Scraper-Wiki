@@ -1,19 +1,27 @@
 import json
+import os
 from pathlib import Path
 
 import streamlit as st
 import psutil
+import requests
 
 PROGRESS_FILE = Path("logs/progress.json")
+API_BASE = os.environ.get("API_BASE", "http://localhost:8000")
 
 
 def load_progress():
-    if PROGRESS_FILE.exists():
-        try:
-            with PROGRESS_FILE.open() as f:
-                return json.load(f)
-        except json.JSONDecodeError:
-            return {}
+    try:
+        resp = requests.get(f"{API_BASE}/stats", timeout=5)
+        resp.raise_for_status()
+        return resp.json()
+    except Exception:
+        if PROGRESS_FILE.exists():
+            try:
+                with PROGRESS_FILE.open() as f:
+                    return json.load(f)
+            except json.JSONDecodeError:
+                return {}
     return {}
 
 

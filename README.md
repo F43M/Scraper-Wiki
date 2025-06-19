@@ -94,6 +94,24 @@ uvicorn api_app:app --reload
 
 Envie uma requisição `POST /scrape` com um JSON contendo `lang`, `category` e `format` para gerar o dataset.
 
+### Consulta de registros
+
+Os dados gerados podem ser recuperados via `GET /records` com filtros opcionais:
+
+```bash
+curl "http://localhost:8000/records?lang=pt&category=Programação"
+```
+
+Para consultas mais flexíveis existe o endpoint `POST /graphql` que aceita
+consultas GraphQL usando `graphene`. Exemplo:
+
+```bash
+curl -X POST http://localhost:8000/graphql -H "Content-Type: application/json" \
+  -d '{"query": "{ records(lang:[\"pt\"]) { title category } }"}'
+```
+
+Informações de progresso podem ser obtidas em `GET /stats`.
+
 ## Dashboard
 
 Para acompanhar o progresso do scraper basta rodar:
@@ -103,6 +121,7 @@ python cli.py monitor
 ```
 
 Essa interface lê `logs/progress.json` e exibe o total de páginas processadas, uso de CPU e memória, além dos clusters, tópicos e idiomas atuais.
+Agora o dashboard também consulta `GET /stats` quando disponível para mostrar as estatísticas em tempo real.
 
 ## Filas e Workers
 
