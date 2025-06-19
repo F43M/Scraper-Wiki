@@ -14,6 +14,14 @@ sys.modules.setdefault('spacy', SimpleNamespace(load=lambda *a, **k: None))
 sys.modules.setdefault('unidecode', SimpleNamespace(unidecode=lambda x: x))
 sys.modules.setdefault('tqdm', SimpleNamespace(tqdm=lambda x, **k: x))
 sys.modules.setdefault('html2text', SimpleNamespace())
+wiki_mod = ModuleType('wikipediaapi')
+wiki_mod.WikipediaException = Exception
+wiki_mod.Namespace = SimpleNamespace(MAIN=0, CATEGORY=14)
+wiki_mod.ExtractFormat = SimpleNamespace(HTML=0)
+wiki_mod.WikipediaPage = object
+wiki_mod.Wikipedia = lambda *a, **k: SimpleNamespace(page=lambda *a, **k: SimpleNamespace(exists=lambda: False), api=SimpleNamespace(article_url=lambda x: ""))
+sys.modules.setdefault('wikipediaapi', wiki_mod)
+sys.modules.setdefault('aiohttp', SimpleNamespace(ClientSession=object))
 sys.modules.setdefault('backoff', SimpleNamespace(on_exception=lambda *a, **k: (lambda f: f), expo=lambda *a, **k: None))
 sklearn_mod = ModuleType('sklearn')
 sklearn_mod.cluster = SimpleNamespace(KMeans=object)
@@ -472,6 +480,15 @@ def test_rate_limiter_env(monkeypatch):
     sw_reload = importlib.reload(sw)
     assert sw_reload.Config.RATE_LIMIT_DELAY == 1.5
     assert sw_reload.rate_limiter.delay == 1.5
+
+
+def test_parallelism_env(monkeypatch):
+    monkeypatch.setenv("MAX_THREADS", "7")
+    monkeypatch.setenv("MAX_PROCESSES", "3")
+    import importlib
+    sw_reload = importlib.reload(sw)
+    assert sw_reload.Config.MAX_THREADS == 7
+    assert sw_reload.Config.MAX_PROCESSES == 3
 
 
 def test_rate_limiter_backoff(monkeypatch):

@@ -71,6 +71,12 @@ Exemplo:
 python cli.py --log-level DEBUG --log-format json scrape --lang pt --category "Programação"
 ```
 
+### Paralelismo
+
+Controle o número de threads e processos utilizados pelo scraper com as opções
+`--max-threads` e `--max-processes`. Esses valores também podem ser definidos
+pelas variáveis de ambiente `MAX_THREADS` e `MAX_PROCESSES`.
+
 ## API FastAPI
 
 Inicie a API executando:
