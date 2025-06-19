@@ -86,8 +86,8 @@ def test_queue_command(tmp_path, monkeypatch):
 def test_scrape_command(monkeypatch):
     called = {}
 
-    def fake_main(lang, category, fmt):
-        called["args"] = {"lang": lang, "category": category, "fmt": fmt}
+    def fake_main(lang, category, fmt, rate_limit_delay=None):
+        called["args"] = {"lang": lang, "category": category, "fmt": fmt, "delay": rate_limit_delay}
 
     monkeypatch.setattr(cli.scraper_wiki, "main", fake_main)
     runner = CliRunner()
@@ -97,7 +97,44 @@ def test_scrape_command(monkeypatch):
 
     assert result.exit_code == 0
     assert called["args"] == {
-        "lang": ["pt"], "category": ["AI"], "fmt": "csv"
+        "lang": ["pt"], "category": ["AI"], "fmt": "csv", "delay": None
+    }
+
+
+def test_scrape_command_with_delay(monkeypatch):
+    called = {}
+
+    def fake_main(lang, category, fmt, rate_limit_delay=None):
+        called["args"] = {
+            "lang": lang,
+            "category": category,
+            "fmt": fmt,
+            "delay": rate_limit_delay,
+        }
+
+    monkeypatch.setattr(cli.scraper_wiki, "main", fake_main)
+    runner = CliRunner()
+    result = runner.invoke(
+        cli.app,
+        [
+            "scrape",
+            "--lang",
+            "pt",
+            "--category",
+            "AI",
+            "--format",
+            "csv",
+            "--rate-limit-delay",
+            "2.5",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert called["args"] == {
+        "lang": ["pt"],
+        "category": ["AI"],
+        "fmt": "csv",
+        "delay": 2.5,
     }
 
 

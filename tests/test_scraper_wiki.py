@@ -258,6 +258,7 @@ def test_search_category(monkeypatch):
             pass
         def raise_for_status(self):
             pass
+        status_code = 200
         def json(self):
             return {"query": {"search": [{"title": "Category:Computing"}]}}
 
@@ -435,6 +436,7 @@ def test_get_category_members_search_requests(monkeypatch):
     class DummyResp:
         def raise_for_status(self):
             pass
+        status_code = 200
 
         def json(self):
             return {"query": {"search": [{"title": "Category:Found"}]}}
@@ -454,3 +456,21 @@ def test_get_category_members_search_requests(monkeypatch):
         'depth': 0
     }]
     assert fetch_calls == ['Missing', 'Found']
+
+
+def test_rate_limiter_env(monkeypatch):
+    monkeypatch.setenv("RATE_LIMIT_DELAY", "1.5")
+    import importlib
+    sw_reload = importlib.reload(sw)
+    assert sw_reload.Config.RATE_LIMIT_DELAY == 1.5
+    assert sw_reload.rate_limiter.delay == 1.5
+
+
+def test_rate_limiter_backoff(monkeypatch):
+    recorded = []
+    rl = sw.RateLimiter(0.1)
+    monkeypatch.setattr(sw.time, "sleep", lambda d: recorded.append(d))
+    rl.wait()
+    rl.record_error()
+    rl.wait()
+    assert recorded == [0.1, 0.2]
