@@ -512,6 +512,42 @@ def fetch_html_content(title: str, lang: str) -> str:
         logger.error(f"Erro ao buscar HTML para {title}: {e}")
         return ""
 
+def search_category(keyword: str, lang: str) -> Optional[str]:
+    """Search for a similar category name using the Wikipedia API."""
+    cache_key = f"search_category_{lang}_{keyword}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    url = f"https://{lang}.wikipedia.org/w/api.php"
+    params = {
+        "action": "query",
+        "list": "search",
+        "srnamespace": 14,
+        "srsearch": keyword,
+        "format": "json",
+    }
+
+    try:
+        resp = requests.get(
+            url,
+            params=params,
+            headers={"User-Agent": Config.get_random_user_agent()},
+            timeout=Config.TIMEOUT,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        results = data.get("query", {}).get("search", [])
+        if results:
+            title = results[0].get("title", "")
+            title = title.replace("Category:", "").replace("Categoria:", "")
+            cache.set(cache_key, title)
+            return title
+    except Exception as e:  # pragma: no cover - network issues
+        logger.error(f"Erro ao buscar categorias para {keyword}: {e}")
+
+    return None
+
 # ============================
 # 🔗 Coletor Avançado com Retry
 # ============================
@@ -616,6 +652,12 @@ class WikipediaAdvanced:
             visited = set()
         
         category = self.fetch_category(category_name)
+        if not category or not category.exists():
+            alt = search_category(category_name, self.lang)
+            if alt:
+                category_name = alt
+                category = self.fetch_category(category_name)
+
         if not category or not category.exists():
             logger.warning(f"Categoria não encontrada: {category_name}")
             return []
