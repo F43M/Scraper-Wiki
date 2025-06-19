@@ -28,3 +28,13 @@ uvicorn api_app:app --reload
 ```
 
 Envie uma requisição `POST /scrape` com um JSON contendo `lang`, `category` e `format` para gerar o dataset.
+
+## Dashboard
+
+Para acompanhar o progresso do scraper execute:
+
+```bash
+streamlit run dashboard.py
+```
+
+A aplicação lê `logs/progress.json` e exibe o total de páginas processadas, uso de CPU e memória, além dos clusters, tópicos e idiomas atuais.
