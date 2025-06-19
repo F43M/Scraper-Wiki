@@ -20,6 +20,7 @@ import json
 import csv
 import random
 import logging
+import asyncio
 from tqdm import tqdm
 from unidecode import unidecode
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
@@ -85,8 +86,8 @@ class Config:
     
     # Parâmetros avançados
     MAX_DEPTH = 3  # Profundidade máxima de navegação em categorias
-    MAX_THREADS = multiprocessing.cpu_count() * 2
-    MAX_PROCESSES = multiprocessing.cpu_count()
+    MAX_THREADS = int(os.environ.get("MAX_THREADS", multiprocessing.cpu_count() * 2))
+    MAX_PROCESSES = int(os.environ.get("MAX_PROCESSES", multiprocessing.cpu_count()))
     RETRIES = 5
     TIMEOUT = 30
     RATE_LIMIT_DELAY = float(os.environ.get("RATE_LIMIT_DELAY", 0.5))
@@ -604,6 +605,10 @@ def fetch_html_content(title: str, lang: str) -> str:
             return cached
         return ""
 
+async def fetch_html_content_async(title: str, lang: str) -> str:
+    """Asynchronous wrapper for :func:`fetch_html_content`."""
+    return await asyncio.to_thread(fetch_html_content, title, lang)
+
 def search_category(keyword: str, lang: str) -> Optional[str]:
     """Search for a similar category name using the Wikipedia API."""
     cache_key = f"search_category_{lang}_{keyword}"
@@ -705,6 +710,10 @@ class WikipediaAdvanced:
             raise
         
         return None
+
+    async def fetch_page_async(self, page_title: str) -> Optional[wikipediaapi.WikipediaPage]:
+        """Asynchronous version of :meth:`fetch_page`."""
+        return await asyncio.to_thread(self.fetch_page, page_title)
     
     @backoff.on_exception(backoff.expo, 
                          (requests.exceptions.RequestException, 
@@ -897,6 +906,14 @@ class DatasetBuilder:
                 f"Erro ao processar página {page_info.get('title', '')}: {e}"
             )
             return None
+
+    async def process_page_async(
+        self,
+        page_info: dict,
+        proc_executor: Optional[ProcessPoolExecutor] = None
+    ) -> Optional[object]:
+        """Asynchronous wrapper for :meth:`process_page`."""
+        return await asyncio.to_thread(self.process_page, page_info, proc_executor)
     
     def generate_qa_pairs(self, title: str, content: str, summary: str, lang: str, category: str) -> dict:
         # Extrai keywords para gerar perguntas variadas
@@ -1116,13 +1133,52 @@ class DatasetBuilder:
                 for page in pages
             }
 
-            for future in tqdm(as_completed(page_futures), total=len(page_futures), desc=progress_desc):
+            processed = 0
+            total = len(page_futures)
+            for future in tqdm(as_completed(page_futures), total=total, desc=progress_desc):
                 cpu_future = future.result()
+                processed += 1
+                if processed % 10 == 0 or processed == total:
+                    logger.info(f"Thread progress: {processed}/{total}")
                 if cpu_future:
                     cpu_futures.append(cpu_future)
 
-            for future in tqdm(as_completed(cpu_futures), total=len(cpu_futures), desc="Processando conteúdo"):
+            processed_cpu = 0
+            total_cpu = len(cpu_futures)
+            for future in tqdm(as_completed(cpu_futures), total=total_cpu, desc="Processando conteúdo"):
                 result = future.result()
+                processed_cpu += 1
+                if processed_cpu % 10 == 0 or processed_cpu == total_cpu:
+                    logger.info(f"Process progress: {processed_cpu}/{total_cpu}")
+                if result:
+                    self.dataset.append(result)
+                    self._update_progress()
+
+        return self.dataset
+
+    async def build_from_pages_async(self, pages: List[dict], progress_desc: str = "Processando páginas") -> List[dict]:
+        """Asynchronous version of :meth:`build_from_pages`."""
+        cpu_futures = []
+        with ProcessPoolExecutor(max_workers=Config.MAX_PROCESSES) as pr_executor:
+            tasks = [self.process_page_async(page, pr_executor) for page in pages]
+
+            processed = 0
+            total = len(tasks)
+            for coro in tqdm(asyncio.as_completed(tasks), total=total, desc=progress_desc):
+                cpu_future = await coro
+                processed += 1
+                if processed % 10 == 0 or processed == total:
+                    logger.info(f"Async progress: {processed}/{total}")
+                if cpu_future:
+                    cpu_futures.append(cpu_future)
+
+            processed_cpu = 0
+            total_cpu = len(cpu_futures)
+            for future in tqdm(as_completed(cpu_futures), total=total_cpu, desc="Processando conteúdo"):
+                result = future.result()
+                processed_cpu += 1
+                if processed_cpu % 10 == 0 or processed_cpu == total_cpu:
+                    logger.info(f"Process progress: {processed_cpu}/{total_cpu}")
                 if result:
                     self.dataset.append(result)
                     self._update_progress()
