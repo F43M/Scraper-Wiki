@@ -382,6 +382,14 @@ class WikipediaAdvanced:
         )
         self.session = requests.Session()
         self.session.headers.update({'User-Agent': Config.get_random_user_agent()})
+
+    def _prepare_session(self):
+        """Refresh User-Agent and proxy settings before a request."""
+        self.session.headers['User-Agent'] = Config.get_random_user_agent()
+        if Config.PROXIES:
+            self.session.proxies = random.choice(Config.PROXIES)
+        else:
+            self.session.proxies = {}
     
     @backoff.on_exception(backoff.expo, 
                          (requests.exceptions.RequestException, 
@@ -392,7 +400,9 @@ class WikipediaAdvanced:
         cached = cache.get(cache_key)
         if cached is not None:
             return cached
-        
+
+        self._prepare_session()
+
         try:
             page = self.wiki.page(page_title)
             if page.exists():
@@ -416,6 +426,7 @@ class WikipediaAdvanced:
                          max_tries=Config.RETRIES)
     def fetch_category(self, category_name: str) -> Optional[wikipediaapi.WikipediaPage]:
         category_title = f"Category:{category_name}" if self.lang != 'pt' else f"Categoria:{category_name}"
+        self._prepare_session()
         return self.fetch_page(category_title)
     
     def get_related_pages(self, page_title: str, limit: int = 10) -> List[dict]:
@@ -423,6 +434,8 @@ class WikipediaAdvanced:
         cached = cache.get(cache_key)
         if cached is not None:
             return cached
+
+        self._prepare_session()
         
         try:
             url = f"https://{self.lang}.wikipedia.org/w/api.php"
