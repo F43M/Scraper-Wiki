@@ -133,3 +133,33 @@ Um `Dockerfile.worker` está disponível para criar a imagem do worker e a pasta
 contém o exemplo `cluster.yaml` para configuração de múltiplos nós com Dask ou
 Ray. Em ambientes Kubernetes, basta criar um `Deployment` apontando para essa
 imagem e montar o arquivo de configuração se necessário.
+
+## Integração com frameworks de ML
+
+Os arquivos gerados em `training/` permitem treinar modelos de NLP de forma simples. A seguir alguns exemplos.
+
+### Usando Transformers (PyTorch)
+
+```python
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+import json, torch
+
+pairs = json.load(open('datasets_wikipedia_pro/wikipedia_qa_pairs.json'))
+model = AutoModelForSeq2SeqLM.from_pretrained('t5-small')
+tokenizer = AutoTokenizer.from_pretrained('t5-small')
+inputs = tokenizer(pairs[0]['question'], return_tensors='pt')
+with torch.no_grad():
+    output = model.generate(**inputs)
+print(tokenizer.decode(output[0], skip_special_tokens=True))
+```
+
+### Carregando embeddings com TensorFlow
+
+```python
+import json
+import tensorflow as tf
+
+emb = json.load(open('datasets_wikipedia_pro/wikipedia_qa_embeddings.json'))
+emb_tensor = tf.constant([e['embedding'] for e in emb])
+print(emb_tensor.shape)
+```
