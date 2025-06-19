@@ -11,6 +11,10 @@ sys.path.insert(0, str(ROOT))
 sys.modules['sentence_transformers'] = SimpleNamespace(SentenceTransformer=object)
 sys.modules.setdefault('datasets', SimpleNamespace(Dataset=object, concatenate_datasets=lambda *a, **k: None))
 sys.modules.setdefault('spacy', SimpleNamespace(load=lambda *a, **k: None))
+sys.modules.setdefault('unidecode', SimpleNamespace(unidecode=lambda x: x))
+sys.modules.setdefault('tqdm', SimpleNamespace(tqdm=lambda x, **k: x))
+sys.modules.setdefault('html2text', SimpleNamespace())
+sys.modules.setdefault('backoff', SimpleNamespace(on_exception=lambda *a, **k: (lambda f: f), expo=lambda *a, **k: None))
 sklearn_mod = ModuleType('sklearn')
 sklearn_mod.cluster = SimpleNamespace(KMeans=object)
 sklearn_mod.feature_extraction = SimpleNamespace(text=SimpleNamespace(TfidfVectorizer=object))
@@ -121,3 +125,86 @@ def test_nlp_triple_fallback(monkeypatch):
     nlp = sw_reloaded.NLPProcessor.get_instance('pt')
     assert isinstance(nlp, DummyNLP)
     assert calls == ['pt_core_news_lg', 'pt_core_news_sm', 'en_core_web_sm']
+
+
+def test_fetch_html_content_success(monkeypatch):
+    class DummyResp:
+        def __init__(self):
+            self.text = '<html></html>'
+        def raise_for_status(self):
+            pass
+    def fake_get(*a, **k):
+        return DummyResp()
+    monkeypatch.setattr(sw.requests, 'get', fake_get)
+    result = sw.fetch_html_content('Any', 'en')
+    assert result == '<html></html>'
+
+
+def test_fetch_html_content_error(monkeypatch):
+    def fake_get(*a, **k):
+        raise sw.requests.exceptions.RequestException('fail')
+    monkeypatch.setattr(sw.requests, 'get', fake_get)
+    result = sw.fetch_html_content('Any', 'en')
+    assert result == ''
+
+
+class DummyFuture:
+    def __init__(self, value):
+        self._value = value
+    def result(self):
+        return self._value
+
+
+class DummyExecutor:
+    def __init__(self, *a, **k):
+        pass
+    def __enter__(self):
+        return self
+    def __exit__(self, exc_type, exc, tb):
+        pass
+    def submit(self, fn, *args, **kwargs):
+        return DummyFuture(fn(*args, **kwargs))
+
+
+def test_build_from_pages(monkeypatch):
+    dummy_data = {'id': '1', 'content_embedding': [0.0], 'summary_embedding': [0.0],
+                  'questions': ['q'], 'answers': ['a'], 'summary': 'text text text'}
+    def fake_process_page(self, page, proc_executor=None):
+        return DummyFuture(dummy_data)
+
+    monkeypatch.setattr(sw.DatasetBuilder, 'process_page', fake_process_page)
+    monkeypatch.setattr(sw, 'ThreadPoolExecutor', DummyExecutor)
+    monkeypatch.setattr(sw, 'ProcessPoolExecutor', DummyExecutor)
+    monkeypatch.setattr(sw, 'as_completed', lambda it: it)
+    monkeypatch.setattr(sw, 'tqdm', lambda it, **k: it)
+
+    builder = sw.DatasetBuilder()
+    pages = [{'title': 't', 'lang': 'en'}]
+    data = builder.build_from_pages(pages)
+    assert data == [dummy_data]
+
+
+def test_save_dataset_json_csv(tmp_path, monkeypatch):
+    builder = sw.DatasetBuilder()
+    monkeypatch.setattr(sw.Config, 'MIN_TEXT_LENGTH', 5)
+    builder.dataset = [{
+        'id': '1',
+        'title': 't',
+        'language': 'en',
+        'category': 'c',
+        'topic': 'ai',
+        'subtopic': 'nlp',
+        'keywords': [],
+        'content': 'c'*20,
+        'summary': 's'*20,
+        'content_embedding': [0.1, 0.2],
+        'summary_embedding': [0.1, 0.2],
+        'questions': ['q'],
+        'answers': ['a'],
+        'created_at': 'now',
+        'metadata': {}
+    }]
+    builder.save_dataset('json', output_dir=tmp_path)
+    assert (tmp_path/'wikipedia_qa.json').exists()
+    builder.save_dataset('csv', output_dir=tmp_path)
+    assert (tmp_path/'wikipedia_qa.csv').exists()
