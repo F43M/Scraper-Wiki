@@ -48,6 +48,7 @@ from sumy.nlp.tokenizers import Tokenizer
 from sumy.summarizers.lsa import LsaSummarizer
 import sqlite3
 import storage
+import dq
 
 # ============================
 # 🔧 Configurações Avançadas
@@ -838,6 +839,8 @@ class DatasetBuilder:
         self.embedding_model = NLPProcessor.get_embedding_model()
         self.dataset = []
         self.qa_pairs = []
+        self.duplicates_removed = 0
+        self.invalid_records = 0
 
     def _update_progress(self):
         """Update progress information in logs/progress.json"""
@@ -855,6 +858,8 @@ class DatasetBuilder:
                 'clusters': clusters,
                 'topics': topics,
                 'languages': languages,
+                'duplicates_removed': self.duplicates_removed,
+                'invalid_records': self.invalid_records,
             }
 
             with open(temp_file, 'w', encoding='utf-8') as f:
@@ -1343,6 +1348,43 @@ def main(langs: Optional[List[str]] = None,
 
     logger.info("🧠 Aplicando técnicas avançadas de NLP...")
     builder.enhance_with_clustering()
+
+    # Carrega dados extras de plugins para completar registros
+    extra_data: List[dict] = []
+    try:
+        from plugins import load_plugin
+
+        for plugin_name in ["stackoverflow", "wikidata"]:
+            try:
+                plugin = load_plugin(plugin_name)
+            except Exception as e:
+                logger.error(f"Erro ao carregar plugin {plugin_name}: {e}")
+                continue
+            for lang in languages:
+                for category in cats:
+                    try:
+                        items = plugin.fetch_items(lang, category)
+                        for item in items:
+                            parsed = plugin.parse_item(item)
+                            if parsed:
+                                extra_data.append(parsed)
+                    except Exception as e:  # pragma: no cover - network errors
+                        logger.error(f"Erro plugin {plugin_name}: {e}")
+    except Exception:
+        pass
+
+    # Deduplicação e validação de qualidade
+    if hasattr(builder, "dataset"):
+        data, rem_hash = dq.deduplicate_by_hash(getattr(builder, "dataset", []))
+        data, rem_emb = dq.deduplicate_by_embedding(data)
+        data = dq.complete_missing_fields(data, extra_data)
+        data, invalid = dq.validate_semantics(data)
+
+        builder.duplicates_removed = rem_hash + rem_emb
+        builder.invalid_records = invalid
+        builder.dataset = data
+        if hasattr(builder, "_update_progress"):
+            builder._update_progress()
 
     logger.info("💾 Salvando dataset completo...")
     builder.save_dataset(format=fmt)
