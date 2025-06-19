@@ -1,0 +1,14 @@
+wikipedia-api
+tqdm
+unidecode
+datasets
+bs4
+requests
+html2text
+backoff
+numpy
+spacy
+sentence-transformers
+scikit-learn
+sumy
+pyarrow
