@@ -631,6 +631,30 @@ class DatasetBuilder:
         self.dataset = []
         self.qa_pairs = []
 
+    def _update_progress(self):
+        """Update progress information in logs/progress.json"""
+        try:
+            os.makedirs(Config.LOG_DIR, exist_ok=True)
+            progress_file = os.path.join(Config.LOG_DIR, 'progress.json')
+            temp_file = progress_file + '.tmp'
+
+            clusters = sorted({item.get('cluster') for item in self.dataset if 'cluster' in item})
+            topics = sorted({item.get('topic') for item in self.dataset if item.get('topic')})
+            languages = sorted({item.get('language') for item in self.dataset if item.get('language')})
+
+            progress = {
+                'pages_processed': len(self.dataset),
+                'clusters': clusters,
+                'topics': topics,
+                'languages': languages,
+            }
+
+            with open(temp_file, 'w', encoding='utf-8') as f:
+                json.dump(progress, f, ensure_ascii=False, indent=2)
+            os.replace(temp_file, progress_file)
+        except Exception as e:
+            logger.error(f"Erro ao atualizar progresso: {e}")
+
     def process_page(
         self,
         page_info: dict,
@@ -904,6 +928,7 @@ class DatasetBuilder:
                 result = future.result()
                 if result:
                     self.dataset.append(result)
+                    self._update_progress()
 
         return self.dataset
     
