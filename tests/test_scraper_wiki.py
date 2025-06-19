@@ -246,6 +246,13 @@ def test_main_uses_normalized_category(monkeypatch):
 def test_search_category(monkeypatch):
     called = {}
 
+    fake_cache = {}
+    monkeypatch.setattr(sw, 'cache', SimpleNamespace(
+        get=lambda k: fake_cache.get(k),
+        set=lambda k, v: fake_cache.__setitem__(k, v),
+        stats=lambda: {}
+    ))
+
     class DummyResp:
         def __init__(self):
             pass
@@ -286,6 +293,157 @@ def test_get_category_members_search(monkeypatch):
 
     monkeypatch.setattr(sw.WikipediaAdvanced, 'fetch_category', fake_fetch, raising=False)
     monkeypatch.setattr(sw, 'search_category', lambda keyword, lang: 'Found')
+
+    members = wiki.get_category_members('Missing')
+    assert members == [{
+        'title': 'Page',
+        'url': 'url',
+        'lang': 'en',
+        'category': 'Found',
+        'depth': 0
+    }]
+    assert fetch_calls == ['Missing', 'Found']
+
+
+def test_main_collects_pages_unaccented(monkeypatch):
+    fake_cache = {}
+    monkeypatch.setattr(sw, 'cache', SimpleNamespace(
+        get=lambda k: fake_cache.get(k),
+        set=lambda k, v: fake_cache.__setitem__(k, v),
+        stats=lambda: {}
+    ))
+    original_norm = sw.normalize_category
+    def fake_norm(name):
+        if name == 'ciencia da computacao':
+            return 'Ciência da computação'
+        return original_norm(name)
+    monkeypatch.setattr(sw, 'normalize_category', fake_norm)
+
+    class DummyWiki:
+        def __init__(self, lang):
+            self.lang = lang
+
+        def get_category_members(self, category_name):
+            return [{
+                'title': 'Page',
+                'url': 'url',
+                'lang': self.lang,
+                'category': category_name,
+                'depth': 0
+            }]
+
+    class DummyBuilder:
+        def __init__(self):
+            self.pages = []
+
+        def build_from_pages(self, pages, *a, **k):
+            self.pages.extend(pages)
+            return []
+
+        def enhance_with_clustering(self):
+            pass
+
+        def save_dataset(self, format=None):
+            pass
+
+    builder = DummyBuilder()
+
+    monkeypatch.setattr(sw, 'WikipediaAdvanced', DummyWiki)
+    monkeypatch.setattr(sw, 'DatasetBuilder', lambda: builder)
+    monkeypatch.setattr(sw.time, 'sleep', lambda *a, **k: None)
+
+    sw.main(langs=['pt'], categories=['ciencia da computacao'], fmt='json')
+
+    assert len(builder.pages) == 1
+    assert builder.pages[0]['category'] == 'Ciência da computação'
+
+
+def test_main_collects_pages_alias(monkeypatch):
+    fake_cache = {}
+    monkeypatch.setattr(sw, 'cache', SimpleNamespace(
+        get=lambda k: fake_cache.get(k),
+        set=lambda k, v: fake_cache.__setitem__(k, v),
+        stats=lambda: {}
+    ))
+    from unidecode import unidecode as real_unidecode
+    monkeypatch.setattr(sw, 'unidecode', real_unidecode)
+    class DummyWiki:
+        def __init__(self, lang):
+            self.lang = lang
+
+        def get_category_members(self, category_name):
+            return [{
+                'title': 'AliasPage',
+                'url': 'url',
+                'lang': self.lang,
+                'category': category_name,
+                'depth': 0
+            }]
+
+    class DummyBuilder:
+        def __init__(self):
+            self.pages = []
+
+        def build_from_pages(self, pages, *a, **k):
+            self.pages.extend(pages)
+            return []
+
+        def enhance_with_clustering(self):
+            pass
+
+        def save_dataset(self, format=None):
+            pass
+
+    builder = DummyBuilder()
+
+    monkeypatch.setattr(sw, 'WikipediaAdvanced', DummyWiki)
+    monkeypatch.setattr(sw, 'DatasetBuilder', lambda: builder)
+    monkeypatch.setattr(sw.time, 'sleep', lambda *a, **k: None)
+
+    sw.main(langs=['pt'], categories=['programacao'], fmt='json')
+
+    assert len(builder.pages) == 1
+    assert builder.pages[0]['category'] == 'Programação'
+
+
+def test_get_category_members_search_requests(monkeypatch):
+    wiki = sw.WikipediaAdvanced('en')
+    fetch_calls = []
+    fake_cache = {}
+    monkeypatch.setattr(sw, 'cache', SimpleNamespace(
+        get=lambda k: fake_cache.get(k),
+        set=lambda k, v: fake_cache.__setitem__(k, v),
+        stats=lambda: {}
+    ))
+
+    dummy_member = SimpleNamespace(
+        ns=sw.wikipediaapi.Namespace.MAIN,
+        title='Page',
+        fullurl='url'
+    )
+    dummy_cat = SimpleNamespace(
+        exists=lambda: True,
+        categorymembers={'p': dummy_member}
+    )
+
+    def fake_fetch(self, name):
+        fetch_calls.append(name)
+        if name == 'Found':
+            return dummy_cat
+        return None
+
+    class DummyResp:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"query": {"search": [{"title": "Category:Found"}]}}
+
+    def fake_get(url, params=None, headers=None, timeout=None):
+        return DummyResp()
+
+    monkeypatch.setattr(sw.WikipediaAdvanced, 'fetch_category', fake_fetch, raising=False)
+    monkeypatch.setattr(sw.requests, 'get', fake_get)
 
     members = wiki.get_category_members('Missing')
     assert members == [{
