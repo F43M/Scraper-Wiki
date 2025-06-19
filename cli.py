@@ -18,6 +18,7 @@ def main(
     log_format: str = typer.Option("text", "--log-format", help="Formato do log (text ou json)"),
     max_threads: int = typer.Option(None, "--max-threads", help="Número máximo de threads", show_default=False),
     max_processes: int = typer.Option(None, "--max-processes", help="Número máximo de processos", show_default=False),
+    storage_backend: str = typer.Option(None, "--storage-backend", help="Backend de armazenamento", show_default=False),
 ):
     if cache_backend is not None:
         scraper_wiki.Config.CACHE_BACKEND = cache_backend
@@ -32,6 +33,8 @@ def main(
         scraper_wiki.Config.MAX_THREADS = max_threads
     if max_processes is not None:
         scraper_wiki.Config.MAX_PROCESSES = max_processes
+    if storage_backend is not None:
+        scraper_wiki.Config.STORAGE_BACKEND = storage_backend
 
 QUEUE_FILE = Path("jobs_queue.jsonl")
 

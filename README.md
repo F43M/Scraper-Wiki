@@ -77,6 +77,13 @@ Controle o número de threads e processos utilizados pelo scraper com as opçõe
 `--max-threads` e `--max-processes`. Esses valores também podem ser definidos
 pelas variáveis de ambiente `MAX_THREADS` e `MAX_PROCESSES`.
 
+### Armazenamento
+
+Escolha onde salvar os datasets com `--storage-backend` ou variável `STORAGE_BACKEND`.
+Os valores suportados são `local` (padrão), `s3`/`minio`, `mongodb` e `postgres`.
+Para S3/MinIO defina `S3_BUCKET` e `S3_ENDPOINT` (ou `MINIO_ENDPOINT`).
+Para MongoDB use `MONGODB_URI`. Para PostgreSQL defina `POSTGRES_DSN`.
+
 ## API FastAPI
 
 Inicie a API executando:
