@@ -774,7 +774,14 @@ class DatasetBuilder:
             with open(csv_file, 'w', newline='', encoding='utf-8') as f:
                 writer = csv.DictWriter(f, fieldnames=sorted_data[0].keys())
                 writer.writeheader()
-                writer.writerows(sorted_data)
+                rows = []
+                for row in sorted_data:
+                    converted = {
+                        k: json.dumps(v, ensure_ascii=False) if isinstance(v, (list, dict)) else v
+                        for k, v in row.items()
+                    }
+                    rows.append(converted)
+                writer.writerows(rows)
             logger.info(f"Dataset salvo em CSV: {csv_file}")
         
         if format in ['all', 'parquet']:
