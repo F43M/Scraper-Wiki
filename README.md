@@ -29,6 +29,20 @@ Também é possível enfileirar execuções futuras:
 python cli.py queue --lang en --category "Algorithms"
 ```
 
+### Normalização de categorias e busca automática
+
+Os nomes de categoria passam por um processo de normalização que remove
+acentos e converte para minúsculas. Isso permite utilizar aliases sem
+preocupação com variações de escrita. Caso a categoria informada não exista, o
+scraper tenta localizá-la automaticamente na Wikipédia.
+
+Exemplo de uso equivalentes:
+
+```bash
+python cli.py scrape --lang pt --category programacao --format json
+python cli.py scrape --lang pt --category "Programação" --format json
+```
+
 Para listar os arquivos gerados e visualizar configurações chave use:
 
 ```bash
