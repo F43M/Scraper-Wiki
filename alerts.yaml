@@ -1,0 +1,20 @@
+# Example Prometheus alert rules
+# Alerta se a taxa de erros ultrapassar 20% nas últimas 5 minutos
+- alert: HighScrapeErrorRate
+  expr: rate(scrape_error_total[5m]) / (rate(scrape_success_total[5m]) + rate(scrape_error_total[5m])) > 0.2
+  for: 10m
+  labels:
+    severity: critical
+  annotations:
+    summary: "Taxa alta de erros de scraping"
+    description: "Mais de 20% das requisições resultaram em erro por 10 minutos"
+
+# Alerta se nenhum scraping bem sucedido for registrado
+- alert: ScrapeStalled
+  expr: rate(scrape_success_total[10m]) == 0
+  for: 15m
+  labels:
+    severity: warning
+  annotations:
+    summary: "Scraping sem sucesso"
+    description: "Nenhuma página foi raspada com sucesso nas últimas 15 minutos"
