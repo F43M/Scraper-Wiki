@@ -16,7 +16,8 @@ def scrape(
     fmt: str = typer.Option("all", "--format", help="Formato de saída"),
 ):
     """Executa o scraper imediatamente."""
-    scraper_wiki.main(lang, category, fmt)
+    cats = [scraper_wiki.normalize_category(c) or c for c in category] if category else None
+    scraper_wiki.main(lang, cats, fmt)
 
 @app.command()
 def monitor():
@@ -30,7 +31,8 @@ def queue(
     fmt: str = typer.Option("all", "--format", help="Formato de saída"),
 ):
     """Enfileira um job de scraping."""
-    job = {"lang": lang, "category": category, "format": fmt}
+    cats = [scraper_wiki.normalize_category(c) or c for c in category] if category else None
+    job = {"lang": lang, "category": cats, "format": fmt}
     QUEUE_FILE.parent.mkdir(parents=True, exist_ok=True)
     with QUEUE_FILE.open("a", encoding="utf-8") as f:
         f.write(json.dumps(job, ensure_ascii=False) + "\n")

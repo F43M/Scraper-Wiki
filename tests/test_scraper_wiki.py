@@ -208,3 +208,37 @@ def test_save_dataset_json_csv(tmp_path, monkeypatch):
     assert (tmp_path/'wikipedia_qa.json').exists()
     builder.save_dataset('csv', output_dir=tmp_path)
     assert (tmp_path/'wikipedia_qa.csv').exists()
+
+
+def test_normalize_category_alias():
+    assert sw.normalize_category('programacao') == 'Programação'
+
+
+def test_main_uses_normalized_category(monkeypatch):
+    called = []
+
+    class DummyWiki:
+        def __init__(self, lang):
+            pass
+
+        def get_category_members(self, category_name):
+            called.append(category_name)
+            return []
+
+    class DummyBuilder:
+        def build_from_pages(self, pages, *a, **k):
+            return []
+
+        def enhance_with_clustering(self):
+            pass
+
+        def save_dataset(self, format=None):
+            pass
+
+    monkeypatch.setattr(sw, 'WikipediaAdvanced', DummyWiki)
+    monkeypatch.setattr(sw, 'DatasetBuilder', DummyBuilder)
+    monkeypatch.setattr(sw.time, 'sleep', lambda *a, **k: None)
+
+    sw.main(langs=['pt'], categories=['programacao'], fmt='json')
+
+    assert called == ['Programação']
