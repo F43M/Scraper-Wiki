@@ -138,6 +138,31 @@ def test_scrape_command_with_delay(monkeypatch):
     }
 
 
+def test_cache_options(monkeypatch):
+    monkeypatch.setattr(cli.scraper_wiki, "init_cache", lambda: SimpleNamespace())
+    runner = CliRunner()
+    result = runner.invoke(
+        cli.app,
+        ["--cache-backend", "sqlite", "--cache-ttl", "60", "status"],
+    )
+    assert result.exit_code == 0
+    assert cli.scraper_wiki.Config.CACHE_BACKEND == "sqlite"
+    assert cli.scraper_wiki.Config.CACHE_TTL == 60
+
+
+def test_clear_cache_command(monkeypatch):
+    called = {}
+
+    def fake_clear():
+        called["ok"] = True
+
+    monkeypatch.setattr(cli.scraper_wiki, "clear_cache", fake_clear)
+    runner = CliRunner()
+    result = runner.invoke(cli.app, ["clear-cache"])
+    assert result.exit_code == 0
+    assert called.get("ok")
+
+
 
 def test_load_progress(tmp_path, monkeypatch):
     monkeypatch.setattr(cli.dashboard, "PROGRESS_FILE", tmp_path / "prog.json")
