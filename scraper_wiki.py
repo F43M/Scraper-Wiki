@@ -49,6 +49,7 @@ from sumy.summarizers.lsa import LsaSummarizer
 import sqlite3
 import storage
 import dq
+import metrics
 
 # ============================
 # 🔧 Configurações Avançadas
@@ -131,6 +132,8 @@ class Config:
     SQLITE_PATH = os.path.join(CACHE_DIR, 'cache.sqlite')
     CACHE_TTL: Optional[int] = int(os.environ.get("CACHE_TTL", "0")) or None
     STORAGE_BACKEND = os.environ.get("STORAGE_BACKEND", "local")
+    LOG_SERVICE_URL = os.environ.get("LOG_SERVICE_URL")
+    LOG_SERVICE_TYPE = os.environ.get("LOG_SERVICE_TYPE", "loki")
     
     @classmethod
     def get_random_user_agent(cls):
@@ -220,6 +223,57 @@ class JsonFormatter(logging.Formatter):
         }
         return json.dumps(rec, ensure_ascii=False)
 
+
+class LokiHandler(logging.Handler):
+    """Simple handler that sends logs to a Loki HTTP endpoint."""
+
+    def __init__(self, url: str):
+        super().__init__()
+        self.url = url.rstrip("/")
+
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            line = self.format(record)
+            payload = {
+                "streams": [
+                    {
+                        "labels": "{job=\"scraper\"}",
+                        "entries": [
+                            {
+                                "ts": datetime.utcnow().isoformat() + "Z",
+                                "line": line,
+                            }
+                        ],
+                    }
+                ]
+            }
+            requests.post(self.url, json=payload, timeout=1)
+        except Exception:
+            pass
+
+
+class ElasticsearchHandler(logging.Handler):
+    """Send logs to an Elasticsearch index."""
+
+    def __init__(self, url: str, index: str = "scraper"):
+        super().__init__()
+        self.url = url.rstrip("/")
+        self.index = index
+
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            doc = {
+                "timestamp": datetime.utcnow().isoformat(),
+                "level": record.levelname,
+                "name": record.name,
+                "message": record.getMessage(),
+                "file": record.filename,
+                "line": record.lineno,
+            }
+            requests.post(f"{self.url}/{self.index}/_doc", json=doc, timeout=1)
+        except Exception:
+            pass
+
 def setup_logger(name, log_file, level: int = logging.INFO, fmt: str = "text"):
     """Configure and return a logger with console and file handlers."""
     os.makedirs(Config.LOG_DIR, exist_ok=True)
@@ -237,6 +291,14 @@ def setup_logger(name, log_file, level: int = logging.INFO, fmt: str = "text"):
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(formatter)
     logger.addHandler(console_handler)
+
+    if Config.LOG_SERVICE_URL:
+        if Config.LOG_SERVICE_TYPE == "elastic":
+            remote = ElasticsearchHandler(Config.LOG_SERVICE_URL)
+        else:
+            remote = LokiHandler(Config.LOG_SERVICE_URL)
+        remote.setFormatter(formatter)
+        logger.addHandler(remote)
 
     return logger
 
@@ -595,14 +657,18 @@ def fetch_html_content(title: str, lang: str) -> str:
             headers={"User-Agent": Config.get_random_user_agent()},
             timeout=Config.TIMEOUT,
         )
+        if response.status_code == 429:
+            metrics.scrape_block.inc()
         response.raise_for_status()
         return response.text
 
     try:
         html = _request()
+        metrics.scrape_success.inc()
         cache.set(cache_key, html, ttl=Config.CACHE_TTL)
         return html
     except Exception as e:
+        metrics.scrape_error.inc()
         logger.error(f"Erro ao buscar HTML para {title}: {e}")
         if cached is not None:
             return cached
@@ -906,9 +972,10 @@ class DatasetBuilder:
                 lang=page_info['lang'],
                 category=page_info.get('category', '')
             )
-
+            metrics.scrape_success.inc()
             return qa_data
         except Exception as e:
+            metrics.scrape_error.inc()
             logger.error(
                 f"Erro ao processar página {page_info.get('title', '')}: {e}"
             )
@@ -1310,6 +1377,7 @@ def main(langs: Optional[List[str]] = None,
          fmt: str = "all",
          rate_limit_delay: Optional[float] = None):
     """Gera o dataset utilizando os parâmetros fornecidos."""
+    metrics.start_metrics_server(int(os.environ.get("METRICS_PORT", "8001")))
     logger.info("🚀 Iniciando Wikipedia Scraper Ultra Pro Max - GodMode++")
 
     if rate_limit_delay is not None:
