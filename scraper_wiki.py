@@ -224,11 +224,23 @@ class NLPProcessor:
                     cls._instances[lang] = spacy.load(Config.NLP_MODELS[lang])
                     logger.info(f"Carregado modelo NLP para {lang}")
                 except OSError:
-                    logger.warning(f"Modelo NLP para {lang} não encontrado, usando modelo pequeno")
-                    cls._instances[lang] = spacy.load(Config.NLP_MODELS[lang].replace('_lg', '_sm'))
+                    logger.warning(
+                        f"Modelo NLP para {lang} não encontrado, tentando modelo pequeno"
+                    )
+                    try:
+                        cls._instances[lang] = spacy.load(
+                            Config.NLP_MODELS[lang].replace("_lg", "_sm")
+                        )
+                    except OSError:
+                        logger.warning(
+                            f"Modelos lg e sm para {lang} indisponíveis, usando 'en_core_web_sm'"
+                        )
+                        cls._instances[lang] = spacy.load("en_core_web_sm")
             else:
-                logger.warning(f"Modelo NLP para {lang} não configurado, usando inglês")
-                cls._instances[lang] = spacy.load(Config.NLP_MODELS['en'])
+                logger.warning(
+                    f"Modelo NLP para {lang} não configurado, usando inglês"
+                )
+                cls._instances[lang] = spacy.load(Config.NLP_MODELS["en"])
         return cls._instances[lang]
     
     @classmethod
