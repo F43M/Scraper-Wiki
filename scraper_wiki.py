@@ -923,13 +923,59 @@ class DatasetBuilder:
     
     def save_dataset(self, format: str = 'all', output_dir: str = Config.OUTPUT_DIR):
         os.makedirs(output_dir, exist_ok=True)
-        
+
         if not self.dataset:
             logger.warning("Nenhum dado para salvar")
             return
-        
+
+        # Validação dos registros antes de salvar
+        validated_data = []
+        for item in self.dataset:
+            valid = True
+
+            # Checa se embeddings contêm apenas números finitos
+            if not np.all(np.isfinite(item.get('content_embedding', []))):
+                logger.warning(
+                    f"content_embedding inválido para {item.get('id', 'desconhecido')}"
+                )
+                valid = False
+
+            if not np.all(np.isfinite(item.get('summary_embedding', []))):
+                logger.warning(
+                    f"summary_embedding inválido para {item.get('id', 'desconhecido')}"
+                )
+                valid = False
+
+            # Checa presença de perguntas e respostas
+            if not item.get('questions'):
+                logger.warning(
+                    f"Registro {item.get('id', 'desconhecido')} sem perguntas"
+                )
+                valid = False
+
+            if not item.get('answers'):
+                logger.warning(
+                    f"Registro {item.get('id', 'desconhecido')} sem respostas"
+                )
+                valid = False
+
+            # Verifica tamanho do resumo
+            summary_text = item.get('summary', '')
+            if len(summary_text) < Config.MIN_TEXT_LENGTH:
+                logger.warning(
+                    f"Resumo muito curto para {item.get('id', 'desconhecido')}"
+                )
+                valid = False
+
+            if valid:
+                validated_data.append(item)
+
+        if not validated_data:
+            logger.warning("Nenhum registro válido para salvar")
+            return
+
         # Ordena por idioma e tópico
-        sorted_data = sorted(self.dataset, key=lambda x: (x['language'], x['topic']))
+        sorted_data = sorted(validated_data, key=lambda x: (x['language'], x['topic']))
         
         # Salva em múltiplos formatos
         if format in ['all', 'json']:
