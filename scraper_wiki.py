@@ -93,7 +93,7 @@ class Config:
     MAX_THREADS = int(os.environ.get("MAX_THREADS", multiprocessing.cpu_count() * 2))
     MAX_PROCESSES = int(os.environ.get("MAX_PROCESSES", multiprocessing.cpu_count()))
     RETRIES = 5
-    TIMEOUT = 30
+    TIMEOUT = 10
     RATE_LIMIT_DELAY = float(os.environ.get("RATE_LIMIT_DELAY", 0.5))
     MAX_PAGES_PER_CATEGORY = 1000
     MIN_TEXT_LENGTH = 150  # mínimo de caracteres para considerar uma página
@@ -304,6 +304,16 @@ def setup_logger(name, log_file, level: int = logging.INFO, fmt: str = "text"):
     return logger
 
 logger = setup_logger('wiki_scraper', 'scraper.log')
+
+
+def log_failed_url(url: str) -> None:
+    """Append a failing URL to ``failed_urls.log`` within :data:`Config.LOG_DIR`."""
+    try:
+        os.makedirs(Config.LOG_DIR, exist_ok=True)
+        with open(os.path.join(Config.LOG_DIR, 'failed_urls.log'), 'a') as fh:
+            fh.write(f"{url}\n")
+    except Exception:
+        pass
 
 # ============================
 # 🧠 Cache Inteligente
@@ -669,9 +679,7 @@ async def fetch_with_retry(url: str, *, params: dict | None = None,
     try:
         return await _retry()
     except Exception:
-        os.makedirs(Config.LOG_DIR, exist_ok=True)
-        with open(os.path.join(Config.LOG_DIR, 'failed_urls.log'), 'a') as fh:
-            fh.write(f"{url}\n")
+        log_failed_url(url)
         raise
 
 def fetch_html_content(title: str, lang: str) -> str:
@@ -789,6 +797,7 @@ class WikipediaAdvanced:
         except Exception as e:
             rate_limiter.record_error()
             logger.error(f"Erro ao buscar página {page_title}: {e}")
+            log_failed_url(self.wiki.api.article_url(page_title))
             raise
         
         return None
@@ -851,6 +860,7 @@ class WikipediaAdvanced:
             return links
         except Exception as e:
             logger.error(f"Erro ao buscar páginas relacionadas para {page_title}: {e}")
+            log_failed_url(f"https://{self.lang}.wikipedia.org/w/api.php")
             fallback = cache.get(cache_key)
             if fallback is not None:
                 return fallback
