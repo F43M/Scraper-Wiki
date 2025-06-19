@@ -21,7 +21,7 @@ from bs4 import BeautifulSoup
 import requests
 from urllib.parse import urlparse
 import html2text
-from typing import List, Dict, Tuple, Optional, Set
+from typing import List, Dict, Tuple, Optional, Set, Protocol
 from datetime import datetime
 import multiprocessing
 import signal
@@ -34,6 +34,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sumy.parsers.plaintext import PlaintextParser
 from sumy.nlp.tokenizers import Tokenizer
 from sumy.summarizers.lsa import LsaSummarizer
+import sqlite3
 
 # ============================
 # 🔧 Configurações Avançadas
@@ -109,6 +110,11 @@ class Config:
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:89.0) Gecko/20100101 Firefox/89.0',
         'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Safari/605.1.15'
     ]
+
+    # Backend de cache: 'file' (padrão), 'redis' ou 'sqlite'
+    CACHE_BACKEND = 'file'
+    REDIS_URL = 'redis://localhost:6379/0'
+    SQLITE_PATH = os.path.join(CACHE_DIR, 'cache.sqlite')
     
     @classmethod
     def get_random_user_agent(cls):
@@ -160,16 +166,28 @@ logger = setup_logger('wiki_scraper', 'scraper.log')
 # ============================
 # 🧠 Cache Inteligente
 # ============================
-class SmartCache:
+
+class CacheBackend(Protocol):
+    def get(self, key: str):
+        ...
+
+    def set(self, key: str, data):
+        ...
+
+    def stats(self) -> dict:
+        ...
+
+
+class FileCache(CacheBackend):
     def __init__(self):
         os.makedirs(Config.CACHE_DIR, exist_ok=True)
         self.hits = 0
         self.misses = 0
-    
+
     def _get_cache_path(self, key: str) -> str:
         hash_key = hashlib.md5(key.encode('utf-8')).hexdigest()
         return os.path.join(Config.CACHE_DIR, f"{hash_key}.pkl.gz")
-    
+
     @backoff.on_exception(backoff.expo, Exception, max_tries=3)
     def get(self, key: str):
         cache_file = self._get_cache_path(key)
@@ -183,10 +201,10 @@ class SmartCache:
             except Exception as e:
                 logger.warning(f"Erro ao ler cache {key}: {e}")
                 os.remove(cache_file)
-        
+
         self.misses += 1
         return None
-    
+
     @backoff.on_exception(backoff.expo, Exception, max_tries=3)
     def set(self, key: str, data):
         cache_file = self._get_cache_path(key)
@@ -200,7 +218,7 @@ class SmartCache:
             logger.error(f"Erro ao salvar cache {key}: {e}")
             if os.path.exists(temp_file):
                 os.remove(temp_file)
-    
+
     def stats(self) -> dict:
         return {
             'hits': self.hits,
@@ -208,7 +226,94 @@ class SmartCache:
             'hit_rate': self.hits / (self.hits + self.misses) if (self.hits + self.misses) > 0 else 0
         }
 
-cache = SmartCache()
+
+class RedisCache(CacheBackend):
+    def __init__(self, url: str):
+        try:
+            import redis  # type: ignore
+        except Exception as exc:  # pragma: no cover - import error
+            raise ImportError("redis package required for RedisCache") from exc
+
+        self.client = redis.Redis.from_url(url)
+        self.hits = 0
+        self.misses = 0
+
+    def get(self, key: str):
+        val = self.client.get(key)
+        if val is not None:
+            try:
+                data = pickle.loads(zlib.decompress(val))
+            except Exception:
+                self.client.delete(key)
+                self.misses += 1
+                return None
+            self.hits += 1
+            return data
+        self.misses += 1
+        return None
+
+    def set(self, key: str, data):
+        val = zlib.compress(pickle.dumps(data))
+        self.client.set(key, val)
+
+    def stats(self) -> dict:
+        return {
+            'hits': self.hits,
+            'misses': self.misses,
+            'hit_rate': self.hits / (self.hits + self.misses) if (self.hits + self.misses) > 0 else 0
+        }
+
+
+class SQLiteCache(CacheBackend):
+    def __init__(self, path: str):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        self.conn = sqlite3.connect(path, check_same_thread=False)
+        self.conn.execute(
+            "CREATE TABLE IF NOT EXISTS cache (key TEXT PRIMARY KEY, value BLOB)"
+        )
+        self.hits = 0
+        self.misses = 0
+
+    def get(self, key: str):
+        cur = self.conn.execute("SELECT value FROM cache WHERE key=?", (key,))
+        row = cur.fetchone()
+        if row:
+            try:
+                data = pickle.loads(zlib.decompress(row[0]))
+            except Exception:
+                self.conn.execute("DELETE FROM cache WHERE key=?", (key,))
+                self.conn.commit()
+                self.misses += 1
+                return None
+            self.hits += 1
+            return data
+        self.misses += 1
+        return None
+
+    def set(self, key: str, data):
+        val = zlib.compress(pickle.dumps(data))
+        self.conn.execute(
+            "REPLACE INTO cache (key, value) VALUES (?, ?)", (key, val)
+        )
+        self.conn.commit()
+
+    def stats(self) -> dict:
+        return {
+            'hits': self.hits,
+            'misses': self.misses,
+            'hit_rate': self.hits / (self.hits + self.misses) if (self.hits + self.misses) > 0 else 0
+        }
+
+
+def init_cache() -> CacheBackend:
+    if Config.CACHE_BACKEND == 'redis':
+        return RedisCache(Config.REDIS_URL)
+    if Config.CACHE_BACKEND == 'sqlite':
+        return SQLiteCache(Config.SQLITE_PATH)
+    return FileCache()
+
+
+cache: CacheBackend = init_cache()
 
 # ============================
 # 🔍 Funções Avançadas de NLP
