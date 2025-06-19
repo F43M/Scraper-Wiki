@@ -14,3 +14,6 @@ sumy
 pyarrow
 fastapi
 uvicorn
+
+streamlit
+psutil
