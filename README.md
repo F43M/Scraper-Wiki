@@ -85,6 +85,12 @@ Controle o número de threads e processos utilizados pelo scraper com as opçõe
 `--max-threads` e `--max-processes`. Esses valores também podem ser definidos
 pelas variáveis de ambiente `MAX_THREADS` e `MAX_PROCESSES`.
 
+### URLs base personalizadas
+
+O módulo `scraper_wiki.py` define o dicionário `BASE_URLS` com os domínios
+principais para cada idioma. A função `get_base_url(lang)` consulta esse mapa e
+retorna `"https://{lang}.wikipedia.org"` quando o idioma não está definido.
+
 ### Armazenamento
 
 Escolha onde salvar os datasets com `--storage-backend` ou variável `STORAGE_BACKEND`.
