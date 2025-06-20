@@ -288,3 +288,20 @@ emb = json.load(open('datasets_wikipedia_pro/wikipedia_qa_embeddings.json'))
 emb_tensor = tf.constant([e['embedding'] for e in emb])
 print(emb_tensor.shape)
 ```
+
+## Docker
+
+Para executar a API e o worker em contêineres, primeiro construa a imagem base:
+
+```bash
+docker build -t scraper-api .
+```
+
+Em seguida utilize o `docker-compose.yml` para subir os serviços (API, worker e opcionalmente RabbitMQ):
+
+```bash
+docker-compose up
+```
+
+As imagens podem ser publicadas em um registro e implantadas em plataformas como Kubernetes ou AWS ECS para execução em escala.
+

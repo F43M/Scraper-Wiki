@@ -148,3 +148,9 @@ async def graphql_endpoint(request: Request):
     body = await request.json()
     result = schema.execute(body.get("query"), variable_values=body.get("variables"))
     return JSONResponse(result.data)
+
+
+@app.get("/health")
+async def health_check():
+    """Basic health check endpoint used by containers and load balancers."""
+    return {"status": "ok"}
