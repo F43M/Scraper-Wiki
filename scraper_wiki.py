@@ -691,36 +691,41 @@ def extract_links(html: str, base_url: str) -> List[str]:
         return []
 
 
-async def fetch_with_retry(url: str, *, params: dict | None = None,
-                           headers: dict | None = None) -> tuple[int, str]:
-    """Fetch a URL with retries on 5xx errors."""
+async def fetch_with_retry(
+    url: str,
+    *,
+    params: dict | None = None,
+    headers: dict | None = None,
+    retries: int = Config.RETRIES,
+) -> tuple[int, str]:
+    """Fetch a URL using ``aiohttp`` with automatic retries and logging."""
 
-    async def _request() -> tuple[int, str]:
-        timeout = aiohttp.ClientTimeout(total=10)
-        async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.get(url, params=params, headers=headers) as resp:
-                if resp.status == 429:
-                    metrics.scrape_block.inc()
-                if 500 <= resp.status < 600:
-                    raise aiohttp.ClientResponseError(
-                        resp.request_info, resp.history,
-                        status=resp.status, message=resp.reason,
-                        headers=resp.headers,
-                    )
-                resp.raise_for_status()
-                return resp.status, await resp.text()
-
-    @backoff.on_exception(backoff.expo, aiohttp.ClientError,
-                         max_tries=Config.RETRIES)
-    async def _retry():
-        return await _request()
-
-    try:
-        return await _retry()
-    except Exception:
-        log_failed_url(url)
-        metrics.requests_failed_total.inc()
-        raise
+    for attempt in range(1, retries + 1):
+        try:
+            timeout = aiohttp.ClientTimeout(total=Config.TIMEOUT)
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.get(url, params=params, headers=headers) as resp:
+                    if resp.status == 429:
+                        metrics.scrape_block.inc()
+                    if 500 <= resp.status < 600:
+                        raise aiohttp.ClientResponseError(
+                            resp.request_info,
+                            resp.history,
+                            status=resp.status,
+                            message=resp.reason,
+                            headers=resp.headers,
+                        )
+                    resp.raise_for_status()
+                    return resp.status, await resp.text()
+        except Exception as e:
+            logger.warning(
+                f"Attempt {attempt} failed for {url}: {e}")
+            if attempt < retries:
+                await asyncio.sleep(2)
+            else:
+                log_failed_url(url)
+                metrics.requests_failed_total.inc()
+                raise
 
 def fetch_html_content(title: str, lang: str) -> str:
     """Retrieve the raw HTML for a Wikipedia page using the REST API."""
