@@ -120,6 +120,38 @@ def test_extract_main_content():
     assert 'content' in result and 'table' not in result
 
 
+def test_extract_links_basic():
+    html = (
+        '<a href="/wiki/Page1">P1</a>'
+        '<a href="https://example.com/wiki/Page2">P2</a>'
+        '<a href="/other/Page3">P3</a>'
+        '<a href="/wiki/Page4">P4</a>'
+    )
+    base = 'https://en.wikipedia.org'
+    links = sw.extract_links(html, base)
+    assert links == [
+        'https://en.wikipedia.org/wiki/Page1',
+        'https://example.com/wiki/Page2',
+        'https://en.wikipedia.org/wiki/Page4',
+    ]
+
+
+def test_get_links_from_category_page(monkeypatch):
+    sample_html = '<a href="/wiki/Page">P</a>'
+    called = {}
+
+    def fake_fetch(title, lang):
+        called['args'] = (title, lang)
+        return sample_html
+
+    monkeypatch.setattr(sw, 'fetch_html_content', fake_fetch)
+    wiki = sw.WikipediaAdvanced('en')
+    links = wiki.get_links_from_category_page('Test')
+
+    assert called['args'] == ('Category:Test', 'en')
+    assert links == ['https://en.wikipedia.org/wiki/Page']
+
+
 def test_nlp_triple_fallback(monkeypatch):
     import importlib
 
