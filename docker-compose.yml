@@ -1,0 +1,23 @@
+version: '3.9'
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - QUEUE_URL=amqp://guest:guest@rabbitmq:5672/
+    depends_on:
+      - rabbitmq
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    environment:
+      - QUEUE_URL=amqp://guest:guest@rabbitmq:5672/
+    depends_on:
+      - rabbitmq
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
