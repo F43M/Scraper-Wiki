@@ -896,3 +896,68 @@ def test_fetch_with_retry_failure_increments_counter(monkeypatch):
         asyncio.run(sw.fetch_with_retry('http://x'))
 
     assert calls['fail'] == 1
+
+
+def test_rate_limiter_reset_after_success():
+    rl = sw.RateLimiter(0.1)
+    rl.record_error()
+    assert rl.consecutive_failures == 1
+    rl.record_success()
+    assert rl.consecutive_failures == 0
+    assert rl.min_delay == rl.base_min
+
+
+def test_fetch_with_retry_429_increases_delay(monkeypatch):
+    import asyncio
+    rl = sw.RateLimiter(0.1)
+    monkeypatch.setattr(sw, 'rate_limiter', rl)
+
+    class DummyError(Exception):
+        def __init__(self, status):
+            super().__init__()
+            self.status = status
+
+    monkeypatch.setattr(sw.aiohttp, 'ClientResponseError', DummyError)
+
+    class DummyResp:
+        status = 429
+        request_info = history = headers = None
+        reason = 'Too Many'
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            pass
+
+        async def text(self):
+            return ''
+
+        def raise_for_status(self):
+            raise sw.aiohttp.ClientResponseError(self.status)
+
+    class DummySession:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            pass
+
+        def get(self, *a, **k):
+            return DummyResp()
+
+    monkeypatch.setattr(sw.aiohttp, 'ClientSession', lambda *a, **k: DummySession())
+    monkeypatch.setattr(sw.aiohttp, 'ClientTimeout', lambda *a, **k: None)
+    monkeypatch.setattr(sw, 'log_failed_url', lambda url: None)
+    monkeypatch.setattr(sw, 'metrics', SimpleNamespace(
+        scrape_block=SimpleNamespace(inc=lambda: None),
+        requests_failed_total=SimpleNamespace(inc=lambda: None),
+    ))
+
+    import pytest
+
+    with pytest.raises(sw.aiohttp.ClientResponseError):
+        asyncio.run(sw.fetch_with_retry('http://x', retries=1))
+
+    assert rl.consecutive_failures == 1
+    assert rl.min_delay == 0.2

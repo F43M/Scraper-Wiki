@@ -175,6 +175,7 @@ class RateLimiter:
         self.base_max = max_delay
         self.min_delay = min_delay
         self.max_delay = max_delay
+        self.consecutive_failures = 0
 
     def _sample_delay(self) -> float:
         return random.uniform(self.min_delay, self.max_delay)
@@ -186,10 +187,15 @@ class RateLimiter:
         await asyncio.sleep(self._sample_delay())
 
     def record_error(self):
+        self.consecutive_failures += 1
         self.min_delay *= 2
         self.max_delay *= 2
 
+    def record_success(self):
+        self.reset()
+
     def reset(self):
+        self.consecutive_failures = 0
         self.min_delay = self.base_min
         self.max_delay = self.base_max
 
@@ -785,16 +791,30 @@ async def fetch_with_retry(
                             headers=resp.headers,
                         )
                     resp.raise_for_status()
+                    rate_limiter.record_success()
                     return resp.status, await resp.text()
+        except aiohttp.ClientResponseError as e:
+            if getattr(e, 'status', None) == 429:
+                logger.warning(f"HTTP 429 for {url}, backing off")
+                rate_limiter.record_error()
+            else:
+                logger.warning(
+                    f"Attempt {attempt} failed for {url}: {e}")
+            exc = e
+        except asyncio.TimeoutError as e:
+            logger.warning(f"Timeout while fetching {url}")
+            rate_limiter.record_error()
+            exc = e
         except Exception as e:
             logger.warning(
                 f"Attempt {attempt} failed for {url}: {e}")
-            if attempt < retries:
-                await asyncio.sleep(2)
-            else:
-                log_failed_url(url)
-                metrics.requests_failed_total.inc()
-                raise
+            exc = e
+        if attempt < retries:
+            await asyncio.sleep(2)
+        else:
+            log_failed_url(url)
+            metrics.requests_failed_total.inc()
+            raise exc
 
 def fetch_html_content(title: str, lang: str) -> str:
     """Retrieve the raw HTML for a Wikipedia page using the REST API."""
