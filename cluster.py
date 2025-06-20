@@ -26,7 +26,21 @@ def get_client(config: dict | None = None):
         try:
             import ray
             ray.init(address=scheduler)
-            return ray
+
+            class _RayFuture:
+                def __init__(self, ref):
+                    self._ref = ref
+
+                def result(self):
+                    return ray.get(self._ref)
+
+            class _RayClient:
+                def submit(self, fn, *args, **kwargs):
+                    remote_fn = ray.remote(fn)
+                    ref = remote_fn.remote(*args, **kwargs)
+                    return _RayFuture(ref)
+
+            return _RayClient()
         except Exception:
             raise RuntimeError('Ray not available')
     return None

@@ -52,16 +52,22 @@ def scrape(
         "--plugin",
         help="Plugin de scraping (wikipedia, infobox_parser, table_parser)",
     ),
+    distributed: bool = typer.Option(False, "--distributed", help="Usa cluster distribuído", is_flag=True),
     train: bool = typer.Option(False, "--train", help="Executa conversões para treinamento"),
 ):
     """Executa o scraper imediatamente."""
     cats = [scraper_wiki.normalize_category(c) or c for c in category] if category else None
+    client = None
+    if distributed:
+        from cluster import get_client
+        client = get_client()
+
     if plugin == "wikipedia":
         if async_mode:
             import asyncio
             asyncio.run(scraper_wiki.main_async(lang, cats, fmt, rate_limit_delay))
         else:
-            scraper_wiki.main(lang, cats, fmt, rate_limit_delay)
+            scraper_wiki.main(lang, cats, fmt, rate_limit_delay, client=client)
         dataset_file = Path(scraper_wiki.Config.OUTPUT_DIR) / "wikipedia_qa.json"
         if dataset_file.exists():
             data = json.loads(dataset_file.read_text(encoding="utf-8"))

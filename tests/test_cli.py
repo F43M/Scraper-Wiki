@@ -115,25 +115,34 @@ def test_queue_command_jsonl(tmp_path, monkeypatch):
 def test_scrape_command(monkeypatch):
     called = {}
 
-    def fake_main(lang, category, fmt, rate_limit_delay=None):
-        called["args"] = {"lang": lang, "category": category, "fmt": fmt, "delay": rate_limit_delay}
+    def fake_main(lang, category, fmt, rate_limit_delay=None, client=None):
+        called["args"] = {
+            "lang": lang,
+            "category": category,
+            "fmt": fmt,
+            "delay": rate_limit_delay,
+        }
 
     monkeypatch.setattr(cli.scraper_wiki, "main", fake_main)
     runner = CliRunner()
-    result = runner.invoke(cli.app, [
-        "scrape", "--lang", "pt", "--category", "AI", "--format", "csv"
-    ])
+    result = runner.invoke(
+        cli.app,
+        ["scrape", "--lang", "pt", "--category", "AI", "--format", "csv"],
+    )
 
     assert result.exit_code == 0
     assert called["args"] == {
-        "lang": ["pt"], "category": ["AI"], "fmt": "csv", "delay": None
+        "lang": ["pt"],
+        "category": ["AI"],
+        "fmt": "csv",
+        "delay": None,
     }
 
 
 def test_scrape_command_with_delay(monkeypatch):
     called = {}
 
-    def fake_main(lang, category, fmt, rate_limit_delay=None):
+    def fake_main(lang, category, fmt, rate_limit_delay=None, client=None):
         called["args"] = {
             "lang": lang,
             "category": category,
@@ -215,7 +224,7 @@ def test_parallelism_options(monkeypatch):
 def test_scrape_with_training_option(monkeypatch, tmp_path):
     called = {}
 
-    def fake_main(lang, category, fmt, rate_limit_delay=None):
+    def fake_main(lang, category, fmt, rate_limit_delay=None, client=None):
         called["scrape"] = True
 
     def fake_run(path):
@@ -233,3 +242,24 @@ def test_scrape_with_training_option(monkeypatch, tmp_path):
     result = runner.invoke(cli.app, ["scrape", "--lang", "pt", "--train"])
     assert result.exit_code == 0
     assert called.get("train")
+
+
+def test_scrape_distributed(monkeypatch):
+    fake_future = SimpleNamespace(result=lambda: None)
+
+    class FakeClient:
+        def submit(self, fn, *a, **k):
+            return fake_future
+
+    captured = {}
+
+    def fake_main(lang, category, fmt, rate_limit_delay=None, client=None):
+        captured["client"] = client
+
+    import cluster
+    monkeypatch.setattr(cluster, "get_client", lambda: FakeClient())
+    monkeypatch.setattr(cli.scraper_wiki, "main", fake_main)
+    runner = CliRunner()
+    result = runner.invoke(cli.app, ["scrape", "--distributed"])
+    assert result.exit_code == 0
+    assert captured["client"]
