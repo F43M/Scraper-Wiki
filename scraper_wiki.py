@@ -1096,6 +1096,124 @@ class WikipediaAdvanced:
 
         return members
 
+    def crawl_links(
+        self,
+        start_page: str,
+        depth: int = 1,
+        visited: Optional[Set[str]] = None,
+    ) -> List[dict]:
+        """Breadth-first crawl of ``/wiki/`` links starting from ``start_page``.
+
+        Parameters
+        ----------
+        start_page: str
+            Title of the initial page to crawl.
+        depth: int
+            Maximum link depth to follow.
+        visited: Optional[Set[str]]
+            Optional set of already visited titles to avoid repeats.
+
+        Returns
+        -------
+        List[dict]
+            List of pages in the same format as :meth:`get_category_members`.
+        """
+        if visited is None:
+            visited = set()
+
+        queue: List[Tuple[str, int]] = [(start_page, 0)]
+        results: List[dict] = []
+        base_url = get_base_url(self.lang)
+
+        while queue and len(results) < Config.MAX_PAGES_PER_CATEGORY:
+            current, cur_depth = queue.pop(0)
+            if current in visited:
+                continue
+            visited.add(current)
+
+            try:
+                html = fetch_html_content(current, self.lang)
+                links = extract_links(html, base_url)
+            except Exception as e:
+                logger.error(f"Erro ao rastrear links de {current}: {e}")
+                continue
+
+            for link in links:
+                if len(results) >= Config.MAX_PAGES_PER_CATEGORY:
+                    break
+                parsed = urlparse(link)
+                if "/wiki/" not in parsed.path:
+                    continue
+                title = parsed.path.split("/wiki/")[-1]
+                title = requests.utils.unquote(title).replace("_", " ")
+                if title in visited:
+                    continue
+                results.append(
+                    {
+                        "title": title,
+                        "url": link,
+                        "lang": self.lang,
+                        "category": start_page,
+                        "depth": cur_depth,
+                    }
+                )
+                if cur_depth < depth:
+                    queue.append((title, cur_depth + 1))
+
+        return results
+
+    async def crawl_links_async(
+        self,
+        start_page: str,
+        depth: int = 1,
+        visited: Optional[Set[str]] = None,
+    ) -> List[dict]:
+        """Asynchronous version of :meth:`crawl_links`."""
+
+        if visited is None:
+            visited = set()
+
+        queue: List[Tuple[str, int]] = [(start_page, 0)]
+        results: List[dict] = []
+        base_url = get_base_url(self.lang)
+
+        while queue and len(results) < Config.MAX_PAGES_PER_CATEGORY:
+            current, cur_depth = queue.pop(0)
+            if current in visited:
+                continue
+            visited.add(current)
+
+            try:
+                html = await fetch_html_content_async(current, self.lang)
+                links = extract_links(html, base_url)
+            except Exception as e:
+                logger.error(f"Erro ao rastrear links de {current}: {e}")
+                continue
+
+            for link in links:
+                if len(results) >= Config.MAX_PAGES_PER_CATEGORY:
+                    break
+                parsed = urlparse(link)
+                if "/wiki/" not in parsed.path:
+                    continue
+                title = parsed.path.split("/wiki/")[-1]
+                title = requests.utils.unquote(title).replace("_", " ")
+                if title in visited:
+                    continue
+                results.append(
+                    {
+                        "title": title,
+                        "url": link,
+                        "lang": self.lang,
+                        "category": start_page,
+                        "depth": cur_depth,
+                    }
+                )
+                if cur_depth < depth:
+                    queue.append((title, cur_depth + 1))
+
+        return results
+
 # ============================
 # 🏗️ Builder de Dataset Profissional
 # ============================
