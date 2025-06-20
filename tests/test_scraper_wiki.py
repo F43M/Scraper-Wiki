@@ -169,6 +169,76 @@ def test_get_links_from_category_page(monkeypatch):
     assert links == [f"{sw.get_base_url('en')}/wiki/Page"]
 
 
+def test_crawl_links_basic(monkeypatch):
+    mapping = {
+        'Start': ['P1', 'P2'],
+        'P1': ['P3'],
+        'P2': ['P4'],
+    }
+
+    def fake_fetch(title, lang):
+        return title
+
+    def fake_extract(html, base):
+        return [f"{base}/wiki/{p}" for p in mapping.get(html, [])]
+
+    monkeypatch.setattr(sw, 'fetch_html_content', fake_fetch)
+    monkeypatch.setattr(sw, 'extract_links', fake_extract)
+
+    wiki = sw.WikipediaAdvanced('en')
+    result = wiki.crawl_links('Start', depth=1)
+    base = sw.get_base_url('en')
+    assert result == [
+        {'title': 'P1', 'url': f'{base}/wiki/P1', 'lang': 'en', 'category': 'Start', 'depth': 0},
+        {'title': 'P2', 'url': f'{base}/wiki/P2', 'lang': 'en', 'category': 'Start', 'depth': 0},
+        {'title': 'P3', 'url': f'{base}/wiki/P3', 'lang': 'en', 'category': 'Start', 'depth': 1},
+        {'title': 'P4', 'url': f'{base}/wiki/P4', 'lang': 'en', 'category': 'Start', 'depth': 1},
+    ]
+
+
+def test_crawl_links_async(monkeypatch):
+    mapping = {
+        'Start': ['P1'],
+        'P1': ['P2'],
+    }
+
+    async def fake_fetch_async(title, lang):
+        return title
+
+    def fake_extract(html, base):
+        return [f"{base}/wiki/{p}" for p in mapping.get(html, [])]
+
+    monkeypatch.setattr(sw, 'fetch_html_content_async', fake_fetch_async)
+    monkeypatch.setattr(sw, 'extract_links', fake_extract)
+
+    wiki = sw.WikipediaAdvanced('en')
+    import asyncio as aio
+    result = aio.run(wiki.crawl_links_async('Start', depth=1))
+    base = sw.get_base_url('en')
+    assert result == [
+        {'title': 'P1', 'url': f'{base}/wiki/P1', 'lang': 'en', 'category': 'Start', 'depth': 0},
+        {'title': 'P2', 'url': f'{base}/wiki/P2', 'lang': 'en', 'category': 'Start', 'depth': 1},
+    ]
+
+
+def test_crawl_links_respects_limit(monkeypatch):
+    mapping = {'A': ['B', 'C', 'D']}
+
+    def fake_fetch(title, lang):
+        return title
+
+    def fake_extract(html, base):
+        return [f"{base}/wiki/{p}" for p in mapping.get(html, [])]
+
+    monkeypatch.setattr(sw, 'fetch_html_content', fake_fetch)
+    monkeypatch.setattr(sw, 'extract_links', fake_extract)
+    monkeypatch.setattr(sw.Config, 'MAX_PAGES_PER_CATEGORY', 2)
+
+    wiki = sw.WikipediaAdvanced('en')
+    result = wiki.crawl_links('A')
+    assert len(result) == 2
+
+
 def test_nlp_triple_fallback(monkeypatch):
     import importlib
 
