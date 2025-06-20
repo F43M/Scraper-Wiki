@@ -19,6 +19,11 @@ class LocalStorage(StorageBackend):
             json_file = os.path.join(self.output_dir, 'wikipedia_qa.json')
             with open(json_file, 'w', encoding='utf-8') as f:
                 json.dump(data, f, ensure_ascii=False, indent=4)
+        if fmt in ['all', 'jsonl']:
+            jsonl_file = os.path.join(self.output_dir, 'wikipedia_qa.jsonl')
+            with open(jsonl_file, 'w', encoding='utf-8') as f:
+                for row in data:
+                    f.write(json.dumps(row, ensure_ascii=False) + '\n')
         if fmt in ['all', 'csv']:
             csv_file = os.path.join(self.output_dir, 'wikipedia_qa.csv')
             with open(csv_file, 'w', newline='', encoding='utf-8') as f:
@@ -57,6 +62,13 @@ class S3Storage(StorageBackend):
         if fmt in ['all', 'json']:
             body = json.dumps(data, ensure_ascii=False, indent=4).encode('utf-8')
             self.s3.put_object(Bucket=self.bucket, Key=self._key('wikipedia_qa.json'), Body=body)
+        if fmt in ['all', 'jsonl']:
+            lines = '\n'.join(json.dumps(row, ensure_ascii=False) for row in data)
+            self.s3.put_object(
+                Bucket=self.bucket,
+                Key=self._key('wikipedia_qa.jsonl'),
+                Body=lines.encode('utf-8'),
+            )
         if fmt in ['all', 'csv']:
             import io
             buffer = io.StringIO()

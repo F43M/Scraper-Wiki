@@ -18,6 +18,11 @@ Utilize o script `cli.py` para interagir com o scraper. Para executar uma coleta
 ```bash
 python cli.py scrape --lang pt --category "Programação" --format json
 ```
+Para gerar um arquivo no formato JSON Lines basta usar `--format jsonl`:
+
+```bash
+python cli.py scrape --lang pt --category "Programação" --format jsonl
+```
 
 É possível repetir `--lang` e `--category` para processar múltiplos valores. Para monitorar o progresso use:
 
@@ -34,7 +39,7 @@ python cli.py queue --lang en --category "Algorithms"
 ### Obter HTML de uma ou mais páginas
 
 O script `main.py` fornece uma interface avançada baseada em **Click**. Ele
-permite escolher o formato de saída (`json`, `csv` ou `parquet`) e também ler
+permite escolher o formato de saída (`json`, `jsonl`, `csv` ou `parquet`) e também ler
 uma lista de URLs de um arquivo para processamento em lote.
 
 ```bash

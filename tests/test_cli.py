@@ -97,6 +97,21 @@ def test_queue_command(tmp_path, monkeypatch):
     assert "en" in queue_content and "Programming" in queue_content and "json" in queue_content
 
 
+def test_queue_command_jsonl(tmp_path, monkeypatch):
+    monkeypatch.setattr(cli, "QUEUE_FILE", tmp_path / "queue.jsonl")
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli.app,
+        ["queue", "--lang", "en", "--category", "Programming", "--format", "jsonl"],
+    )
+
+    assert result.exit_code == 0
+    queue_content = (tmp_path / "queue.jsonl").read_text().strip()
+    assert queue_content
+    assert "jsonl" in queue_content
+
+
 def test_scrape_command(monkeypatch):
     called = {}
 
