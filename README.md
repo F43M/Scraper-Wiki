@@ -182,6 +182,16 @@ python cli.py monitor
 Essa interface lê `logs/progress.json` e exibe o total de páginas processadas, uso de CPU e memória, além dos clusters, tópicos e idiomas atuais.
 Agora o dashboard também consulta `GET /stats` quando disponível para mostrar as estatísticas em tempo real.
 
+O projeto expõe métricas no formato Prometheus atraves da função `metrics.start_metrics_server()`. Estão disponíveis os contadores:
+
+- `scrape_success_total`
+- `scrape_error_total`
+- `scrape_block_total`
+- `pages_scraped_total`
+- `requests_failed_total`
+
+Esses valores podem ser consultados por Prometheus e visualizados em dashboards Grafana para monitorar o scraping.
+
 ## Filas e Workers
 
 O módulo `task_queue.py` abstrai o uso de backends como RabbitMQ. Execute `worker.py`

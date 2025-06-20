@@ -27,12 +27,20 @@ def load_progress():
 
 
 def load_metrics():
-    metrics = {"success": 0, "error": 0, "block": 0}
+    metrics = {
+        "success": 0,
+        "error": 0,
+        "block": 0,
+        "pages": 0,
+        "failures": 0,
+    }
     try:
         for name, key in {
             "success": "scrape_success_total",
             "error": "scrape_error_total",
             "block": "scrape_block_total",
+            "pages": "pages_scraped_total",
+            "failures": "requests_failed_total",
         }.items():
             resp = requests.get(
                 f"{PROM_URL}/api/v1/query",
