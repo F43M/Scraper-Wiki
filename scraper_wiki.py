@@ -143,6 +143,17 @@ class Config:
         return random.choice(cls.USER_AGENTS)
 
 
+BASE_URLS = {
+    "en": "https://en.wikipedia.org",
+    "pt": "https://pt.wikipedia.org",
+}
+
+
+def get_base_url(lang: str) -> str:
+    """Return base Wikipedia URL for a given language."""
+    return BASE_URLS.get(lang, f"https://{lang}.wikipedia.org")
+
+
 class RateLimiter:
     """Simple exponential backoff rate limiter with jitter."""
 
@@ -721,7 +732,7 @@ async def fetch_html_content_async(title: str, lang: str) -> str:
     cache_key = f"html_{lang}_{title}"
     cached = cache.get(cache_key)
 
-    url = f"https://{lang}.wikipedia.org/api/rest_v1/page/html/{title}"
+    url = f"{get_base_url(lang)}/api/rest_v1/page/html/{title}"
     headers = {"User-Agent": Config.get_random_user_agent()}
 
     try:
@@ -745,7 +756,7 @@ def search_category(keyword: str, lang: str) -> Optional[str]:
     if cached is not None:
         return cached
 
-    url = f"https://{lang}.wikipedia.org/w/api.php"
+    url = f"{get_base_url(lang)}/w/api.php"
     params = {
         "action": "query",
         "list": "search",
@@ -852,7 +863,7 @@ class WikipediaAdvanced:
                 f"Category:{category_name}" if self.lang != "pt" else f"Categoria:{category_name}"
             )
             html = fetch_html_content(title, self.lang)
-            base_url = f"https://{self.lang}.wikipedia.org"
+            base_url = get_base_url(self.lang)
             return extract_links(html, base_url)
         except Exception as e:
             logger.error(f"Erro ao obter links da categoria {category_name}: {e}")
@@ -872,7 +883,7 @@ class WikipediaAdvanced:
             max_tries=Config.RETRIES,
         )
         def _request():
-            url = f"https://{self.lang}.wikipedia.org/w/api.php"
+            url = f"{get_base_url(self.lang)}/w/api.php"
             params = {
                 'action': 'query',
                 'titles': page_title,
@@ -903,7 +914,7 @@ class WikipediaAdvanced:
             return links
         except Exception as e:
             logger.error(f"Erro ao buscar páginas relacionadas para {page_title}: {e}")
-            log_failed_url(f"https://{self.lang}.wikipedia.org/w/api.php")
+            log_failed_url(f"{get_base_url(self.lang)}/w/api.php")
             fallback = cache.get(cache_key)
             if fallback is not None:
                 return fallback
@@ -1091,7 +1102,7 @@ class DatasetBuilder:
             'metadata': {
                 'length': len(content),
                 'source': 'wikipedia',
-                'source_url': f"https://{lang}.wikipedia.org/wiki/{title.replace(' ', '_')}"
+                'source_url': f"{get_base_url(lang)}/wiki/{title.replace(' ', '_')}"
             }
         }
         try:

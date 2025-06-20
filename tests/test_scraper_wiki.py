@@ -127,12 +127,12 @@ def test_extract_links_basic():
         '<a href="/other/Page3">P3</a>'
         '<a href="/wiki/Page4">P4</a>'
     )
-    base = 'https://en.wikipedia.org'
+    base = sw.get_base_url('en')
     links = sw.extract_links(html, base)
     assert links == [
-        'https://en.wikipedia.org/wiki/Page1',
+        f"{sw.get_base_url('en')}/wiki/Page1",
         'https://example.com/wiki/Page2',
-        'https://en.wikipedia.org/wiki/Page4',
+        f"{sw.get_base_url('en')}/wiki/Page4",
     ]
 
 
@@ -149,7 +149,7 @@ def test_get_links_from_category_page(monkeypatch):
     links = wiki.get_links_from_category_page('Test')
 
     assert called['args'] == ('Category:Test', 'en')
-    assert links == ['https://en.wikipedia.org/wiki/Page']
+    assert links == [f"{sw.get_base_url('en')}/wiki/Page"]
 
 
 def test_nlp_triple_fallback(monkeypatch):
