@@ -719,6 +719,7 @@ async def fetch_with_retry(url: str, *, params: dict | None = None,
         return await _retry()
     except Exception:
         log_failed_url(url)
+        metrics.requests_failed_total.inc()
         raise
 
 def fetch_html_content(title: str, lang: str) -> str:
@@ -1051,6 +1052,7 @@ class DatasetBuilder:
                 category=page_info.get('category', '')
             )
             metrics.scrape_success.inc()
+            metrics.pages_scraped_total.inc()
             return qa_data
         except Exception as e:
             metrics.scrape_error.inc()

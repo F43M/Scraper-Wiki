@@ -276,7 +276,12 @@ def test_process_page_uses_clean_text(monkeypatch):
     monkeypatch.setattr(sw, 'advanced_clean_text', fake_adv)
     monkeypatch.setattr(sw, 'summarize_text', lambda *a, **k: '')
     monkeypatch.setattr(sw.DatasetBuilder, 'generate_qa_pairs', lambda *a, **k: {})
-    monkeypatch.setattr(sw, 'metrics', SimpleNamespace(scrape_success=SimpleNamespace(inc=lambda: None), scrape_error=SimpleNamespace(inc=lambda: None)))
+    monkeypatch.setattr(sw, 'metrics', SimpleNamespace(
+        scrape_success=SimpleNamespace(inc=lambda: None),
+        scrape_error=SimpleNamespace(inc=lambda: None),
+        pages_scraped_total=SimpleNamespace(inc=lambda: None),
+        requests_failed_total=SimpleNamespace(inc=lambda: None),
+    ))
 
     builder = sw.DatasetBuilder()
     res = builder.process_page({'title': 'T', 'lang': 'en'})
@@ -284,6 +289,43 @@ def test_process_page_uses_clean_text(monkeypatch):
     assert res == {}
     assert called['clean'] == 'raw text'
     assert called['adv'] == 'cleaned'
+
+
+def test_process_page_increments_counter(monkeypatch):
+    class DummyPage:
+        text = 't' * 200
+        def exists(self):
+            return True
+
+    class DummyWiki:
+        def __init__(self, lang):
+            pass
+        def fetch_page(self, title):
+            return DummyPage()
+
+    counts = {'pages': 0}
+
+    def inc_pages():
+        counts['pages'] += 1
+
+    monkeypatch.setattr(sw.Config, 'MIN_TEXT_LENGTH', 10)
+    monkeypatch.setattr(sw, 'WikipediaAdvanced', DummyWiki)
+    monkeypatch.setattr(sw, 'clean_text', lambda t: t)
+    monkeypatch.setattr(sw, 'advanced_clean_text', lambda t, lang: t)
+    monkeypatch.setattr(sw, 'summarize_text', lambda *a, **k: '')
+    monkeypatch.setattr(sw.DatasetBuilder, 'generate_qa_pairs', lambda *a, **k: {'ok': True})
+    monkeypatch.setattr(sw, 'metrics', SimpleNamespace(
+        scrape_success=SimpleNamespace(inc=lambda: None),
+        scrape_error=SimpleNamespace(inc=lambda: None),
+        pages_scraped_total=SimpleNamespace(inc=inc_pages),
+        requests_failed_total=SimpleNamespace(inc=lambda: None),
+    ))
+
+    builder = sw.DatasetBuilder()
+    res = builder.process_page({'title': 'T', 'lang': 'en'})
+
+    assert res == {'ok': True}
+    assert counts['pages'] == 1
 
 
 def test_save_dataset_json_csv(tmp_path, monkeypatch):
@@ -599,3 +641,47 @@ def test_rate_limiter_range_and_async(monkeypatch):
 
     assert recorded_sync == [0.2]
     assert recorded_async == [0.2]
+
+
+def test_fetch_with_retry_failure_increments_counter(monkeypatch):
+    import asyncio
+    class DummyResp:
+        async def __aenter__(self):
+            raise sw.aiohttp.ClientError('fail')
+
+        async def __aexit__(self, exc_type, exc, tb):
+            pass
+
+    class DummySession:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            pass
+
+        def get(self, *a, **k):
+            return DummyResp()
+
+    calls = {'fail': 0}
+
+    class Marker(Exception):
+        pass
+
+    def inc_fail():
+        calls['fail'] += 1
+        raise Marker
+
+    monkeypatch.setattr(sw.aiohttp, 'ClientSession', lambda *a, **k: DummySession())
+    monkeypatch.setattr(sw.aiohttp, 'ClientTimeout', lambda *a, **k: None)
+    monkeypatch.setattr(sw, 'log_failed_url', lambda url: None)
+    monkeypatch.setattr(sw, 'metrics', SimpleNamespace(
+        scrape_block=SimpleNamespace(inc=lambda: None),
+        requests_failed_total=SimpleNamespace(inc=inc_fail),
+    ))
+
+    import pytest
+
+    with pytest.raises(Marker):
+        asyncio.run(sw.fetch_with_retry('http://x'))
+
+    assert calls['fail'] == 1

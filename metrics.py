@@ -15,6 +15,18 @@ scrape_block = Counter(
     "Total de bloqueios durante a raspagem"
 )
 
+# Total de registros de QA gerados com sucesso
+pages_scraped_total = Counter(
+    "pages_scraped_total",
+    "Pages successfully scraped"
+)
+
+# Falhas ao executar requisições HTTP
+requests_failed_total = Counter(
+    "requests_failed_total",
+    "HTTP request failures"
+)
+
 
 def start_metrics_server(port: int = 8001) -> None:
     """Inicia o servidor de métricas para Prometheus."""
