@@ -152,7 +152,11 @@ def test_fetch_html_content_success(monkeypatch):
     async def fake_fetch(url, headers=None, **kw):
         return 200, '<html></html>'
 
+    async def fake_sleep(d):
+        pass
+
     monkeypatch.setattr(sw, 'fetch_with_retry', fake_fetch)
+    monkeypatch.setattr(sw.asyncio, 'sleep', fake_sleep)
     result = sw.fetch_html_content('Any', 'en')
     assert result == '<html></html>'
 
@@ -168,7 +172,11 @@ def test_fetch_html_content_error(monkeypatch):
     async def fake_fetch(*a, **k):
         raise Exception('fail')
 
+    async def fake_sleep(d):
+        pass
+
     monkeypatch.setattr(sw, 'fetch_with_retry', fake_fetch)
+    monkeypatch.setattr(sw.asyncio, 'sleep', fake_sleep)
     result = sw.fetch_html_content('Any', 'en')
     assert result == ''
 
@@ -283,7 +291,11 @@ def test_search_category(monkeypatch):
         data = {"query": {"search": [{"title": "Category:Computing"}]}}
         return 200, json.dumps(data)
 
+    async def fake_sleep(d):
+        pass
+
     monkeypatch.setattr(sw, 'fetch_with_retry', fake_fetch)
+    monkeypatch.setattr(sw.asyncio, 'sleep', fake_sleep)
     result = sw.search_category('comp', 'en')
     assert result == 'Computing'
     assert called['params']['srnamespace'] == 14
@@ -475,7 +487,8 @@ def test_rate_limiter_env(monkeypatch):
     import importlib
     sw_reload = importlib.reload(sw)
     assert sw_reload.Config.RATE_LIMIT_DELAY == 1.5
-    assert sw_reload.rate_limiter.delay == 1.5
+    assert sw_reload.rate_limiter.min_delay == 1.5
+    assert sw_reload.rate_limiter.max_delay == 1.5
 
 
 def test_parallelism_env(monkeypatch):
@@ -495,3 +508,25 @@ def test_rate_limiter_backoff(monkeypatch):
     rl.record_error()
     rl.wait()
     assert recorded == [0.1, 0.2]
+
+
+def test_rate_limiter_range_and_async(monkeypatch):
+    recorded_sync = []
+    recorded_async = []
+    rl = sw.RateLimiter(0.1, 0.2)
+    monkeypatch.setattr(sw.time, "sleep", lambda d: recorded_sync.append(d))
+    async def fake_async_sleep(d):
+        recorded_async.append(d)
+
+    monkeypatch.setattr(sw.asyncio, "sleep", fake_async_sleep)
+    monkeypatch.setattr(sw.random, "uniform", lambda a, b: b)
+    rl.wait()
+
+    async def run():
+        await rl.async_wait()
+
+    import asyncio as aio
+    aio.run(run())
+
+    assert recorded_sync == [0.2]
+    assert recorded_async == [0.2]

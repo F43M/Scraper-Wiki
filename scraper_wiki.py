@@ -142,20 +142,32 @@ class Config:
 
 
 class RateLimiter:
-    """Simple exponential backoff rate limiter."""
+    """Simple exponential backoff rate limiter with jitter."""
 
-    def __init__(self, delay: float):
-        self.base_delay = delay
-        self.delay = delay
+    def __init__(self, min_delay: float, max_delay: float | None = None):
+        if max_delay is None:
+            max_delay = min_delay
+        self.base_min = min_delay
+        self.base_max = max_delay
+        self.min_delay = min_delay
+        self.max_delay = max_delay
+
+    def _sample_delay(self) -> float:
+        return random.uniform(self.min_delay, self.max_delay)
 
     def wait(self):
-        time.sleep(self.delay)
+        time.sleep(self._sample_delay())
+
+    async def async_wait(self):
+        await asyncio.sleep(self._sample_delay())
 
     def record_error(self):
-        self.delay *= 2
+        self.min_delay *= 2
+        self.max_delay *= 2
 
     def reset(self):
-        self.delay = self.base_delay
+        self.min_delay = self.base_min
+        self.max_delay = self.base_max
 
 
 # ============================
@@ -697,6 +709,7 @@ async def fetch_html_content_async(title: str, lang: str) -> str:
     headers = {"User-Agent": Config.get_random_user_agent()}
 
     try:
+        await rate_limiter.async_wait()
         _, html = await fetch_with_retry(url, headers=headers)
         metrics.scrape_success.inc()
         cache.set(cache_key, html, ttl=Config.CACHE_TTL)
@@ -726,7 +739,7 @@ def search_category(keyword: str, lang: str) -> Optional[str]:
     }
 
     async def _async_search() -> Optional[str]:
-        rate_limiter.wait()
+        await rate_limiter.async_wait()
         status, text = await fetch_with_retry(
             url, params=params, headers={"User-Agent": Config.get_random_user_agent()}
         )
@@ -838,6 +851,7 @@ class WikipediaAdvanced:
                 'pllimit': limit,
                 'format': 'json'
             }
+            rate_limiter.wait()
             response = self.session.get(url, params=params, timeout=Config.TIMEOUT)
             response.raise_for_status()
             return response.json()
@@ -1405,7 +1419,8 @@ def main(langs: Optional[List[str]] = None,
 
     if rate_limit_delay is not None:
         Config.RATE_LIMIT_DELAY = rate_limit_delay
-        rate_limiter.base_delay = rate_limit_delay
+        rate_limiter.base_min = rate_limit_delay
+        rate_limiter.base_max = rate_limit_delay
         rate_limiter.reset()
 
     languages = langs or Config.LANGUAGES
