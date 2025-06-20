@@ -64,7 +64,7 @@ class ScrapeParams(BaseModel):
     lang: Optional[List[str]] | Optional[str] = None
     category: Optional[List[str]] | Optional[str] = None
     format: str = "all"
-    plugin: str = "wikipedia"
+    plugin: str = "wikipedia"  # e.g. "infobox_parser" or "table_parser"
 
 @app.post("/scrape")
 async def scrape(params: ScrapeParams):
