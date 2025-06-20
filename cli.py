@@ -46,6 +46,7 @@ def scrape(
     category: list[str] = typer.Option(None, "--category", help="Categoria específica", show_default=False),
     fmt: str = typer.Option("all", "--format", help="Formato de saída"),
     rate_limit_delay: float = typer.Option(None, "--rate-limit-delay", help="Delay entre requisições", show_default=False),
+    async_mode: bool = typer.Option(False, "--async", help="Usa scraping assíncrono", is_flag=True),
     plugin: str = typer.Option(
         "wikipedia",
         "--plugin",
@@ -56,7 +57,11 @@ def scrape(
     """Executa o scraper imediatamente."""
     cats = [scraper_wiki.normalize_category(c) or c for c in category] if category else None
     if plugin == "wikipedia":
-        scraper_wiki.main(lang, cats, fmt, rate_limit_delay)
+        if async_mode:
+            import asyncio
+            asyncio.run(scraper_wiki.main_async(lang, cats, fmt, rate_limit_delay))
+        else:
+            scraper_wiki.main(lang, cats, fmt, rate_limit_delay)
         dataset_file = Path(scraper_wiki.Config.OUTPUT_DIR) / "wikipedia_qa.json"
         if dataset_file.exists():
             data = json.loads(dataset_file.read_text(encoding="utf-8"))
