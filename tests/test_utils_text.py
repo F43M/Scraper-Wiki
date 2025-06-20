@@ -54,3 +54,14 @@ def test_extract_entities_returns_entities(monkeypatch):
         {"text": "Guido", "type": "PERSON"},
     ]
 
+
+def test_parse_date_iso():
+    assert text_mod.parse_date("January 1, 2020") == "2020-01-01"
+
+
+def test_normalize_infobox_converts_dates(monkeypatch):
+    monkeypatch.setattr(text_mod, "parse_date", lambda v: "2020-01-01")
+    info = {"title": "Page", "date": "1 Jan 2020", "other": "x"}
+    out = text_mod.normalize_infobox(info)
+    assert out == {"title": "Page", "date": "2020-01-01", "other": "x"}
+
