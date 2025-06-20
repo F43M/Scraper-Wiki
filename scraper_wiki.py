@@ -51,6 +51,7 @@ import sqlite3
 import storage
 import dq
 import metrics
+import storage_sqlite
 
 # ============================
 # 🔧 Configurações Avançadas
@@ -1069,8 +1070,8 @@ class DatasetBuilder:
         
         # Classificação avançada de tópicos
         topic, subtopic = self._classify_topic(title, content, lang)
-        
-        return {
+
+        record = {
             'id': hashlib.md5(f"{title}_{lang}".encode('utf-8')).hexdigest(),
             'title': title,
             'language': lang,
@@ -1091,6 +1092,11 @@ class DatasetBuilder:
                 'source_url': f"https://{lang}.wikipedia.org/wiki/{title.replace(' ', '_')}"
             }
         }
+        try:
+            storage_sqlite.save_to_db({'id': record['id'], 'metadata': record.get('metadata', {})})
+        except Exception as e:
+            logger.error(f"Erro ao salvar no SQLite: {e}")
+        return record
     
     def _generate_questions(self, title: str, content: str, lang: str, keywords: List[str]) -> List[dict]:
         questions = []
