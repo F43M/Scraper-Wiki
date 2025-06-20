@@ -92,6 +92,14 @@ Os valores suportados são `local` (padrão), `s3`/`minio`, `mongodb` e `postgre
 Para S3/MinIO defina `S3_BUCKET` e `S3_ENDPOINT` (ou `MINIO_ENDPOINT`).
 Para MongoDB use `MONGODB_URI`. Para PostgreSQL defina `POSTGRES_DSN`.
 
+### Utilidades de texto
+
+O pacote `utils.text` oferece funções auxiliares:
+
+- `clean_text` remove referências numéricas e espaços extras;
+- `normalize_person` simplifica infoboxes de pessoas;
+- `extract_entities` usa spaCy para listar entidades nomeadas.
+
 ## API FastAPI
 
 Inicie a API executando:

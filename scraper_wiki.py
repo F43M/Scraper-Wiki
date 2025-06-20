@@ -52,6 +52,7 @@ import storage
 import dq
 import metrics
 import storage_sqlite
+from utils.text import clean_text
 
 # ============================
 # 🔧 Configurações Avançadas
@@ -1012,7 +1013,8 @@ class DatasetBuilder:
                 return None
 
             # Extrai e limpa o texto
-            clean_content = advanced_clean_text(page.text, page_info['lang'])
+            raw_text = clean_text(page.text)
+            clean_content = advanced_clean_text(raw_text, page_info['lang'])
 
             if len(clean_content) < Config.MIN_TEXT_LENGTH:
                 return None
