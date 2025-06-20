@@ -100,6 +100,36 @@ O pacote `utils.text` oferece funções auxiliares:
 - `normalize_person` simplifica infoboxes de pessoas;
 - `extract_entities` usa spaCy para listar entidades nomeadas.
 
+## Limpeza e NLP
+
+Estas funções podem ser utilizadas isoladamente ou combinadas com o
+`DatasetBuilder` e a API. Elas servem para higienizar o texto e extrair
+informações estruturadas.
+
+```python
+from utils.text import clean_text, normalize_person, extract_entities
+from scraper_wiki import DatasetBuilder
+
+# Processando uma página manualmente
+builder = DatasetBuilder()
+record = builder.process_page({"title": "Guido van Rossum", "lang": "en"})
+
+# O texto já é limpo internamente, mas pode ser tratado novamente
+cleaned = clean_text(record["content"])
+entities = extract_entities(cleaned)
+person = normalize_person({"name": record["title"], "occupation": "Programmer|BDFL"})
+```
+
+```python
+# Pós-processando registros vindos da API
+import requests
+from utils.text import clean_text, extract_entities
+
+dataset = requests.get("http://localhost:8000/records").json()
+first = dataset[0]
+first["entities"] = extract_entities(clean_text(first["content"]))
+```
+
 ## API FastAPI
 
 Inicie a API executando:
