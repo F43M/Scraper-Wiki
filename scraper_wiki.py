@@ -1151,6 +1151,7 @@ class DatasetBuilder:
         page_info: dict,
         proc_executor: Optional[ProcessPoolExecutor] = None
     ) -> Optional[object]:
+        start_time = time.perf_counter()
         try:
             wiki = WikipediaAdvanced(page_info['lang'])
             page = wiki.fetch_page(page_info['title'])
@@ -1198,6 +1199,8 @@ class DatasetBuilder:
                 f"Erro ao processar página {page_info.get('title', '')}: {e}"
             )
             return None
+        finally:
+            metrics.page_processing_seconds.observe(time.perf_counter() - start_time)
 
     async def process_page_async(
         self,
