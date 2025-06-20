@@ -114,6 +114,23 @@ def test_advanced_clean_text_removes_html():
     cleaned = sw.advanced_clean_text(raw, 'pt')
     assert '<div>' not in cleaned and 'Referências' not in cleaned
 
+def test_advanced_clean_text_remove_stopwords(monkeypatch):
+    class DummyTok:
+        def __init__(self, text, stop):
+            self.text = text
+            self.is_stop = stop
+
+    class DummyNLPStop:
+        def __call__(self, text):
+            return [
+                DummyTok(tok, tok.lower() in {'the', 'and'})
+                for tok in text.split()
+            ]
+
+    monkeypatch.setattr(sw.NLPProcessor, 'get_instance', classmethod(lambda cls, lang: DummyNLPStop()))
+    cleaned = sw.advanced_clean_text('the quick and brown fox', 'en', remove_stopwords=True)
+    assert cleaned == 'quick brown fox'
+
 def test_extract_main_content():
     html = '<html><body><div id="mw-content-text">content</div><table></table></body></html>'
     result = sw.extract_main_content(html)
@@ -292,13 +309,14 @@ def test_process_page_uses_clean_text(monkeypatch):
         called['clean'] = text
         return 'cleaned'
 
-    def fake_adv(text, lang):
-        called['adv'] = text
+    def fake_adv(text, lang, remove_stopwords=False):
+        called['adv'] = (text, lang, remove_stopwords)
         return 'x' * 151
 
     monkeypatch.setattr(sw, 'WikipediaAdvanced', DummyWiki)
     monkeypatch.setattr(sw, 'clean_text', fake_clean)
     monkeypatch.setattr(sw, 'advanced_clean_text', fake_adv)
+    monkeypatch.setattr(sw.Config, 'REMOVE_STOPWORDS', True)
     monkeypatch.setattr(sw, 'summarize_text', lambda *a, **k: '')
     monkeypatch.setattr(sw.DatasetBuilder, 'generate_qa_pairs', lambda *a, **k: {})
     monkeypatch.setattr(sw, 'metrics', SimpleNamespace(
@@ -313,7 +331,7 @@ def test_process_page_uses_clean_text(monkeypatch):
 
     assert res == {}
     assert called['clean'] == 'raw text'
-    assert called['adv'] == 'cleaned'
+    assert called['adv'] == ('cleaned', 'en', True)
 
 
 def test_process_page_increments_counter(monkeypatch):
@@ -336,7 +354,7 @@ def test_process_page_increments_counter(monkeypatch):
     monkeypatch.setattr(sw.Config, 'MIN_TEXT_LENGTH', 10)
     monkeypatch.setattr(sw, 'WikipediaAdvanced', DummyWiki)
     monkeypatch.setattr(sw, 'clean_text', lambda t: t)
-    monkeypatch.setattr(sw, 'advanced_clean_text', lambda t, lang: t)
+    monkeypatch.setattr(sw, 'advanced_clean_text', lambda t, lang, remove_stopwords=False: t)
     monkeypatch.setattr(sw, 'summarize_text', lambda *a, **k: '')
     monkeypatch.setattr(sw.DatasetBuilder, 'generate_qa_pairs', lambda *a, **k: {'ok': True})
     monkeypatch.setattr(sw, 'metrics', SimpleNamespace(
