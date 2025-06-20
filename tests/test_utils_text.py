@@ -65,3 +65,13 @@ def test_normalize_infobox_converts_dates(monkeypatch):
     out = text_mod.normalize_infobox(info)
     assert out == {"title": "Page", "date": "2020-01-01", "other": "x"}
 
+
+def test_clean_text_handles_wikilinks_and_sup():
+    raw = "Hello [[Link|World]]<sup>1</sup> [[Page]]"
+    assert text_mod.clean_text(raw) == "Hello World Page"
+
+
+def test_clean_text_normalizes_nfkc():
+    raw = "ＡＢＣ"
+    assert text_mod.clean_text(raw) == "ABC"
+

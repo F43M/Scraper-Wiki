@@ -1,7 +1,9 @@
 import re
+import unicodedata
 from datetime import datetime
 from typing import Dict
 
+from bs4 import BeautifulSoup
 import spacy
 
 try:
@@ -13,6 +15,19 @@ nlp = spacy.load("en_core_web_sm")
 
 
 def clean_text(text: str) -> str:
+    # Remove <sup> tags and their content
+    soup = BeautifulSoup(text, "html.parser")
+    for sup in soup.find_all("sup"):
+        sup.decompose()
+    text = soup.get_text()
+
+    # Replace wiki style links [[Page|text]] -> text and [[Page]] -> Page
+    text = re.sub(r"\[\[([^|\]]+)\|([^\]]+)\]\]", r"\2", text)
+    text = re.sub(r"\[\[([^|\]]+)\]\]", r"\1", text)
+
+    # Normalize unicode characters
+    text = unicodedata.normalize("NFKC", text)
+
     text = re.sub(r"\[\d+\]", "", text)
     text = re.sub(r"\s+", " ", text)
     return text.strip()
