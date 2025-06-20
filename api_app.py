@@ -7,6 +7,8 @@ import os
 import json
 from datetime import datetime
 import graphene
+from utils.text import clean_text, extract_entities
+import asyncio
 
 app = FastAPI()
 
@@ -51,6 +53,13 @@ def filter_dataset(
         result = [d for d in result if "created_at" in d and datetime.fromisoformat(d["created_at"]) <= e_dt]
     return result
 
+
+def enrich_record(record: dict) -> dict:
+    """Return record with cleaned text and extracted entities."""
+    text = clean_text(record.get("content", ""))
+    record = {**record, "clean_content": text, "entities": extract_entities(text)}
+    return record
+
 class ScrapeParams(BaseModel):
     lang: Optional[List[str]] | Optional[str] = None
     category: Optional[List[str]] | Optional[str] = None
@@ -94,7 +103,10 @@ async def get_records(
     cats = category if isinstance(category, list) else ([category] if category else None)
     data = load_dataset()
     filtered = filter_dataset(data, langs, cats, start_date, end_date)
-    return filtered
+    processed = await asyncio.gather(
+        *(asyncio.to_thread(enrich_record, rec) for rec in filtered)
+    )
+    return processed
 
 
 @app.get("/stats")
@@ -124,7 +136,8 @@ class Query(graphene.ObjectType):
 
     def resolve_records(root, info, lang=None, category=None, start_date=None, end_date=None):
         data = load_dataset()
-        return filter_dataset(data, lang, category, start_date, end_date)
+        filtered = filter_dataset(data, lang, category, start_date, end_date)
+        return [enrich_record(rec) for rec in filtered]
 
 
 schema = graphene.Schema(query=Query)

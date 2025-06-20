@@ -5,6 +5,8 @@ import typer
 
 import scraper_wiki
 import dashboard
+from utils.text import clean_text, extract_entities
+from concurrent.futures import ThreadPoolExecutor
 
 app = typer.Typer(help="Scraper Wiki command line interface")
 
@@ -51,10 +53,16 @@ def scrape(
     cats = [scraper_wiki.normalize_category(c) or c for c in category] if category else None
     if plugin == "wikipedia":
         scraper_wiki.main(lang, cats, fmt, rate_limit_delay)
-        if train:
-            from training import pipeline
-            dataset_file = Path(scraper_wiki.Config.OUTPUT_DIR) / "wikipedia_qa.json"
-            if dataset_file.exists():
+        dataset_file = Path(scraper_wiki.Config.OUTPUT_DIR) / "wikipedia_qa.json"
+        if dataset_file.exists():
+            data = json.loads(dataset_file.read_text(encoding="utf-8"))
+            with ThreadPoolExecutor(max_workers=scraper_wiki.Config.MAX_THREADS) as ex:
+                ents = list(ex.map(lambda r: extract_entities(clean_text(r.get("content", ""))), data))
+            for rec, ent in zip(data, ents):
+                rec["entities"] = ent
+            dataset_file.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+            if train:
+                from training import pipeline
                 pipeline.run_pipeline(dataset_file)
     else:
         from plugins import load_plugin, run_plugin
