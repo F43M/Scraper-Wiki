@@ -110,6 +110,8 @@ O pacote `utils.text` oferece funções auxiliares:
 - `clean_text` remove referências numéricas e espaços extras;
 - `normalize_person` simplifica infoboxes de pessoas;
 - `extract_entities` usa spaCy para listar entidades nomeadas.
+- `parse_date` converte datas para o formato ISO 8601;
+- `normalize_infobox` padroniza chaves e valores de infoboxes.
 
 ### Sistema de Plugins
 
@@ -125,7 +127,13 @@ Estas funções podem ser utilizadas isoladamente ou combinadas com o
 informações estruturadas.
 
 ```python
-from utils.text import clean_text, normalize_person, extract_entities
+from utils.text import (
+    clean_text,
+    normalize_person,
+    normalize_infobox,
+    parse_date,
+    extract_entities,
+)
 from scraper_wiki import DatasetBuilder
 
 # Processando uma página manualmente
@@ -136,6 +144,8 @@ record = builder.process_page({"title": "Guido van Rossum", "lang": "en"})
 cleaned = clean_text(record["content"])
 entities = extract_entities(cleaned)
 person = normalize_person({"name": record["title"], "occupation": "Programmer|BDFL"})
+normalized = normalize_infobox({"title": record["title"], "date": "Jan 1, 1990"})
+iso_date = parse_date("1 January 1990")
 ```
 
 ```python
