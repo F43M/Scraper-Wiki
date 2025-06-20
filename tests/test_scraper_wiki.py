@@ -249,6 +249,43 @@ def test_build_from_pages(monkeypatch):
     assert data == [dummy_data]
 
 
+def test_process_page_uses_clean_text(monkeypatch):
+    class DummyPage:
+        text = 'raw text'
+        def exists(self):
+            return True
+
+    class DummyWiki:
+        def __init__(self, lang):
+            pass
+        def fetch_page(self, title):
+            return DummyPage()
+
+    called = {}
+
+    def fake_clean(text):
+        called['clean'] = text
+        return 'cleaned'
+
+    def fake_adv(text, lang):
+        called['adv'] = text
+        return 'x' * 151
+
+    monkeypatch.setattr(sw, 'WikipediaAdvanced', DummyWiki)
+    monkeypatch.setattr(sw, 'clean_text', fake_clean)
+    monkeypatch.setattr(sw, 'advanced_clean_text', fake_adv)
+    monkeypatch.setattr(sw, 'summarize_text', lambda *a, **k: '')
+    monkeypatch.setattr(sw.DatasetBuilder, 'generate_qa_pairs', lambda *a, **k: {})
+    monkeypatch.setattr(sw, 'metrics', SimpleNamespace(scrape_success=SimpleNamespace(inc=lambda: None), scrape_error=SimpleNamespace(inc=lambda: None)))
+
+    builder = sw.DatasetBuilder()
+    res = builder.process_page({'title': 'T', 'lang': 'en'})
+
+    assert res == {}
+    assert called['clean'] == 'raw text'
+    assert called['adv'] == 'cleaned'
+
+
 def test_save_dataset_json_csv(tmp_path, monkeypatch):
     builder = sw.DatasetBuilder()
     monkeypatch.setattr(sw.Config, 'MIN_TEXT_LENGTH', 5)
