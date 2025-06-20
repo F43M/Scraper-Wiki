@@ -379,6 +379,35 @@ def test_save_dataset_json_csv(tmp_path, monkeypatch):
     assert (tmp_path/'wikipedia_qa.csv').exists()
 
 
+def test_save_dataset_jsonl(tmp_path, monkeypatch):
+    builder = sw.DatasetBuilder()
+    monkeypatch.setattr(sw.Config, 'MIN_TEXT_LENGTH', 5)
+    builder.dataset = [{
+        'id': '1',
+        'title': 't',
+        'language': 'en',
+        'category': 'c',
+        'topic': 'ai',
+        'subtopic': 'nlp',
+        'keywords': [],
+        'content': 'c'*20,
+        'summary': 's'*20,
+        'content_embedding': [0.1, 0.2],
+        'summary_embedding': [0.1, 0.2],
+        'questions': ['q'],
+        'answers': ['a'],
+        'created_at': 'now',
+        'metadata': {}
+    }]
+    builder.save_dataset('jsonl', output_dir=tmp_path)
+    jsonl_file = tmp_path / 'wikipedia_qa.jsonl'
+    assert jsonl_file.exists()
+    content = jsonl_file.read_text(encoding='utf-8').strip().splitlines()
+    assert len(content) == 1
+    record = json.loads(content[0])
+    assert record['id'] == '1'
+
+
 def test_normalize_category_alias():
     assert sw.normalize_category('programacao') == 'Programação'
 
