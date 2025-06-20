@@ -1566,8 +1566,23 @@ class DatasetBuilder:
         pages: List[dict],
         progress_desc: str = "Processando páginas",
         use_queue: bool = False,
+        client=None,
     ) -> List[dict]:
         """Process pages locally or enfileira tarefas para processamento."""
+        if client:
+            futures = [client.submit(self.process_page, page) for page in pages]
+            processed = 0
+            total = len(futures)
+            for fut in tqdm(futures, total=total, desc=progress_desc):
+                result = fut.result()
+                processed += 1
+                if processed % 10 == 0 or processed == total:
+                    logger.info(f"Distributed progress: {processed}/{total}")
+                if result:
+                    self.dataset.append(result)
+                    self._update_progress()
+            return self.dataset
+
         if not use_queue:
             cpu_futures = []
             with ThreadPoolExecutor(max_workers=Config.MAX_THREADS) as th_executor, \
@@ -1746,7 +1761,8 @@ class DatasetBuilder:
 def main(langs: Optional[List[str]] = None,
          categories: Optional[List[str]] = None,
          fmt: str = "all",
-         rate_limit_delay: Optional[float] = None):
+         rate_limit_delay: Optional[float] = None,
+         client=None):
     """Gera o dataset utilizando os parâmetros fornecidos."""
     metrics.start_metrics_server(int(os.environ.get("METRICS_PORT", "8001")))
     logger.info("🚀 Iniciando Wikipedia Scraper Ultra Pro Max - GodMode++")
@@ -1784,7 +1800,7 @@ def main(langs: Optional[List[str]] = None,
 
     logger.info(f"📚 Total de páginas coletadas: {len(all_pages)}")
 
-    builder.build_from_pages(all_pages, "Construindo dataset")
+    builder.build_from_pages(all_pages, "Construindo dataset", client=client)
 
     logger.info("🧠 Aplicando técnicas avançadas de NLP...")
     builder.enhance_with_clustering()

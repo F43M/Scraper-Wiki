@@ -247,6 +247,24 @@ contém o exemplo `cluster.yaml` para configuração de múltiplos nós com Dask
 Ray. Em ambientes Kubernetes, basta criar um `Deployment` apontando para essa
 imagem e montar o arquivo de configuração se necessário.
 
+## Execução distribuída
+
+Para processar páginas em um cluster, defina um arquivo `cluster.yaml` como:
+
+```yaml
+cluster:
+  backend: dask  # ou 'ray'
+  scheduler: tcp://scheduler:8786
+```
+
+Em seguida rode o comando com `--distributed`:
+
+```bash
+python cli.py scrape --distributed --lang pt --category "Programação"
+```
+
+O `DatasetBuilder` enviará as tarefas para o cluster usando `client.submit`.
+
 ## Controle de Qualidade
 
 Antes de salvar os dados, o `DatasetBuilder` aplica três etapas de deduplicação
