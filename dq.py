@@ -6,6 +6,7 @@ import hashlib
 from typing import List, Dict, Tuple
 
 import numpy as np
+from simhash import Simhash
 
 
 def deduplicate_by_hash(records: List[Dict]) -> Tuple[List[Dict], int]:
@@ -59,6 +60,40 @@ def deduplicate_by_embedding(records: List[Dict], threshold: float = 0.95) -> Tu
         sims = np.dot(norm_emb[i], norm_emb[i + 1 :].T)
         for j, sim in enumerate(sims, start=i + 1):
             if sim >= threshold:
+                to_remove.add(j)
+
+    unique = [rec for idx, rec in enumerate(records) if idx not in to_remove]
+    return unique, len(to_remove)
+
+
+def deduplicate_by_simhash(records: List[Dict], distance: int = 3) -> Tuple[List[Dict], int]:
+    """Remove near-duplicate records using Simhash of the text content.
+
+    Parameters
+    ----------
+    records: List[Dict]
+        Dataset records.
+    distance: int, optional
+        Maximum Hamming distance to consider records duplicates. Defaults to ``3``.
+
+    Returns
+    -------
+    Tuple[List[Dict], int]
+        Unique records and count of removed items.
+    """
+    if not records:
+        return records, 0
+
+    hashes = [Simhash(rec.get("content", "")) for rec in records]
+    to_remove: set[int] = set()
+
+    for i in range(len(records)):
+        if i in to_remove:
+            continue
+        for j in range(i + 1, len(records)):
+            if j in to_remove:
+                continue
+            if hashes[i].distance(hashes[j]) <= distance:
                 to_remove.add(j)
 
     unique = [rec for idx, rec in enumerate(records) if idx not in to_remove]

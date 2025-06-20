@@ -245,6 +245,18 @@ contém o exemplo `cluster.yaml` para configuração de múltiplos nós com Dask
 Ray. Em ambientes Kubernetes, basta criar um `Deployment` apontando para essa
 imagem e montar o arquivo de configuração se necessário.
 
+## Controle de Qualidade
+
+Antes de salvar os dados, o `DatasetBuilder` aplica três etapas de deduplicação
+e validação:
+
+1. `deduplicate_by_hash` remove entradas idênticas pelo hash do conteúdo;
+2. `deduplicate_by_embedding` descarta registros muito semelhantes pelos embeddings;
+3. `deduplicate_by_simhash` detecta textos quase idênticos usando Simhash.
+
+Em seguida, os registros passam por verificações de integridade dos campos e dos
+embeddings para garantir consistência.
+
 ## Integração com frameworks de ML
 
 Os arquivos gerados em `training/` permitem treinar modelos de NLP de forma simples. A seguir alguns exemplos.

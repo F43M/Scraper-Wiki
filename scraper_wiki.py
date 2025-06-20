@@ -1529,6 +1529,13 @@ class DatasetBuilder:
             logger.warning("Nenhum dado para salvar")
             return
 
+        # Remove near-duplicates based on Simhash
+        try:
+            self.dataset, rem_sim = dq.deduplicate_by_simhash(self.dataset)
+            self.duplicates_removed += rem_sim
+        except Exception as e:  # pragma: no cover - library issues
+            logger.error(f"Erro na deduplicação Simhash: {e}")
+
         # Validação dos registros antes de salvar
         validated_data = []
         for item in self.dataset:
