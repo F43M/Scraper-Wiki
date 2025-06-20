@@ -101,6 +101,7 @@ class Config:
     MAX_PAGES_PER_CATEGORY = 1000
     MIN_TEXT_LENGTH = 150  # mínimo de caracteres para considerar uma página
     MAX_TEXT_LENGTH = 10000  # máximo de caracteres a extrair por página
+    REMOVE_STOPWORDS = os.environ.get("REMOVE_STOPWORDS", "0") == "1"
     
     # Modelos de NLP
     NLP_MODELS = {
@@ -628,7 +629,7 @@ def cluster_texts(texts: List[str], k: int = Config.CLUSTER_K) -> np.ndarray:
 # ============================
 # 🧹 Limpeza Avançada de Texto
 # ============================
-def advanced_clean_text(text: str, lang: str = 'en') -> str:
+def advanced_clean_text(text: str, lang: str = 'en', remove_stopwords: bool = False) -> str:
     try:
         # Remove HTML
         text = BeautifulSoup(text, 'html.parser').get_text()
@@ -653,7 +654,25 @@ def advanced_clean_text(text: str, lang: str = 'en') -> str:
         ]
         for section in sections_to_remove:
             text = re.sub(fr'==\s*{section}\s*==.*', '', text, flags=re.IGNORECASE | re.DOTALL)
-        
+
+        if remove_stopwords:
+            removed = False
+            try:
+                nlp = NLPProcessor.get_instance(lang)
+                doc = nlp(text)
+                text = ' '.join(t.text for t in doc if not getattr(t, 'is_stop', False))
+                removed = True
+            except Exception as e:
+                logger.error(f"Erro ao remover stopwords com spaCy: {e}")
+            if not removed:
+                try:
+                    import nltk
+                    from nltk.corpus import stopwords
+                    stop_words = set(stopwords.words(lang))
+                    text = ' '.join(w for w in text.split() if w.lower() not in stop_words)
+                except Exception as e:
+                    logger.error(f"Erro ao remover stopwords com NLTK: {e}")
+
         return text.strip()
     except Exception as e:
         logger.error(f"Erro na limpeza de texto: {e}")
@@ -1132,7 +1151,11 @@ class DatasetBuilder:
 
             # Extrai e limpa o texto
             raw_text = clean_text(page.text)
-            clean_content = advanced_clean_text(raw_text, page_info['lang'])
+            clean_content = advanced_clean_text(
+                raw_text,
+                page_info['lang'],
+                remove_stopwords=Config.REMOVE_STOPWORDS,
+            )
 
             if len(clean_content) < Config.MIN_TEXT_LENGTH:
                 return None

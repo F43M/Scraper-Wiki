@@ -121,6 +121,8 @@ O pacote `utils.text` oferece funções auxiliares:
 - `extract_entities` usa spaCy para listar entidades nomeadas.
 - `parse_date` converte datas para o formato ISO 8601;
 - `normalize_infobox` padroniza chaves e valores de infoboxes.
+- `advanced_clean_text` elimina HTML e pode remover stopwords quando
+  `Config.REMOVE_STOPWORDS` (ou variável `REMOVE_STOPWORDS=1`) está ativado.
 
 ### Sistema de Plugins
 
