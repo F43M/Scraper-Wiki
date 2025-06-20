@@ -1,10 +1,56 @@
 import importlib
 import sys
 from pathlib import Path
+from types import SimpleNamespace, ModuleType
 
 # Ensure repository root is on sys.path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+
+# Stub heavy dependencies to avoid installing them
+sys.modules.setdefault('sentence_transformers', SimpleNamespace(SentenceTransformer=object))
+sys.modules.setdefault('datasets', SimpleNamespace(Dataset=object, concatenate_datasets=lambda *a, **k: None))
+sys.modules.setdefault('spacy', SimpleNamespace(load=lambda *a, **k: None))
+sys.modules.setdefault('tqdm', SimpleNamespace(tqdm=lambda x, **k: x))
+sys.modules.setdefault('html2text', SimpleNamespace(html2text=lambda x: x))
+sk_mod = SimpleNamespace(
+    cluster=SimpleNamespace(KMeans=object),
+    feature_extraction=SimpleNamespace(text=SimpleNamespace(TfidfVectorizer=object))
+)
+sys.modules.setdefault('sklearn', sk_mod)
+sys.modules.setdefault('sklearn.cluster', sk_mod.cluster)
+sys.modules.setdefault('sklearn.feature_extraction', sk_mod.feature_extraction)
+sys.modules.setdefault('sklearn.feature_extraction.text', sk_mod.feature_extraction.text)
+sumy_mod = SimpleNamespace(
+    parsers=SimpleNamespace(plaintext=SimpleNamespace(PlaintextParser=object)),
+    nlp=SimpleNamespace(tokenizers=SimpleNamespace(Tokenizer=object)),
+    summarizers=SimpleNamespace(lsa=SimpleNamespace(LsaSummarizer=object))
+)
+sys.modules.setdefault('sumy', sumy_mod)
+sys.modules.setdefault('sumy.parsers', sumy_mod.parsers)
+sys.modules.setdefault('sumy.parsers.plaintext', sumy_mod.parsers.plaintext)
+sys.modules.setdefault('sumy.nlp', sumy_mod.nlp)
+sys.modules.setdefault('sumy.nlp.tokenizers', sumy_mod.nlp.tokenizers)
+sys.modules.setdefault('sumy.summarizers', sumy_mod.summarizers)
+sys.modules.setdefault('sumy.summarizers.lsa', sumy_mod.summarizers.lsa)
+sys.modules.setdefault('streamlit', SimpleNamespace())
+sys.modules.setdefault('psutil', SimpleNamespace(cpu_percent=lambda interval=1: 0, virtual_memory=lambda: SimpleNamespace(percent=0)))
+sys.modules.setdefault('prometheus_client', SimpleNamespace(Counter=lambda *a, **k: object, start_http_server=lambda *a, **k: None))
+wiki_mod = ModuleType('wikipediaapi')
+wiki_mod.WikipediaException = Exception
+wiki_mod.Namespace = SimpleNamespace(MAIN=0, CATEGORY=14)
+wiki_mod.ExtractFormat = SimpleNamespace(HTML=0)
+wiki_mod.WikipediaPage = object
+wiki_mod.Wikipedia = lambda *a, **k: SimpleNamespace(page=lambda *a, **k: SimpleNamespace(exists=lambda: False), api=SimpleNamespace(article_url=lambda x: ""))
+sys.modules.setdefault('wikipediaapi', wiki_mod)
+aiohttp_stub = SimpleNamespace(
+    ClientSession=object,
+    ClientTimeout=lambda *a, **k: None,
+    ClientError=Exception,
+    ClientResponseError=Exception,
+)
+sys.modules.setdefault('aiohttp', aiohttp_stub)
+sys.modules.setdefault('backoff', SimpleNamespace(on_exception=lambda *a, **k: (lambda f: f), expo=lambda *a, **k: None))
 
 import scraper_wiki as sw
 import core
@@ -41,5 +87,84 @@ def test_table_parser(monkeypatch):
         "title": "Page",
         "language": "en",
         "tables": [[["A", "B"], ["1", "2"]]],
+    }
+
+
+def test_stackoverflow_plugin(monkeypatch):
+    class DummyResp:
+        def __init__(self, data):
+            self._data = data
+        def raise_for_status(self):
+            pass
+        def json(self):
+            return self._data
+
+    resp = {
+        "items": [{
+            "title": "Q1",
+            "body": "<p>code</p>",
+            "score": 5,
+            "link": "url",
+        }]
+    }
+
+    def fake_get(url, params=None, timeout=None):
+        return DummyResp(resp)
+
+    import requests
+
+    monkeypatch.setattr(requests, "get", fake_get)
+    mod = importlib.reload(importlib.import_module("plugins.stackoverflow"))
+    plugin = mod.Plugin()
+    items = plugin.fetch_items("en", "python")
+    assert items[0]["category"] == "python"
+    parsed = plugin.parse_item(items[0])
+    assert parsed["title"] == "Q1"
+    assert parsed["language"] == "en"
+    assert parsed["category"] == "python"
+    assert parsed["score"] == 5
+    assert parsed["link"] == "url"
+
+
+def test_wikidata_plugin(monkeypatch):
+    class DummyResp:
+        def __init__(self, data):
+            self._data = data
+        def raise_for_status(self):
+            pass
+        def json(self):
+            return self._data
+
+    search_resp = {
+        "search": [{"id": "Q1", "label": "Item", "description": "Desc"}]
+    }
+    entity_resp = {
+        "entities": {
+            "Q1": {
+                "labels": {"en": {"value": "Item"}},
+                "descriptions": {"en": {"value": "Desc"}},
+            }
+        }
+    }
+
+    def fake_get(url, params=None, timeout=None):
+        if params.get("action") == "wbsearchentities":
+            return DummyResp(search_resp)
+        return DummyResp(entity_resp)
+
+    import requests
+
+    monkeypatch.setattr(requests, "get", fake_get)
+    mod = importlib.reload(importlib.import_module("plugins.wikidata"))
+    plugin = mod.Plugin()
+    items = plugin.fetch_items("en", "python")
+    assert items[0]["category"] == "python"
+    parsed = plugin.parse_item(items[0])
+    assert parsed == {
+        "title": "Item",
+        "language": "en",
+        "category": "python",
+        "description": "Desc",
+        "wikidata_id": "Q1",
     }
 

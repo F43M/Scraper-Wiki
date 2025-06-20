@@ -131,6 +131,22 @@ Os plugins permitem estender o scraper com novos analisadores. Em
 extraem respectivamente infoboxes e tabelas das páginas da Wikipédia.
 Use `--plugin` ou o campo `plugin` na API para escolher qual utilizar.
 
+Exemplo executando o plugin do StackOverflow:
+
+```python
+from plugins import load_plugin, run_plugin
+
+plg = load_plugin("stackoverflow")
+records = run_plugin(plg, ["en"], ["python"])
+```
+
+E para consultar itens da Wikidata:
+
+```python
+plg = load_plugin("wikidata")
+records = run_plugin(plg, ["en"], ["Artificial intelligence"])
+```
+
 ## Limpeza e NLP
 
 Estas funções podem ser utilizadas isoladamente ou combinadas com o

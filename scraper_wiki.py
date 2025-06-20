@@ -139,6 +139,15 @@ class Config:
     STORAGE_BACKEND = os.environ.get("STORAGE_BACKEND", "local")
     LOG_SERVICE_URL = os.environ.get("LOG_SERVICE_URL")
     LOG_SERVICE_TYPE = os.environ.get("LOG_SERVICE_TYPE", "loki")
+
+    # API endpoints and keys for optional plugins
+    STACKOVERFLOW_API_KEY = os.environ.get("STACKOVERFLOW_API_KEY")
+    STACKOVERFLOW_API_ENDPOINT = os.environ.get(
+        "STACKOVERFLOW_API_ENDPOINT", "https://api.stackexchange.com/2.3"
+    )
+    WIKIDATA_API_ENDPOINT = os.environ.get(
+        "WIKIDATA_API_ENDPOINT", "https://www.wikidata.org/w/api.php"
+    )
     
     @classmethod
     def get_random_user_agent(cls):
