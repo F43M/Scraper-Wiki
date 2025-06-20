@@ -32,7 +32,7 @@ import zlib
 from bs4 import BeautifulSoup
 import requests
 import aiohttp
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urljoin
 import html2text
 from typing import List, Dict, Tuple, Optional, Set, Protocol
 from datetime import datetime
@@ -663,6 +663,20 @@ def extract_main_content(page_html: str) -> str:
         logger.error(f"Erro ao extrair conteúdo principal: {e}")
         return page_html
 
+def extract_links(html: str, base_url: str) -> List[str]:
+    """Return absolute links from ``html`` that contain ``/wiki/`` in the href."""
+    try:
+        soup = BeautifulSoup(html, "html.parser")
+        links = []
+        for a in soup.find_all("a", href=True):
+            href = a["href"]
+            if "/wiki/" in href:
+                links.append(urljoin(base_url, href))
+        return links
+    except Exception as e:
+        logger.error(f"Erro ao extrair links: {e}")
+        return []
+
 
 async def fetch_with_retry(url: str, *, params: dict | None = None,
                            headers: dict | None = None) -> tuple[int, str]:
@@ -828,7 +842,20 @@ class WikipediaAdvanced:
         self._prepare_session()
         rate_limiter.wait()
         return self.fetch_page(category_title)
-    
+
+    def get_links_from_category_page(self, category_name: str) -> List[str]:
+        """Return wiki links from the HTML of a category page."""
+        try:
+            title = (
+                f"Category:{category_name}" if self.lang != "pt" else f"Categoria:{category_name}"
+            )
+            html = fetch_html_content(title, self.lang)
+            base_url = f"https://{self.lang}.wikipedia.org"
+            return extract_links(html, base_url)
+        except Exception as e:
+            logger.error(f"Erro ao obter links da categoria {category_name}: {e}")
+            return []
+
     def get_related_pages(self, page_title: str, limit: int = 10) -> List[dict]:
         cache_key = f"related_{self.lang}_{page_title}"
         cached = cache.get(cache_key)
