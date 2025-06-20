@@ -90,6 +90,10 @@ Controle o número de threads e processos utilizados pelo scraper com as opçõe
 `--max-threads` e `--max-processes`. Esses valores também podem ser definidos
 pelas variáveis de ambiente `MAX_THREADS` e `MAX_PROCESSES`.
 
+Para acelerar a coleta também é possível ativar o modo assíncrono com `--async`,
+que realiza múltiplas requisições HTTP em paralelo respeitando o limite definido
+por `MAX_CONCURRENT_REQUESTS`.
+
 ### URLs base personalizadas
 
 O módulo `scraper_wiki.py` define o dicionário `BASE_URLS` com os domínios

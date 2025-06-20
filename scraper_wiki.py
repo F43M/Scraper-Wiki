@@ -94,6 +94,7 @@ class Config:
     MAX_DEPTH = 3  # Profundidade máxima de navegação em categorias
     MAX_THREADS = int(os.environ.get("MAX_THREADS", multiprocessing.cpu_count() * 2))
     MAX_PROCESSES = int(os.environ.get("MAX_PROCESSES", multiprocessing.cpu_count()))
+    MAX_CONCURRENT_REQUESTS = int(os.environ.get("MAX_CONCURRENT_REQUESTS", "5"))
     RETRIES = 5
     TIMEOUT = 10
     RATE_LIMIT_DELAY = float(os.environ.get("RATE_LIMIT_DELAY", 0.5))
@@ -1007,6 +1008,66 @@ class WikipediaAdvanced:
         
         return members
 
+    async def get_category_members_async(
+        self,
+        category_name: str,
+        depth: int = 0,
+        visited: Optional[Set[str]] = None,
+        max_concurrency: Optional[int] = None,
+    ) -> List[dict]:
+        """Asynchronously fetch category members recursively."""
+        if visited is None:
+            visited = set()
+
+        max_concurrency = max_concurrency or Config.MAX_CONCURRENT_REQUESTS
+        sem = asyncio.Semaphore(max_concurrency)
+
+        category = await asyncio.to_thread(self.fetch_category, category_name)
+        if not category or not category.exists():
+            alt = search_category(category_name, self.lang)
+            if alt:
+                category_name = alt
+                category = await asyncio.to_thread(self.fetch_category, category_name)
+
+        if not category or not category.exists():
+            logger.warning(f"Categoria não encontrada: {category_name}")
+            return []
+
+        members: List[dict] = []
+
+        async def handle_member(member):
+            if member.title in visited:
+                return []
+            visited.add(member.title)
+
+            if member.ns == wikipediaapi.Namespace.CATEGORY and depth < Config.MAX_DEPTH:
+                async with sem:
+                    return await self.get_category_members_async(
+                        member.title.replace("Category:", "").replace("Categoria:", ""),
+                        depth + 1,
+                        visited,
+                        max_concurrency,
+                    )
+            elif member.ns == wikipediaapi.Namespace.MAIN:
+                return [
+                    {
+                        "title": member.title,
+                        "url": member.fullurl,
+                        "lang": self.lang,
+                        "category": category_name,
+                        "depth": depth,
+                    }
+                ]
+            return []
+
+        tasks = [handle_member(m) for m in category.categorymembers.values()]
+        for res in await asyncio.gather(*tasks):
+            members.extend(res)
+            if len(members) >= Config.MAX_PAGES_PER_CATEGORY:
+                break
+
+        return members
+
 # ============================
 # 🏗️ Builder de Dataset Profissional
 # ============================
@@ -1578,6 +1639,101 @@ def main(langs: Optional[List[str]] = None,
         pass
 
     # Deduplicação e validação de qualidade
+    if hasattr(builder, "dataset"):
+        data, rem_hash = dq.deduplicate_by_hash(getattr(builder, "dataset", []))
+        data, rem_emb = dq.deduplicate_by_embedding(data)
+        data = dq.complete_missing_fields(data, extra_data)
+        data, invalid = dq.validate_semantics(data)
+
+        builder.duplicates_removed = rem_hash + rem_emb
+        builder.invalid_records = invalid
+        builder.dataset = data
+        if hasattr(builder, "_update_progress"):
+            builder._update_progress()
+
+    logger.info("💾 Salvando dataset completo...")
+    builder.save_dataset(format=fmt)
+
+    logger.info("✅ Dataset finalizado com sucesso!")
+    logger.info(f"📊 Estatísticas de cache: {cache.stats()}")
+
+
+async def main_async(
+    langs: Optional[List[str]] = None,
+    categories: Optional[List[str]] = None,
+    fmt: str = "all",
+    rate_limit_delay: Optional[float] = None,
+) -> None:
+    """Asynchronous version of :func:`main`."""
+    metrics.start_metrics_server(int(os.environ.get("METRICS_PORT", "8001")))
+    logger.info("🚀 Iniciando Wikipedia Scraper Ultra Pro Max - GodMode++ (async)")
+
+    if rate_limit_delay is not None:
+        Config.RATE_LIMIT_DELAY = rate_limit_delay
+        rate_limiter.base_min = rate_limit_delay
+        rate_limiter.base_max = rate_limit_delay
+        rate_limiter.reset()
+
+    languages = langs or Config.LANGUAGES
+    cats = Config.CATEGORIES
+    if categories:
+        normalized = [normalize_category(c) or c for c in categories]
+        cats = {c: Config.CATEGORIES.get(c, 1.0) for c in normalized}
+
+    builder = DatasetBuilder()
+
+    all_pages: List[dict] = []
+    for lang in languages:
+        logger.info(f"🌐 Processando idioma: {lang.upper()}")
+        wiki = WikipediaAdvanced(lang)
+
+        for category, weight in cats.items():
+            logger.info(f"🔍 Buscando na categoria: {category} (peso: {weight})")
+
+            pages = await wiki.get_category_members_async(category)
+            logger.info(f"📄 Páginas encontradas em {category}: {len(pages)}")
+
+            for page in pages:
+                page["weight"] = weight
+
+            all_pages.extend(pages)
+            await asyncio.sleep(Config.RATE_LIMIT_DELAY * 2)
+
+    logger.info(f"📚 Total de páginas coletadas: {len(all_pages)}")
+
+    await builder.build_from_pages_async(all_pages, "Construindo dataset")
+
+    logger.info("🧠 Aplicando técnicas avançadas de NLP...")
+    builder.enhance_with_clustering()
+
+    extra_data: List[dict] = []
+    try:
+        from plugins import load_plugin
+
+        for plugin_name in [
+            "stackoverflow",
+            "wikidata",
+            "infobox_parser",
+            "table_parser",
+        ]:
+            try:
+                plugin = load_plugin(plugin_name)
+            except Exception as e:
+                logger.error(f"Erro ao carregar plugin {plugin_name}: {e}")
+                continue
+            for lang in languages:
+                for category in cats:
+                    try:
+                        items = plugin.fetch_items(lang, category)
+                        for item in items:
+                            parsed = plugin.parse_item(item)
+                            if parsed:
+                                extra_data.append(parsed)
+                    except Exception as e:  # pragma: no cover - network errors
+                        logger.error(f"Erro plugin {plugin_name}: {e}")
+    except Exception:
+        pass
+
     if hasattr(builder, "dataset"):
         data, rem_hash = dq.deduplicate_by_hash(getattr(builder, "dataset", []))
         data, rem_emb = dq.deduplicate_by_embedding(data)

@@ -249,6 +249,31 @@ def test_build_from_pages(monkeypatch):
     assert data == [dummy_data]
 
 
+def test_build_from_pages_async(monkeypatch):
+    dummy_data = {
+        'id': '1',
+        'content_embedding': [0.0],
+        'summary_embedding': [0.0],
+        'questions': ['q'],
+        'answers': ['a'],
+        'summary': 'text text text'
+    }
+
+    async def fake_process_page_async(self, page, proc_executor=None):
+        return DummyFuture(dummy_data)
+
+    monkeypatch.setattr(sw.DatasetBuilder, 'process_page_async', fake_process_page_async)
+    monkeypatch.setattr(sw, 'ProcessPoolExecutor', DummyExecutor)
+    monkeypatch.setattr(sw, 'as_completed', lambda it: it)
+    monkeypatch.setattr(sw, 'tqdm', lambda it, **k: it)
+
+    builder = sw.DatasetBuilder()
+    pages = [{'title': 't', 'lang': 'en'}]
+    import asyncio as aio
+    data = aio.run(builder.build_from_pages_async(pages))
+    assert data == [dummy_data]
+
+
 def test_process_page_uses_clean_text(monkeypatch):
     class DummyPage:
         text = 'raw text'
@@ -444,6 +469,33 @@ def test_get_category_members_search(monkeypatch):
         'depth': 0
     }]
     assert fetch_calls == ['Missing', 'Found']
+
+
+def test_get_category_members_async(monkeypatch):
+    wiki = sw.WikipediaAdvanced('en')
+    dummy_member = SimpleNamespace(
+        ns=sw.wikipediaapi.Namespace.MAIN,
+        title='Page',
+        fullurl='url'
+    )
+    dummy_cat = SimpleNamespace(
+        exists=lambda: True,
+        categorymembers={'p': dummy_member}
+    )
+
+    def fake_fetch(self, name):
+        return dummy_cat
+
+    monkeypatch.setattr(sw.WikipediaAdvanced, 'fetch_category', fake_fetch, raising=False)
+    import asyncio as aio
+    members = aio.run(wiki.get_category_members_async('Any'))
+    assert members == [{
+        'title': 'Page',
+        'url': 'url',
+        'lang': 'en',
+        'category': 'Any',
+        'depth': 0
+    }]
 
 
 def test_main_collects_pages_unaccented(monkeypatch):
