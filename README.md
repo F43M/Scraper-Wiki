@@ -31,12 +31,17 @@ Também é possível enfileirar execuções futuras:
 python cli.py queue --lang en --category "Algorithms"
 ```
 
-### Obter HTML de uma única página
+### Obter HTML de uma ou mais páginas
 
-Use o script `click_cli.py` para baixar o HTML bruto de uma página específica da Wikipédia. O formato de saída é definido pela extensão do arquivo informada (`.json` ou `.csv`).
+O script `main.py` fornece uma interface avançada baseada em **Click**. Ele
+permite escolher o formato de saída (`json`, `csv` ou `parquet`) e também ler
+uma lista de URLs de um arquivo para processamento em lote.
 
 ```bash
-python click_cli.py --url https://en.wikipedia.org/wiki/Python_(programming_language) --output page.json
+python main.py --url "https://en.wikipedia.org/wiki/Python" --output csv
+
+# Para modo batch
+python main.py --file urls.txt --output parquet
 ```
 
 ### Normalização de categorias e busca automática
