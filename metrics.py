@@ -1,4 +1,4 @@
-from prometheus_client import Counter, start_http_server
+from prometheus_client import Counter, Histogram, start_http_server
 
 scrape_success = Counter(
     "scrape_success_total",
@@ -25,6 +25,12 @@ pages_scraped_total = Counter(
 requests_failed_total = Counter(
     "requests_failed_total",
     "HTTP request failures"
+)
+
+# Histogram of processing time per page
+page_processing_seconds = Histogram(
+    "page_processing_seconds",
+    "Time spent processing a page in seconds"
 )
 
 

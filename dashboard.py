@@ -33,6 +33,7 @@ def load_metrics():
         "block": 0,
         "pages": 0,
         "failures": 0,
+        "avg_time": 0,
     }
     try:
         for name, key in {
@@ -51,6 +52,27 @@ def load_metrics():
             data = resp.json()
             if data.get("data", {}).get("result"):
                 metrics[name] = float(data["data"]["result"][0]["value"][1])
+
+        # Calculate average processing time
+        resp = requests.get(
+            f"{PROM_URL}/api/v1/query",
+            params={"query": "page_processing_seconds_sum"},
+            timeout=5,
+        )
+        resp.raise_for_status()
+        sum_data = resp.json()
+        resp = requests.get(
+            f"{PROM_URL}/api/v1/query",
+            params={"query": "page_processing_seconds_count"},
+            timeout=5,
+        )
+        resp.raise_for_status()
+        count_data = resp.json()
+        if sum_data.get("data", {}).get("result") and count_data.get("data", {}).get("result"):
+            total = float(sum_data["data"]["result"][0]["value"][1])
+            count = float(count_data["data"]["result"][0]["value"][1])
+            if count:
+                metrics["avg_time"] = total / count
     except Exception:
         pass
     return metrics
@@ -71,6 +93,7 @@ def main():
     ram = psutil.virtual_memory().percent
     st.metric("CPU usage", f"{cpu}%")
     st.metric("RAM usage", f"{ram}%")
+    st.metric("Avg processing time (s)", round(metrics["avg_time"], 2))
 
     st.metric("Scrape success", metrics["success"])
     st.metric("Scrape errors", metrics["error"])

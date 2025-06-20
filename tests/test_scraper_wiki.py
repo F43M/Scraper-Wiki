@@ -324,6 +324,7 @@ def test_process_page_uses_clean_text(monkeypatch):
         scrape_error=SimpleNamespace(inc=lambda: None),
         pages_scraped_total=SimpleNamespace(inc=lambda: None),
         requests_failed_total=SimpleNamespace(inc=lambda: None),
+        page_processing_seconds=SimpleNamespace(observe=lambda v: None),
     ))
 
     builder = sw.DatasetBuilder()
@@ -362,6 +363,7 @@ def test_process_page_increments_counter(monkeypatch):
         scrape_error=SimpleNamespace(inc=lambda: None),
         pages_scraped_total=SimpleNamespace(inc=inc_pages),
         requests_failed_total=SimpleNamespace(inc=lambda: None),
+        page_processing_seconds=SimpleNamespace(observe=lambda v: None),
     ))
 
     builder = sw.DatasetBuilder()
@@ -369,6 +371,46 @@ def test_process_page_increments_counter(monkeypatch):
 
     assert res == {'ok': True}
     assert counts['pages'] == 1
+
+
+def test_process_page_records_histogram(monkeypatch):
+    class DummyPage:
+        text = 't' * 200
+
+        def exists(self):
+            return True
+
+    class DummyWiki:
+        def __init__(self, lang):
+            pass
+
+        def fetch_page(self, title):
+            return DummyPage()
+
+    observed = {'count': 0}
+
+    def observe(v):
+        observed['count'] += 1
+
+    monkeypatch.setattr(sw.Config, 'MIN_TEXT_LENGTH', 10)
+    monkeypatch.setattr(sw, 'WikipediaAdvanced', DummyWiki)
+    monkeypatch.setattr(sw, 'clean_text', lambda t: t)
+    monkeypatch.setattr(sw, 'advanced_clean_text', lambda t, lang, remove_stopwords=False: t)
+    monkeypatch.setattr(sw, 'summarize_text', lambda *a, **k: '')
+    monkeypatch.setattr(sw.DatasetBuilder, 'generate_qa_pairs', lambda *a, **k: {'ok': True})
+    monkeypatch.setattr(sw, 'metrics', SimpleNamespace(
+        scrape_success=SimpleNamespace(inc=lambda: None),
+        scrape_error=SimpleNamespace(inc=lambda: None),
+        pages_scraped_total=SimpleNamespace(inc=lambda: None),
+        requests_failed_total=SimpleNamespace(inc=lambda: None),
+        page_processing_seconds=SimpleNamespace(observe=observe),
+    ))
+
+    builder = sw.DatasetBuilder()
+    res = builder.process_page({'title': 'T', 'lang': 'en'})
+
+    assert res == {'ok': True}
+    assert observed['count'] == 1
 
 
 def test_save_dataset_json_csv(tmp_path, monkeypatch):
