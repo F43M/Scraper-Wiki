@@ -46,7 +46,11 @@ def scrape(
     category: list[str] = typer.Option(None, "--category", help="Categoria específica", show_default=False),
     fmt: str = typer.Option("all", "--format", help="Formato de saída"),
     rate_limit_delay: float = typer.Option(None, "--rate-limit-delay", help="Delay entre requisições", show_default=False),
-    plugin: str = typer.Option("wikipedia", "--plugin", help="Plugin de scraping"),
+    plugin: str = typer.Option(
+        "wikipedia",
+        "--plugin",
+        help="Plugin de scraping (wikipedia, infobox_parser, table_parser)",
+    ),
     train: bool = typer.Option(False, "--train", help="Executa conversões para treinamento"),
 ):
     """Executa o scraper imediatamente."""

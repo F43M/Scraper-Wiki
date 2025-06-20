@@ -106,6 +106,13 @@ O pacote `utils.text` oferece funções auxiliares:
 - `normalize_person` simplifica infoboxes de pessoas;
 - `extract_entities` usa spaCy para listar entidades nomeadas.
 
+### Sistema de Plugins
+
+Os plugins permitem estender o scraper com novos analisadores. Em
+`plugins/` foram adicionados `infobox_parser` e `table_parser`, que
+extraem respectivamente infoboxes e tabelas das páginas da Wikipédia.
+Use `--plugin` ou o campo `plugin` na API para escolher qual utilizar.
+
 ## Limpeza e NLP
 
 Estas funções podem ser utilizadas isoladamente ou combinadas com o

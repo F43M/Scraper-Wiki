@@ -1506,7 +1506,12 @@ def main(langs: Optional[List[str]] = None,
     try:
         from plugins import load_plugin
 
-        for plugin_name in ["stackoverflow", "wikidata"]:
+        for plugin_name in [
+            "stackoverflow",
+            "wikidata",
+            "infobox_parser",
+            "table_parser",
+        ]:
             try:
                 plugin = load_plugin(plugin_name)
             except Exception as e:
