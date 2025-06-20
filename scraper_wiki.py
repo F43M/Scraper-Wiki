@@ -691,6 +691,46 @@ def extract_links(html: str, base_url: str) -> List[str]:
         return []
 
 
+def extract_infobox(html: str) -> Dict[str, str]:
+    """Return a dictionary with key/value pairs from the first infobox table."""
+    try:
+        soup = BeautifulSoup(html, "html.parser")
+        box = soup.find("table", class_=lambda c: c and "infobox" in c)
+        if not box:
+            return {}
+        data: Dict[str, str] = {}
+        for row in box.find_all("tr"):
+            header = row.find("th")
+            value = row.find("td")
+            if header and value:
+                key = header.get_text(strip=True)
+                val = value.get_text(strip=True)
+                data[key] = val
+        return data
+    except Exception as e:
+        logger.error(f"Erro ao extrair infobox: {e}")
+        return {}
+
+
+def extract_tables(html: str) -> List[List[List[str]]]:
+    """Return all HTML tables as lists of rows and cells."""
+    try:
+        soup = BeautifulSoup(html, "html.parser")
+        tables: List[List[List[str]]] = []
+        for table in soup.find_all("table"):
+            rows: List[List[str]] = []
+            for tr in table.find_all("tr"):
+                cells = [c.get_text(strip=True) for c in tr.find_all(["th", "td"])]
+                if cells:
+                    rows.append(cells)
+            if rows:
+                tables.append(rows)
+        return tables
+    except Exception as e:
+        logger.error(f"Erro ao extrair tabelas: {e}")
+        return []
+
+
 async def fetch_with_retry(
     url: str,
     *,

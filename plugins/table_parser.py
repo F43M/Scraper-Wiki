@@ -4,7 +4,7 @@ from typing import List, Dict
 from bs4 import BeautifulSoup
 
 from core import WikipediaAdvanced
-from scraper_wiki import fetch_html_content
+from scraper_wiki import fetch_html_content, extract_tables
 
 from .base import Plugin
 
@@ -20,16 +20,11 @@ class Plugin(Plugin):  # type: ignore[misc]
         html = fetch_html_content(item["title"], item.get("lang", "en"))
         if not html:
             return {}
-        soup = BeautifulSoup(html, "html.parser")
-        tables: List[List[List[str]]] = []
-        for table in soup.find_all("table"):
-            rows: List[List[str]] = []
-            for tr in table.find_all("tr"):
-                cells = [c.get_text(strip=True) for c in tr.find_all(["th", "td"])]
-                if cells:
-                    rows.append(cells)
-            if rows:
-                tables.append(rows)
+        tables = extract_tables(html)
         if not tables:
             return {}
-        return {"title": item["title"], "language": item.get("lang", "en"), "tables": tables}
+        return {
+            "title": item["title"],
+            "language": item.get("lang", "en"),
+            "tables": tables,
+        }
