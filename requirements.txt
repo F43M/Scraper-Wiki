@@ -25,3 +25,4 @@ prometheus-client>=0.20.0
 networkx>=3.5
 simhash>=2.1.2
 tensorflow>=2.16.0  # optional
+transformers>=4.40.0

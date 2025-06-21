@@ -321,6 +321,20 @@ with torch.no_grad():
 print(tokenizer.decode(output[0], skip_special_tokens=True))
 ```
 
+Utilize também os utilitários em `training.pretrained_utils`:
+
+```python
+from pathlib import Path
+from training.pretrained_utils import prepare_bert_inputs, extract_image_dataset
+
+# Tokenizar textos com BERT
+inputs = prepare_bert_inputs(["exemplo de texto"])
+
+# Gerar dataset de imagens para Stable Diffusion
+records = [{"image_url": "http://site/img.jpg", "caption": "Uma foto"}]
+extract_image_dataset(records, Path('sd_data'))
+```
+
 ### Carregando embeddings com TensorFlow
 
 ```python
