@@ -71,3 +71,24 @@ def test_token_to_ent_text_fallback():
     token = DummyToken('Word', 'nsubj', i=0)
     ent = DummyEnt('Other', 1, 2)
     assert rel._token_to_ent_text(token, [ent]) == 'Word'
+
+
+def test_extract_relations_regex_basic(monkeypatch):
+    monkeypatch.setitem(sys.modules, "spacy", SimpleNamespace(load=lambda *a, **k: None))
+    import utils.relation as rel
+    text = 'Ada worked at IBM. Bob studied at MIT.'
+    res = rel.extract_relations_regex(text)
+    assert {'subject': 'Ada', 'relation': 'worked at', 'object': 'IBM'} in res
+    assert {'subject': 'Bob', 'relation': 'studied at', 'object': 'MIT'} in res
+
+
+def test_relations_to_graph_builds_edges(monkeypatch):
+    monkeypatch.setitem(sys.modules, "spacy", SimpleNamespace(load=lambda *a, **k: None))
+    import utils.relation as rel
+    relations = [
+        {'subject': 'Ada', 'relation': 'worked at', 'object': 'IBM'},
+        {'subject': 'Bob', 'relation': 'studied at', 'object': 'MIT'},
+    ]
+    g = rel.relations_to_graph(relations)
+    assert g.has_edge('Ada', 'IBM')
+    assert g['Ada']['IBM']['relation'] == 'worked at'

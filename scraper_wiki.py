@@ -53,7 +53,7 @@ import dq
 import metrics
 import storage_sqlite
 from utils.text import clean_text
-from utils.relation import extract_relations
+from utils.relation import extract_relations, extract_relations_regex
 from utils.cleaner import clean_wiki_text, split_sentences
 
 # ============================
@@ -1376,6 +1376,8 @@ class DatasetBuilder:
 
         # Relações semânticas básicas
         relations = extract_relations(content, lang)
+        relations_regex = extract_relations_regex(content)
+        relations.extend(r for r in relations_regex if r not in relations)
         
         # Cria embeddings para busca semântica
         content_embedding = self.embedding_model.encode(content, show_progress_bar=False)
