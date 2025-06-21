@@ -128,6 +128,8 @@ O pacote `utils.text` oferece funções auxiliares:
 - `normalize_infobox` padroniza chaves e valores de infoboxes.
 - `advanced_clean_text` elimina HTML e pode remover stopwords quando
   `Config.REMOVE_STOPWORDS` (ou variável `REMOVE_STOPWORDS=1`) está ativado.
+- O módulo `utils.cleaner` oferece `clean_wiki_text` para remover links, templates e tags HTML
+  e `split_sentences` que divide o texto em frases usando spaCy ou NLTK.
 
 ### Sistema de Plugins
 

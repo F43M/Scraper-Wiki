@@ -54,6 +54,7 @@ import metrics
 import storage_sqlite
 from utils.text import clean_text
 from utils.relation import extract_relations
+from utils.cleaner import clean_wiki_text, split_sentences
 
 # ============================
 # 🔧 Configurações Avançadas
@@ -645,23 +646,25 @@ def cluster_texts(texts: List[str], k: int = Config.CLUSTER_K) -> np.ndarray:
 # ============================
 # 🧹 Limpeza Avançada de Texto
 # ============================
-def advanced_clean_text(text: str, lang: str = 'en', remove_stopwords: bool = False) -> str:
+def advanced_clean_text(
+    text: str,
+    lang: str = 'en',
+    remove_stopwords: bool = False,
+    split: bool = False,
+) -> str | list[str]:
+    """Clean wiki text and optionally split sentences."""
     try:
-        # Remove HTML
-        text = BeautifulSoup(text, 'html.parser').get_text()
-        
+        text = clean_wiki_text(text)
+
         # Remove caracteres especiais, mantendo acentos quando relevante
         if lang in ['en', 'de']:
             text = unidecode(text)
-        
+
         # Remove padrões específicos da Wikipedia
         text = re.sub(r'\[\d+\]', '', text)  # Referências [1], [2], etc.
         text = re.sub(r'\b(ver também|see also|véase también|voir aussi)\b.*', '', text, flags=re.IGNORECASE)
-        text = re.sub(r'\n+', ' ', text)
-        text = re.sub(r'\s+', ' ', text)
-        text = re.sub(r'\{\{.*?\}\}', '', text)  # Remove templates wiki
         text = re.sub(r'\{\|.*?\|\}', '', text, flags=re.DOTALL)  # Remove tables
-        
+
         # Remove seções específicas
         sections_to_remove = [
             'referências', 'references', 'referencias',
@@ -689,7 +692,10 @@ def advanced_clean_text(text: str, lang: str = 'en', remove_stopwords: bool = Fa
                 except Exception as e:
                     logger.error(f"Erro ao remover stopwords com NLTK: {e}")
 
-        return text.strip()
+        text = text.strip()
+        if split:
+            return split_sentences(text, lang)
+        return text
     except Exception as e:
         logger.error(f"Erro na limpeza de texto: {e}")
         return text
