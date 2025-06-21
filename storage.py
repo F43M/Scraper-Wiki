@@ -43,6 +43,15 @@ class LocalStorage(StorageBackend):
                 pq.write_table(table, parquet_file)
             except Exception:
                 pass
+        if fmt in ['all', 'tfrecord']:
+            try:
+                import tensorflow as tf
+                tf_path = os.path.join(self.output_dir, 'wikipedia_qa.tfrecord')
+                with tf.io.TFRecordWriter(tf_path) as writer:
+                    for row in data:
+                        writer.write(json.dumps(row, ensure_ascii=False).encode('utf-8'))
+            except Exception:
+                pass
 
 
 class S3Storage(StorageBackend):
@@ -85,6 +94,20 @@ class S3Storage(StorageBackend):
                 buf = pa.BufferOutputStream()
                 pq.write_table(table, buf)
                 self.s3.put_object(Bucket=self.bucket, Key=self._key('wikipedia_qa.parquet'), Body=buf.getvalue().to_pybytes())
+            except Exception:
+                pass
+        if fmt in ['all', 'tfrecord']:
+            import tempfile
+            try:
+                import tensorflow as tf
+                with tempfile.NamedTemporaryFile(delete=False) as tmp:
+                    with tf.io.TFRecordWriter(tmp.name) as writer:
+                        for row in data:
+                            writer.write(json.dumps(row, ensure_ascii=False).encode('utf-8'))
+                    tmp.flush()
+                    tmp.seek(0)
+                    body = tmp.read()
+                self.s3.put_object(Bucket=self.bucket, Key=self._key('wikipedia_qa.tfrecord'), Body=body)
             except Exception:
                 pass
 

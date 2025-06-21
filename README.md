@@ -23,6 +23,11 @@ Para gerar um arquivo no formato JSON Lines basta usar `--format jsonl`:
 ```bash
 python cli.py scrape --lang pt --category "Programação" --format jsonl
 ```
+Para gravar em TFRecord basta definir `--format tfrecord`:
+
+```bash
+python cli.py scrape --lang pt --category "Programação" --format tfrecord
+```
 
 É possível repetir `--lang` e `--category` para processar múltiplos valores. Para monitorar o progresso use:
 
@@ -305,6 +310,16 @@ import tensorflow as tf
 emb = json.load(open('datasets_wikipedia_pro/wikipedia_qa_embeddings.json'))
 emb_tensor = tf.constant([e['embedding'] for e in emb])
 print(emb_tensor.shape)
+```
+
+Também é possível abrir o dataset salvo em TFRecord:
+
+```python
+import tensorflow as tf
+
+dataset = tf.data.TFRecordDataset('datasets_wikipedia_pro/wikipedia_qa.tfrecord')
+for raw in dataset.take(1):
+    print(raw.numpy())
 ```
 
 ## Docker

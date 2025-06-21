@@ -1756,7 +1756,7 @@ class DatasetBuilder:
         backend.save_dataset(sorted_data, format)
         logger.info(f"Dataset salvo usando backend {Config.STORAGE_BACKEND}")
 
-        if format in ['all', 'hf']:
+        if format in ['all', 'hf', 'tfrecord']:
             try:
                 hf_dataset = Dataset.from_list(sorted_data)
                 hf_dataset.save_to_disk(os.path.join(output_dir, 'huggingface'))
