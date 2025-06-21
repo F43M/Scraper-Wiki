@@ -44,7 +44,11 @@ QUEUE_FILE = Path("jobs_queue.jsonl")
 def scrape(
     lang: list[str] = typer.Option(None, "--lang", help="Idioma a processar", show_default=False),
     category: list[str] = typer.Option(None, "--category", help="Categoria específica", show_default=False),
-    fmt: str = typer.Option("all", "--format", help="Formato de saída"),
+    fmt: str = typer.Option(
+        "all",
+        "--format",
+        help="Formato de saída (json, jsonl, csv, parquet, tfrecord, qa, text)",
+    ),
     rate_limit_delay: float = typer.Option(None, "--rate-limit-delay", help="Delay entre requisições", show_default=False),
     async_mode: bool = typer.Option(False, "--async", help="Usa scraping assíncrono", is_flag=True),
     plugin: str = typer.Option(
@@ -96,7 +100,11 @@ def monitor():
 def queue(
     lang: list[str] = typer.Option(None, "--lang", help="Idioma a processar", show_default=False),
     category: list[str] = typer.Option(None, "--category", help="Categoria específica", show_default=False),
-    fmt: str = typer.Option("all", "--format", help="Formato de saída"),
+    fmt: str = typer.Option(
+        "all",
+        "--format",
+        help="Formato de saída (json, jsonl, csv, parquet, tfrecord, qa, text)",
+    ),
 ):
     """Enfileira um job de scraping."""
     cats = [scraper_wiki.normalize_category(c) or c for c in category] if category else None

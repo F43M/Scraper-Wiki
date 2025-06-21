@@ -28,6 +28,16 @@ Para gravar em TFRecord basta definir `--format tfrecord`:
 ```bash
 python cli.py scrape --lang pt --category "Programação" --format tfrecord
 ```
+Para gerar pares pergunta/resposta use `--format qa`:
+
+```bash
+python cli.py scrape --lang pt --category "Programação" --format qa
+```
+Para salvar um corpus de texto simples utilize `--format text`:
+
+```bash
+python cli.py scrape --lang pt --category "Programação" --format text
+```
 
 É possível repetir `--lang` e `--category` para processar múltiplos valores. Para monitorar o progresso use:
 

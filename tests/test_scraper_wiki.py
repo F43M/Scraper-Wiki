@@ -573,6 +573,39 @@ def test_save_dataset_jsonl(tmp_path, monkeypatch):
     assert record['id'] == '1'
 
 
+def test_save_dataset_qa_and_text(tmp_path, monkeypatch):
+    builder = sw.DatasetBuilder()
+    monkeypatch.setattr(sw.Config, 'MIN_TEXT_LENGTH', 5)
+    builder.dataset = [{
+        'id': '1',
+        'title': 'T',
+        'language': 'en',
+        'category': 'c',
+        'topic': 'ai',
+        'subtopic': 'nlp',
+        'keywords': [],
+        'content': 'sample content '*2,
+        'summary': 'summary text',
+        'content_embedding': [0.1],
+        'summary_embedding': [0.1],
+        'questions': [{'text': 'q1'}],
+        'answers': [{'text': 'a1'}],
+        'relations': [],
+        'created_at': 'now',
+        'metadata': {}
+    }]
+
+    builder.save_dataset('qa', output_dir=tmp_path)
+    qa_file = tmp_path / 'qa_pairs.json'
+    assert qa_file.exists()
+    data = json.loads(qa_file.read_text(encoding='utf-8'))
+    assert data == [{'question': 'q1', 'answer': 'a1'}]
+
+    builder.save_dataset('text', output_dir=tmp_path)
+    txt_dir = tmp_path / 'text_corpus'
+    assert (txt_dir / '1.txt').exists()
+
+
 def test_normalize_category_alias():
     assert sw.normalize_category('programacao') == 'Programação'
 
