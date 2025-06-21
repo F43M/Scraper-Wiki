@@ -53,7 +53,7 @@ import storage
 import dq
 import metrics
 import storage_sqlite
-from utils.text import clean_text
+from utils.text import clean_text, extract_entities
 from utils.relation import extract_relations, extract_relations_regex
 from utils.cleaner import clean_wiki_text, split_sentences
 
@@ -1301,13 +1301,15 @@ def cpu_process_page(title: str, content: str, lang: str, category: str) -> dict
     """Executes CPU intensive operations for a page."""
     builder = DatasetBuilder()
     summary = summarize_text(content, lang)
-    return builder.generate_qa_pairs(
+    record = builder.generate_qa_pairs(
         title=title,
         content=content,
         summary=summary,
         lang=lang,
         category=category,
     )
+    record["entities"] = extract_entities(content)
+    return record
 
 class DatasetBuilder:
     def __init__(self):
@@ -1387,6 +1389,7 @@ class DatasetBuilder:
                 lang=page_info['lang'],
                 category=page_info.get('category', '')
             )
+            qa_data["entities"] = extract_entities(clean_content)
             metrics.scrape_success.inc()
             metrics.pages_scraped_total.inc()
             return qa_data

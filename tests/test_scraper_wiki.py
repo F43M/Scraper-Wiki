@@ -422,6 +422,7 @@ def test_process_page_uses_clean_text(monkeypatch):
     monkeypatch.setattr(sw.Config, 'REMOVE_STOPWORDS', True)
     monkeypatch.setattr(sw, 'summarize_text', lambda *a, **k: '')
     monkeypatch.setattr(sw.DatasetBuilder, 'generate_qa_pairs', lambda *a, **k: {})
+    monkeypatch.setattr(sw, 'extract_entities', lambda text: [])
     monkeypatch.setattr(sw, 'metrics', SimpleNamespace(
         scrape_success=SimpleNamespace(inc=lambda: None),
         scrape_error=SimpleNamespace(inc=lambda: None),
@@ -433,7 +434,7 @@ def test_process_page_uses_clean_text(monkeypatch):
     builder = sw.DatasetBuilder()
     res = builder.process_page({'title': 'T', 'lang': 'en'})
 
-    assert res == {}
+    assert res == {'entities': []}
     assert called['clean'] == 'raw text'
     assert called['adv'] == ('cleaned', 'en', True)
 
@@ -461,6 +462,7 @@ def test_process_page_increments_counter(monkeypatch):
     monkeypatch.setattr(sw, 'advanced_clean_text', lambda t, lang, remove_stopwords=False: t)
     monkeypatch.setattr(sw, 'summarize_text', lambda *a, **k: '')
     monkeypatch.setattr(sw.DatasetBuilder, 'generate_qa_pairs', lambda *a, **k: {'ok': True})
+    monkeypatch.setattr(sw, 'extract_entities', lambda text: [])
     monkeypatch.setattr(sw, 'metrics', SimpleNamespace(
         scrape_success=SimpleNamespace(inc=lambda: None),
         scrape_error=SimpleNamespace(inc=lambda: None),
@@ -472,7 +474,7 @@ def test_process_page_increments_counter(monkeypatch):
     builder = sw.DatasetBuilder()
     res = builder.process_page({'title': 'T', 'lang': 'en'})
 
-    assert res == {'ok': True}
+    assert res == {'ok': True, 'entities': []}
     assert counts['pages'] == 1
 
 
@@ -501,6 +503,7 @@ def test_process_page_records_histogram(monkeypatch):
     monkeypatch.setattr(sw, 'advanced_clean_text', lambda t, lang, remove_stopwords=False: t)
     monkeypatch.setattr(sw, 'summarize_text', lambda *a, **k: '')
     monkeypatch.setattr(sw.DatasetBuilder, 'generate_qa_pairs', lambda *a, **k: {'ok': True})
+    monkeypatch.setattr(sw, 'extract_entities', lambda text: [])
     monkeypatch.setattr(sw, 'metrics', SimpleNamespace(
         scrape_success=SimpleNamespace(inc=lambda: None),
         scrape_error=SimpleNamespace(inc=lambda: None),
@@ -512,7 +515,7 @@ def test_process_page_records_histogram(monkeypatch):
     builder = sw.DatasetBuilder()
     res = builder.process_page({'title': 'T', 'lang': 'en'})
 
-    assert res == {'ok': True}
+    assert res == {'ok': True, 'entities': []}
     assert observed['count'] == 1
 
 
