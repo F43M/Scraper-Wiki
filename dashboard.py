@@ -34,6 +34,8 @@ def load_metrics():
         "pages": 0,
         "failures": 0,
         "avg_time": 0,
+        "retries": 0,
+        "avg_session": 0,
     }
     try:
         for name, key in {
@@ -42,6 +44,7 @@ def load_metrics():
             "block": "scrape_block_total",
             "pages": "pages_scraped_total",
             "failures": "requests_failed_total",
+            "retries": "request_retries_total",
         }.items():
             resp = requests.get(
                 f"{PROM_URL}/api/v1/query",
@@ -73,6 +76,27 @@ def load_metrics():
             count = float(count_data["data"]["result"][0]["value"][1])
             if count:
                 metrics["avg_time"] = total / count
+
+        # Average session duration
+        resp = requests.get(
+            f"{PROM_URL}/api/v1/query",
+            params={"query": "scrape_session_seconds_sum"},
+            timeout=5,
+        )
+        resp.raise_for_status()
+        sess_sum = resp.json()
+        resp = requests.get(
+            f"{PROM_URL}/api/v1/query",
+            params={"query": "scrape_session_seconds_count"},
+            timeout=5,
+        )
+        resp.raise_for_status()
+        sess_count = resp.json()
+        if sess_sum.get("data", {}).get("result") and sess_count.get("data", {}).get("result"):
+            total = float(sess_sum["data"]["result"][0]["value"][1])
+            count = float(sess_count["data"]["result"][0]["value"][1])
+            if count:
+                metrics["avg_session"] = total / count
     except Exception:
         pass
     return metrics
@@ -94,10 +118,12 @@ def main():
     st.metric("CPU usage", f"{cpu}%")
     st.metric("RAM usage", f"{ram}%")
     st.metric("Avg processing time (s)", round(metrics["avg_time"], 2))
+    st.metric("Avg session time (s)", round(metrics["avg_session"], 2))
 
     st.metric("Scrape success", metrics["success"])
     st.metric("Scrape errors", metrics["error"])
     st.metric("Scrape blocks", metrics["block"])
+    st.metric("Request retries", metrics["retries"])
 
     st.subheader("Clusters")
     st.write(clusters)

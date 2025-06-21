@@ -27,10 +27,22 @@ requests_failed_total = Counter(
     "HTTP request failures"
 )
 
+# Total de tentativas extras ao fazer requisições
+request_retries_total = Counter(
+    "request_retries_total",
+    "HTTP request retries"
+)
+
 # Histogram of processing time per page
 page_processing_seconds = Histogram(
     "page_processing_seconds",
     "Time spent processing a page in seconds"
+)
+
+# Duração completa de uma sessão de scraping
+scrape_session_seconds = Histogram(
+    "scrape_session_seconds",
+    "Time spent in a full scraping session in seconds"
 )
 
 

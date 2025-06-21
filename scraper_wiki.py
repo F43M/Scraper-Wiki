@@ -811,6 +811,7 @@ async def fetch_with_retry(
                 f"Attempt {attempt} failed for {url}: {e}")
             exc = e
         if attempt < retries:
+            metrics.request_retries_total.inc()
             await asyncio.sleep(2)
         else:
             log_failed_url(url)
@@ -1788,6 +1789,7 @@ def main(langs: Optional[List[str]] = None,
          rate_limit_delay: Optional[float] = None,
          client=None):
     """Gera o dataset utilizando os parâmetros fornecidos."""
+    start_time = time.perf_counter()
     metrics.start_metrics_server(int(os.environ.get("METRICS_PORT", "8001")))
     logger.info("🚀 Iniciando Wikipedia Scraper Ultra Pro Max - GodMode++")
 
@@ -1876,6 +1878,7 @@ def main(langs: Optional[List[str]] = None,
 
     logger.info("✅ Dataset finalizado com sucesso!")
     logger.info(f"📊 Estatísticas de cache: {cache.stats()}")
+    metrics.scrape_session_seconds.observe(time.perf_counter() - start_time)
 
 
 async def main_async(
@@ -1885,6 +1888,7 @@ async def main_async(
     rate_limit_delay: Optional[float] = None,
 ) -> None:
     """Asynchronous version of :func:`main`."""
+    start_time = time.perf_counter()
     metrics.start_metrics_server(int(os.environ.get("METRICS_PORT", "8001")))
     logger.info("🚀 Iniciando Wikipedia Scraper Ultra Pro Max - GodMode++ (async)")
 
@@ -1971,6 +1975,7 @@ async def main_async(
 
     logger.info("✅ Dataset finalizado com sucesso!")
     logger.info(f"📊 Estatísticas de cache: {cache.stats()}")
+    metrics.scrape_session_seconds.observe(time.perf_counter() - start_time)
 
 if __name__ == "__main__":
     main()
