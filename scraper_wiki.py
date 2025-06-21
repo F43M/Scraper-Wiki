@@ -1349,7 +1349,15 @@ class DatasetBuilder:
         """Asynchronous wrapper for :meth:`process_page`."""
         return await asyncio.to_thread(self.process_page, page_info, proc_executor)
     
-    def generate_qa_pairs(self, title: str, content: str, summary: str, lang: str, category: str) -> dict:
+    def generate_qa_pairs(
+        self,
+        title: str,
+        content: str,
+        summary: str,
+        lang: str,
+        category: str,
+        extra_metadata: dict | None = None,
+    ) -> dict:
         # Extrai keywords para gerar perguntas variadas
         keywords = extract_keywords(content, lang)
         
@@ -1391,6 +1399,11 @@ class DatasetBuilder:
                 'source_url': f"{get_base_url(lang)}/wiki/{title.replace(' ', '_')}"
             }
         }
+        if extra_metadata:
+            if 'wikidata_id' in extra_metadata:
+                record['wikidata_id'] = extra_metadata['wikidata_id']
+            if 'image_url' in extra_metadata:
+                record['image_url'] = extra_metadata['image_url']
         try:
             storage_sqlite.save_to_db({'id': record['id'], 'metadata': record.get('metadata', {})})
         except Exception as e:

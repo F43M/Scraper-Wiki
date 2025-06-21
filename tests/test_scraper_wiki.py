@@ -109,6 +109,25 @@ def test_classify_topic_ai_nlp():
     assert topic == 'ai'
     assert sub == 'nlp'
 
+
+def test_generate_qa_pairs_accepts_extra_metadata(monkeypatch):
+    qb = sw.DatasetBuilder()
+    monkeypatch.setattr(qb, '_generate_questions', lambda *a, **k: [])
+    monkeypatch.setattr(qb, '_generate_answers', lambda *a, **k: [])
+    monkeypatch.setattr(sw, 'extract_relations', lambda *a, **k: [])
+    import numpy as np
+    monkeypatch.setattr(qb.embedding_model, 'encode', lambda *a, **k: np.array([0.0]))
+    result = qb.generate_qa_pairs(
+        title='T',
+        content='content',
+        summary='sum',
+        lang='en',
+        category='c',
+        extra_metadata={'wikidata_id': 'Q1', 'image_url': 'img'},
+    )
+    assert result['wikidata_id'] == 'Q1'
+    assert result['image_url'] == 'img'
+
 def test_advanced_clean_text_removes_html():
     raw = '<div>Example</div>\n[[1]]\n== Referências ==\nTexto'
     cleaned = sw.advanced_clean_text(raw, 'pt')
@@ -319,8 +338,16 @@ class DummyExecutor:
 
 
 def test_build_from_pages(monkeypatch):
-    dummy_data = {'id': '1', 'content_embedding': [0.0], 'summary_embedding': [0.0],
-                  'questions': ['q'], 'answers': ['a'], 'summary': 'text text text'}
+    dummy_data = {
+        'id': '1',
+        'content_embedding': [0.0],
+        'summary_embedding': [0.0],
+        'questions': ['q'],
+        'answers': ['a'],
+        'summary': 'text text text',
+        'wikidata_id': 'Q1',
+        'image_url': 'img',
+    }
     def fake_process_page(self, page, proc_executor=None):
         return DummyFuture(dummy_data)
 
@@ -334,6 +361,8 @@ def test_build_from_pages(monkeypatch):
     pages = [{'title': 't', 'lang': 'en'}]
     data = builder.build_from_pages(pages)
     assert data == [dummy_data]
+    assert data[0]['wikidata_id'] == 'Q1'
+    assert data[0]['image_url'] == 'img'
 
 
 def test_build_from_pages_async(monkeypatch):
@@ -343,7 +372,9 @@ def test_build_from_pages_async(monkeypatch):
         'summary_embedding': [0.0],
         'questions': ['q'],
         'answers': ['a'],
-        'summary': 'text text text'
+        'summary': 'text text text',
+        'wikidata_id': 'Q1',
+        'image_url': 'img'
     }
 
     async def fake_process_page_async(self, page, proc_executor=None):
@@ -359,6 +390,8 @@ def test_build_from_pages_async(monkeypatch):
     import asyncio as aio
     data = aio.run(builder.build_from_pages_async(pages))
     assert data == [dummy_data]
+    assert data[0]['wikidata_id'] == 'Q1'
+    assert data[0]['image_url'] == 'img'
 
 
 def test_process_page_uses_clean_text(monkeypatch):

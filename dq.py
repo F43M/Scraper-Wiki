@@ -132,7 +132,12 @@ def complete_missing_fields(records: List[Dict], extra: List[Dict]) -> List[Dict
         if not more:
             continue
         for k, v in more.items():
-            if k not in rec or rec[k] in (None, "", []):
+            if k == "metadata" and isinstance(v, dict):
+                rec_meta = rec.setdefault("metadata", {})
+                for mk, mv in v.items():
+                    if mk not in rec_meta or rec_meta[mk] in (None, "", []):
+                        rec_meta[mk] = mv
+            elif k not in rec or rec[k] in (None, "", []):
                 rec[k] = v
     return records
 
