@@ -276,6 +276,7 @@ def test_scrape_start_page_option(monkeypatch):
         start_pages=None,
         depth=1,
         client=None,
+        **kwargs,
     ):
         called["args"] = {
             "lang": lang,
@@ -301,3 +302,26 @@ def test_scrape_start_page_option(monkeypatch):
         "start": ["Python"],
         "depth": 2,
     }
+
+
+def test_scrape_revisions_option(monkeypatch):
+    captured = {}
+
+    def fake_main(
+        lang,
+        category,
+        fmt,
+        rate_limit_delay=None,
+        start_pages=None,
+        depth=1,
+        revisions=False,
+        rev_limit=5,
+        client=None,
+    ):
+        captured["rev"] = (revisions, rev_limit)
+
+    monkeypatch.setattr(cli.scraper_wiki, "main", fake_main)
+    runner = CliRunner()
+    result = runner.invoke(cli.app, ["scrape", "--revisions", "--rev-limit", "3"])
+    assert result.exit_code == 0
+    assert captured["rev"] == (True, 3)
