@@ -237,7 +237,9 @@ O projeto expõe métricas no formato Prometheus através da função `metrics.s
 - `scrape_block_total`
 - `pages_scraped_total`
 - `requests_failed_total`
+- `request_retries_total`
 - `page_processing_seconds`
+- `scrape_session_seconds`
 
 Esses valores podem ser consultados por Prometheus e visualizados em dashboards Grafana para monitorar o scraping.
 

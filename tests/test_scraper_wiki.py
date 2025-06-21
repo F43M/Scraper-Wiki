@@ -923,6 +923,7 @@ def test_fetch_with_retry_failure_increments_counter(monkeypatch):
     monkeypatch.setattr(sw, 'metrics', SimpleNamespace(
         scrape_block=SimpleNamespace(inc=lambda: None),
         requests_failed_total=SimpleNamespace(inc=inc_fail),
+        request_retries_total=SimpleNamespace(inc=lambda: None),
     ))
 
     import pytest
@@ -931,6 +932,68 @@ def test_fetch_with_retry_failure_increments_counter(monkeypatch):
         asyncio.run(sw.fetch_with_retry('http://x'))
 
     assert calls['fail'] == 1
+
+
+def test_fetch_with_retry_counts_retries(monkeypatch):
+    import asyncio
+
+    class DummyFail:
+        async def __aenter__(self):
+            raise sw.aiohttp.ClientError('fail')
+
+        async def __aexit__(self, exc_type, exc, tb):
+            pass
+
+    class DummySuccess:
+        status = 200
+        request_info = history = headers = None
+        reason = 'OK'
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            pass
+
+        async def text(self):
+            return 'ok'
+
+        def raise_for_status(self):
+            pass
+
+    attempts = [0]
+
+    class DummySession:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            pass
+
+        def get(self, *a, **k):
+            attempts[0] += 1
+            if attempts[0] == 1:
+                return DummyFail()
+            return DummySuccess()
+
+    recorded = {'r': 0}
+
+    def inc_retry():
+        recorded['r'] += 1
+
+    monkeypatch.setattr(sw.aiohttp, 'ClientSession', lambda *a, **k: DummySession())
+    monkeypatch.setattr(sw.aiohttp, 'ClientTimeout', lambda *a, **k: None)
+    monkeypatch.setattr(sw, 'log_failed_url', lambda url: None)
+    monkeypatch.setattr(sw, 'metrics', SimpleNamespace(
+        scrape_block=SimpleNamespace(inc=lambda: None),
+        requests_failed_total=SimpleNamespace(inc=lambda: None),
+        request_retries_total=SimpleNamespace(inc=inc_retry),
+    ))
+
+    status, text = asyncio.run(sw.fetch_with_retry('http://x', retries=2))
+
+    assert status == 200
+    assert recorded['r'] == 1
 
 
 def test_rate_limiter_reset_after_success():
@@ -996,3 +1059,44 @@ def test_fetch_with_retry_429_increases_delay(monkeypatch):
 
     assert rl.consecutive_failures == 1
     assert rl.min_delay == 0.2
+
+
+def test_main_records_session_histogram(monkeypatch):
+    observed = {'c': 0}
+
+    def observe(v):
+        observed['c'] += 1
+
+    monkeypatch.setattr(sw.metrics, 'scrape_session_seconds', SimpleNamespace(observe=observe))
+    monkeypatch.setattr(sw.metrics, 'start_metrics_server', lambda *a, **k: None)
+    monkeypatch.setattr(sw.metrics, 'scrape_success', SimpleNamespace(inc=lambda: None))
+    monkeypatch.setattr(sw.metrics, 'scrape_error', SimpleNamespace(inc=lambda: None))
+    monkeypatch.setattr(sw.metrics, 'pages_scraped_total', SimpleNamespace(inc=lambda: None))
+    monkeypatch.setattr(sw.metrics, 'requests_failed_total', SimpleNamespace(inc=lambda: None))
+    monkeypatch.setattr(sw.metrics, 'request_retries_total', SimpleNamespace(inc=lambda: None))
+    monkeypatch.setattr(sw.metrics, 'page_processing_seconds', SimpleNamespace(observe=lambda v: None))
+
+    class DummyWiki:
+        def __init__(self, lang):
+            pass
+
+        def get_category_members(self, category):
+            return []
+
+    class DummyBuilder:
+        def build_from_pages(self, pages, progress_desc, client=None):
+            pass
+
+        def enhance_with_clustering(self):
+            pass
+
+        def save_dataset(self, format='all'):
+            pass
+
+    monkeypatch.setattr(sw, 'WikipediaAdvanced', DummyWiki)
+    monkeypatch.setattr(sw, 'DatasetBuilder', DummyBuilder)
+    sys.modules['plugins'] = SimpleNamespace(load_plugin=lambda name: SimpleNamespace(fetch_items=lambda l, c: [], parse_item=lambda i: None))
+
+    sw.main(langs=['en'], categories=['prog'], fmt='json', rate_limit_delay=0, client=None)
+
+    assert observed['c'] == 1
