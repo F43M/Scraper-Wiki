@@ -143,6 +143,11 @@ def test_wikidata_plugin(monkeypatch):
             "Q1": {
                 "labels": {"en": {"value": "Item"}},
                 "descriptions": {"en": {"value": "Desc"}},
+                "claims": {
+                    "P18": [
+                        {"mainsnak": {"datavalue": {"value": "Pic.jpg"}}}
+                    ]
+                },
             }
         }
     }
@@ -166,5 +171,6 @@ def test_wikidata_plugin(monkeypatch):
         "category": "python",
         "description": "Desc",
         "wikidata_id": "Q1",
+        "image_url": "https://commons.wikimedia.org/wiki/Special:FilePath/Pic.jpg",
     }
 

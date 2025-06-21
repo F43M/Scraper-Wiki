@@ -46,6 +46,21 @@ class Plugin(Plugin):  # type: ignore[misc]
         data = resp.json().get("entities", {}).get(qid, {})
         labels = data.get("labels", {})
         descriptions = data.get("descriptions", {})
+        claims = data.get("claims", {})
+        image_name = None
+        if isinstance(claims, dict) and "P18" in claims:
+            image_claim = claims.get("P18", [{}])[0]
+            image_name = (
+                image_claim.get("mainsnak", {})
+                .get("datavalue", {})
+                .get("value")
+            )
+        image_url = (
+            f"https://commons.wikimedia.org/wiki/Special:FilePath/{image_name}"
+            if image_name
+            else None
+        )
+
         lang = item.get("lang", "en")
         return {
             "title": labels.get(lang, {}).get("value", item.get("label", "")),
@@ -53,5 +68,6 @@ class Plugin(Plugin):  # type: ignore[misc]
             "category": item.get("category", ""),
             "description": descriptions.get(lang, {}).get("value", item.get("description", "")),
             "wikidata_id": qid,
+            "image_url": image_url,
         }
 
