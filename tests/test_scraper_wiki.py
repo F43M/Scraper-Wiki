@@ -150,6 +150,14 @@ def test_advanced_clean_text_remove_stopwords(monkeypatch):
     cleaned = sw.advanced_clean_text('the quick and brown fox', 'en', remove_stopwords=True)
     assert cleaned == 'quick brown fox'
 
+def test_advanced_clean_text_unidecode_and_sections():
+    text = 'café\n== See also ==\nOther\n{{Infobox}}\n{| table |}'
+    cleaned = sw.advanced_clean_text(text, 'en')
+    assert 'See also' not in cleaned
+    assert 'Infobox' not in cleaned
+    assert 'table' not in cleaned
+    assert cleaned.startswith('cafe')
+
 def test_extract_main_content():
     html = '<html><body><div id="mw-content-text">content</div><table></table></body></html>'
     result = sw.extract_main_content(html)
@@ -256,6 +264,34 @@ def test_crawl_links_respects_limit(monkeypatch):
     wiki = sw.WikipediaAdvanced('en')
     result = wiki.crawl_links('A')
     assert len(result) == 2
+
+
+def test_crawl_links_uses_visited(monkeypatch):
+    mapping = {'Start': ['A'], 'A': ['B']}
+
+    monkeypatch.setattr(sw, 'fetch_html_content', lambda t, lang: t)
+    monkeypatch.setattr(sw, 'extract_links', lambda html, base: [f"{base}/wiki/{p}" for p in mapping.get(html, [])])
+
+    wiki = sw.WikipediaAdvanced('en')
+    visited = {'A'}
+    result = wiki.crawl_links('Start', depth=1, visited=visited)
+    assert result == []
+
+
+def test_crawl_links_async_avoids_cycles(monkeypatch):
+    mapping = {'Start': ['A'], 'A': ['Start']}
+
+    async def fake_fetch_async(title, lang):
+        return title
+
+    monkeypatch.setattr(sw, 'fetch_html_content_async', fake_fetch_async)
+    monkeypatch.setattr(sw, 'extract_links', lambda html, base: [f"{base}/wiki/{p}" for p in mapping.get(html, [])])
+
+    wiki = sw.WikipediaAdvanced('en')
+    import asyncio as aio
+    result = aio.run(wiki.crawl_links_async('Start', depth=2))
+    assert len(result) == 1
+    assert result[0]['title'] == 'A'
 
 
 def test_nlp_triple_fallback(monkeypatch):
@@ -571,6 +607,44 @@ def test_save_dataset_jsonl(tmp_path, monkeypatch):
     assert len(content) == 1
     record = json.loads(content[0])
     assert record['id'] == '1'
+
+def test_save_dataset_tfrecord(tmp_path, monkeypatch):
+    builder = sw.DatasetBuilder()
+    monkeypatch.setattr(sw.Config, 'MIN_TEXT_LENGTH', 5)
+    builder.dataset = [{
+        'id': '1',
+        'title': 't',
+        'language': 'en',
+        'category': 'c',
+        'topic': 'ai',
+        'subtopic': 'nlp',
+        'keywords': [],
+        'content': 'c'*20,
+        'summary': 's'*20,
+        'content_embedding': [0.1, 0.2],
+        'summary_embedding': [0.1, 0.2],
+        'questions': ['q'],
+        'answers': ['a'],
+        'relations': [],
+        'created_at': 'now',
+        'metadata': {}
+    }]
+
+    class DummyWriter:
+        def __init__(self, path):
+            self.f = open(path, 'wb')
+        def write(self, data):
+            self.f.write(data)
+        def __enter__(self):
+            return self
+        def __exit__(self, exc_type, exc, tb):
+            self.f.close()
+
+    sys.modules['tensorflow'] = SimpleNamespace(io=SimpleNamespace(TFRecordWriter=DummyWriter))
+    builder.save_dataset('tfrecord', output_dir=tmp_path)
+    tf_file = tmp_path / 'wikipedia_qa.tfrecord'
+    assert tf_file.exists()
+    assert b'"id"' in tf_file.read_bytes()
 
 
 def test_normalize_category_alias():
