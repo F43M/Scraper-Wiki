@@ -776,6 +776,40 @@ def extract_tables(html: str) -> List[List[List[str]]]:
         return []
 
 
+def extract_images(html: str) -> List[Dict[str, str]]:
+    """Return image URLs and captions from thumbnail/figure elements."""
+    try:
+        soup = BeautifulSoup(html, "html.parser")
+        results: List[Dict[str, str]] = []
+
+        for div in soup.find_all("div", class_=lambda c: c and "thumb" in c.split()):
+            img = div.find("img")
+            if not img or not img.get("src"):
+                continue
+            url = img["src"]
+            if url.startswith("//"):
+                url = "https:" + url
+            caption_tag = div.find(class_="thumbcaption")
+            caption = caption_tag.get_text(strip=True) if caption_tag else ""
+            results.append({"image_url": url, "caption": caption})
+
+        for fig in soup.find_all("figure"):
+            img = fig.find("img")
+            if not img or not img.get("src"):
+                continue
+            url = img["src"]
+            if url.startswith("//"):
+                url = "https:" + url
+            caption_tag = fig.find("figcaption")
+            caption = caption_tag.get_text(strip=True) if caption_tag else ""
+            results.append({"image_url": url, "caption": caption})
+
+        return results
+    except Exception as e:
+        logger.error(f"Erro ao extrair imagens: {e}")
+        return []
+
+
 async def fetch_with_retry(
     url: str,
     *,
@@ -1297,7 +1331,13 @@ class WikipediaAdvanced:
 # 🏗️ Builder de Dataset Profissional
 # ============================
 
-def cpu_process_page(title: str, content: str, lang: str, category: str) -> dict:
+def cpu_process_page(
+    title: str,
+    content: str,
+    lang: str,
+    category: str,
+    images: List[Dict[str, str]] | None = None,
+) -> dict:
     """Executes CPU intensive operations for a page."""
     builder = DatasetBuilder()
     summary = summarize_text(content, lang)
@@ -1309,6 +1349,8 @@ def cpu_process_page(title: str, content: str, lang: str, category: str) -> dict
         category=category,
     )
     record["entities"] = extract_entities(content)
+    if images is not None:
+        record["images"] = images
     return record
 
 class DatasetBuilder:
@@ -1370,12 +1412,14 @@ class DatasetBuilder:
                 return None
 
             if proc_executor:
+                images = extract_images(getattr(page, "_html", ""))
                 return proc_executor.submit(
                     cpu_process_page,
                     page_info['title'],
                     clean_content,
                     page_info['lang'],
-                    page_info.get('category', '')
+                    page_info.get('category', ''),
+                    images,
                 )
 
             # Sumariza o conteúdo
@@ -1390,6 +1434,8 @@ class DatasetBuilder:
                 category=page_info.get('category', '')
             )
             qa_data["entities"] = extract_entities(clean_content)
+            images = extract_images(getattr(page, "_html", ""))
+            qa_data["images"] = images
             metrics.scrape_success.inc()
             metrics.pages_scraped_total.inc()
             return qa_data

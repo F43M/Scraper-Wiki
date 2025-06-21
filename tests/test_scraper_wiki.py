@@ -434,7 +434,7 @@ def test_process_page_uses_clean_text(monkeypatch):
     builder = sw.DatasetBuilder()
     res = builder.process_page({'title': 'T', 'lang': 'en'})
 
-    assert res == {'entities': []}
+    assert res == {'entities': [], 'images': []}
     assert called['clean'] == 'raw text'
     assert called['adv'] == ('cleaned', 'en', True)
 
@@ -474,7 +474,7 @@ def test_process_page_increments_counter(monkeypatch):
     builder = sw.DatasetBuilder()
     res = builder.process_page({'title': 'T', 'lang': 'en'})
 
-    assert res == {'ok': True, 'entities': []}
+    assert res == {'ok': True, 'entities': [], 'images': []}
     assert counts['pages'] == 1
 
 
@@ -515,7 +515,7 @@ def test_process_page_records_histogram(monkeypatch):
     builder = sw.DatasetBuilder()
     res = builder.process_page({'title': 'T', 'lang': 'en'})
 
-    assert res == {'ok': True, 'entities': []}
+    assert res == {'ok': True, 'entities': [], 'images': []}
     assert observed['count'] == 1
 
 
