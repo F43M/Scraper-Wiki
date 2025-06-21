@@ -1847,11 +1847,16 @@ class DatasetBuilder:
 # ============================
 # 🚦 Pipeline de Execução Principal
 # ============================
-def main(langs: Optional[List[str]] = None,
-         categories: Optional[List[str]] = None,
-         fmt: str = "all",
-         rate_limit_delay: Optional[float] = None,
-         client=None):
+def main(
+    langs: Optional[List[str]] = None,
+    categories: Optional[List[str]] = None,
+    fmt: str = "all",
+    rate_limit_delay: Optional[float] = None,
+    *,
+    start_pages: Optional[List[str]] = None,
+    depth: int = 1,
+    client=None,
+):
     """Gera o dataset utilizando os parâmetros fornecidos."""
     start_time = time.perf_counter()
     metrics.start_metrics_server(int(os.environ.get("METRICS_PORT", "8001")))
@@ -1887,6 +1892,18 @@ def main(langs: Optional[List[str]] = None,
 
             all_pages.extend(pages)
             time.sleep(Config.RATE_LIMIT_DELAY * 2)
+
+        if start_pages:
+            for sp in start_pages:
+                logger.info(
+                    f"🕸️ Rastreiando links a partir de: {sp} (profundidade: {depth})"
+                )
+                pages = wiki.crawl_links(sp, depth)
+                logger.info(
+                    f"📄 Páginas coletadas de {sp}: {len(pages)}"
+                )
+                all_pages.extend(pages)
+                time.sleep(Config.RATE_LIMIT_DELAY * 2)
 
     logger.info(f"📚 Total de páginas coletadas: {len(all_pages)}")
 
@@ -1950,6 +1967,9 @@ async def main_async(
     categories: Optional[List[str]] = None,
     fmt: str = "all",
     rate_limit_delay: Optional[float] = None,
+    *,
+    start_pages: Optional[List[str]] = None,
+    depth: int = 1,
 ) -> None:
     """Asynchronous version of :func:`main`."""
     start_time = time.perf_counter()
@@ -1986,6 +2006,18 @@ async def main_async(
 
             all_pages.extend(pages)
             await asyncio.sleep(Config.RATE_LIMIT_DELAY * 2)
+
+        if start_pages:
+            for sp in start_pages:
+                logger.info(
+                    f"🕸️ Rastreiando links a partir de: {sp} (profundidade: {depth})"
+                )
+                pages = await wiki.crawl_links_async(sp, depth)
+                logger.info(
+                    f"📄 Páginas coletadas de {sp}: {len(pages)}"
+                )
+                all_pages.extend(pages)
+                await asyncio.sleep(Config.RATE_LIMIT_DELAY * 2)
 
     logger.info(f"📚 Total de páginas coletadas: {len(all_pages)}")
 
