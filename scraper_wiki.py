@@ -53,6 +53,7 @@ import dq
 import metrics
 import storage_sqlite
 from utils.text import clean_text
+from utils.relation import extract_relations
 
 # ============================
 # 🔧 Configurações Avançadas
@@ -1357,6 +1358,9 @@ class DatasetBuilder:
         
         # Gera respostas completas
         answers = self._generate_answers(content, summary, lang)
+
+        # Relações semânticas básicas
+        relations = extract_relations(content, lang)
         
         # Cria embeddings para busca semântica
         content_embedding = self.embedding_model.encode(content, show_progress_bar=False)
@@ -1379,6 +1383,7 @@ class DatasetBuilder:
             'summary_embedding': summary_embedding.tolist(),
             'questions': questions,
             'answers': answers,
+            'relations': relations,
             'created_at': datetime.utcnow().isoformat(),
             'metadata': {
                 'length': len(content),
@@ -1720,6 +1725,12 @@ class DatasetBuilder:
             if not item.get('answers'):
                 logger.warning(
                     f"Registro {item.get('id', 'desconhecido')} sem respostas"
+                )
+                valid = False
+
+            if 'relations' not in item:
+                logger.warning(
+                    f"Registro {item.get('id', 'desconhecido')} sem relações"
                 )
                 valid = False
 

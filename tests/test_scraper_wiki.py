@@ -500,6 +500,7 @@ def test_save_dataset_json_csv(tmp_path, monkeypatch):
         'summary_embedding': [0.1, 0.2],
         'questions': ['q'],
         'answers': ['a'],
+        'relations': [],
         'created_at': 'now',
         'metadata': {}
     }]
@@ -526,6 +527,7 @@ def test_save_dataset_jsonl(tmp_path, monkeypatch):
         'summary_embedding': [0.1, 0.2],
         'questions': ['q'],
         'answers': ['a'],
+        'relations': [],
         'created_at': 'now',
         'metadata': {}
     }]
