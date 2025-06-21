@@ -56,3 +56,18 @@ def test_extract_relations_simple(monkeypatch):
     relations_mod = importlib.reload(importlib.import_module("utils.relation"))
     rels = relations_mod.extract_relations("Guido created Python", "en")
     assert rels == [{"subject": "Guido", "relation": "create", "object": "Python"}]
+
+def test_extract_relations_returns_empty_on_error(monkeypatch):
+    monkeypatch.setitem(sys.modules, 'sentence_transformers', SimpleNamespace(SentenceTransformer=lambda *a, **k: None))
+    monkeypatch.setitem(sys.modules, 'spacy', SimpleNamespace(load=lambda *a, **k: None))
+    monkeypatch.setitem(sys.modules, 'scraper_wiki', SimpleNamespace(NLPProcessor=SimpleNamespace(get_instance=lambda lang: (_ for _ in ()).throw(Exception()))))
+    relations_mod = importlib.reload(importlib.import_module('utils.relation'))
+    rels = relations_mod.extract_relations('text', 'en')
+    assert rels == []
+
+
+def test_token_to_ent_text_fallback():
+    import utils.relation as rel
+    token = DummyToken('Word', 'nsubj', i=0)
+    ent = DummyEnt('Other', 1, 2)
+    assert rel._token_to_ent_text(token, [ent]) == 'Word'

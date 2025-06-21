@@ -29,3 +29,21 @@ def test_save_tfrecord(tmp_path):
     assert tf_file.exists()
     assert b'{"a": 1}' in tf_file.read_bytes()
 
+
+
+def test_s3_save_tfrecord(monkeypatch):
+    class DummyClient:
+        def __init__(self):
+            self.kwargs = None
+        def put_object(self, Bucket, Key, Body):
+            self.kwargs = {'Bucket': Bucket, 'Key': Key, 'Body': Body}
+
+    dummy = DummyClient()
+    monkeypatch.setitem(sys.modules, 'boto3', SimpleNamespace(client=lambda *a, **k: dummy))
+    import importlib
+    storage_mod = importlib.reload(importlib.import_module('storage'))
+    s3 = storage_mod.S3Storage('bucket', prefix='pre', client=dummy)
+    data = [{'x': 1}]
+    s3.save_dataset(data, fmt='tfrecord')
+    assert dummy.kwargs['Key'] == 'pre/wikipedia_qa.tfrecord'
+    assert b'{"x": 1}' in dummy.kwargs['Body']

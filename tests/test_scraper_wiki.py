@@ -1100,3 +1100,62 @@ def test_main_records_session_histogram(monkeypatch):
     sw.main(langs=['en'], categories=['prog'], fmt='json', rate_limit_delay=0, client=None)
 
     assert observed['c'] == 1
+
+
+def test_crawl_links_uses_visited(monkeypatch):
+    mapping = {
+        'Start': ['A', 'B'],
+        'A': ['C'],
+        'B': [],
+    }
+
+    def fake_fetch(title, lang):
+        return title
+
+    def fake_extract(html, base):
+        return [f"{base}/wiki/{p}" for p in mapping.get(html, [])]
+
+    monkeypatch.setattr(sw, 'fetch_html_content', fake_fetch)
+    monkeypatch.setattr(sw, 'extract_links', fake_extract)
+
+    wiki = sw.WikipediaAdvanced('en')
+    visited = {'A'}
+    result = wiki.crawl_links('Start', depth=1, visited=visited)
+    base = sw.get_base_url('en')
+    assert all(r['title'] != 'A' for r in result)
+    assert result == [
+        {'title': 'B', 'url': f'{base}/wiki/B', 'lang': 'en', 'category': 'Start', 'depth': 0},
+    ]
+
+
+def test_crawl_links_async_uses_visited(monkeypatch):
+    mapping = {
+        'Start': ['A'],
+        'A': ['B'],
+    }
+
+    async def fake_fetch_async(title, lang):
+        return title
+
+    def fake_extract(html, base):
+        return [f"{base}/wiki/{p}" for p in mapping.get(html, [])]
+
+    monkeypatch.setattr(sw, 'fetch_html_content_async', fake_fetch_async)
+    monkeypatch.setattr(sw, 'extract_links', fake_extract)
+
+    wiki = sw.WikipediaAdvanced('en')
+    visited = {'A'}
+    import asyncio as aio
+    result = aio.run(wiki.crawl_links_async('Start', depth=1, visited=visited))
+    base = sw.get_base_url('en')
+    assert result == []
+
+
+def test_advanced_clean_text_removes_templates_and_tables():
+    raw = 'Intro {{Infobox}} text {| class="wikitable" | data |}'
+    cleaned = sw.advanced_clean_text(raw, 'en')
+    assert 'Infobox' not in cleaned and 'wikitable' not in cleaned
+def test_advanced_clean_text_removes_see_also_section():
+    raw = 'Something\n== See also ==\nOther info'
+    cleaned = sw.advanced_clean_text(raw, 'en')
+    assert 'See also' not in cleaned
