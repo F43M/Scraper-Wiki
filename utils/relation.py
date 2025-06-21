@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 from typing import List, Dict
+import re
+import networkx as nx
 
 
 
@@ -38,3 +40,25 @@ def extract_relations(text: str, lang: str = "en") -> List[Dict[str, str]]:
                 "object": _token_to_ent_text(obj, doc.ents),
             })
     return relations
+
+
+def extract_relations_regex(text: str) -> List[Dict[str, str]]:
+    """Extract simple relations based on a regex pattern."""
+    pattern = re.compile(r"([A-Z][a-zA-Z]*) (worked at|studied at|discovered) ([A-Z][a-zA-Z]*)")
+    relations: List[Dict[str, str]] = []
+    for match in pattern.finditer(text):
+        subject, relation, obj = match.groups()
+        relations.append({"subject": subject, "relation": relation, "object": obj})
+    return relations
+
+
+def relations_to_graph(relations: List[Dict[str, str]]) -> nx.DiGraph:
+    """Convert a list of relations to a directed NetworkX graph."""
+    graph = nx.DiGraph()
+    for rel in relations:
+        subj = rel.get("subject")
+        obj = rel.get("object")
+        graph.add_node(subj)
+        graph.add_node(obj)
+        graph.add_edge(subj, obj, relation=rel.get("relation"))
+    return graph

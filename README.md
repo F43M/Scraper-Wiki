@@ -326,6 +326,19 @@ for raw in dataset.take(1):
     print(raw.numpy())
 ```
 
+### Gerar grafo de conhecimento
+
+```python
+from utils.relation import relations_to_graph
+from scraper_wiki import DatasetBuilder
+import networkx as nx
+
+builder = DatasetBuilder()
+data = builder.generate_qa_pairs('Title', 'Ada worked at IBM.', 'Ada summary', 'en', 'History')
+G = relations_to_graph(data['relations'])
+nx.write_graphml(G, 'relations.graphml')
+```
+
 ## Docker
 
 Para executar a API e o worker em contêineres, primeiro construa a imagem base:
