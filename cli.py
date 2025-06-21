@@ -49,6 +49,17 @@ def scrape(
         "--format",
         help="Formato de saída (json, jsonl, csv, parquet, tfrecord, qa, text)",
     ),
+    start_page: list[str] = typer.Option(
+        None,
+        "--start-page",
+        help="Página inicial para rastrear links (pode ser repetido)",
+        show_default=False,
+    ),
+    depth: int = typer.Option(
+        1,
+        "--depth",
+        help="Profundidade de navegação para páginas iniciais",
+    ),
     rate_limit_delay: float = typer.Option(None, "--rate-limit-delay", help="Delay entre requisições", show_default=False),
     async_mode: bool = typer.Option(False, "--async", help="Usa scraping assíncrono", is_flag=True),
     plugin: str = typer.Option(
@@ -69,9 +80,26 @@ def scrape(
     if plugin == "wikipedia":
         if async_mode:
             import asyncio
-            asyncio.run(scraper_wiki.main_async(lang, cats, fmt, rate_limit_delay))
+            asyncio.run(
+                scraper_wiki.main_async(
+                    lang,
+                    cats,
+                    fmt,
+                    rate_limit_delay,
+                    start_pages=start_page,
+                    depth=depth,
+                )
+            )
         else:
-            scraper_wiki.main(lang, cats, fmt, rate_limit_delay, client=client)
+            scraper_wiki.main(
+                lang,
+                cats,
+                fmt,
+                rate_limit_delay,
+                start_pages=start_page,
+                depth=depth,
+                client=client,
+            )
         dataset_file = Path(scraper_wiki.Config.OUTPUT_DIR) / "wikipedia_qa.json"
         if dataset_file.exists():
             data = json.loads(dataset_file.read_text(encoding="utf-8"))

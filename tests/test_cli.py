@@ -115,7 +115,7 @@ def test_queue_command_jsonl(tmp_path, monkeypatch):
 def test_scrape_command(monkeypatch):
     called = {}
 
-    def fake_main(lang, category, fmt, rate_limit_delay=None, client=None):
+    def fake_main(lang, category, fmt, rate_limit_delay=None, **kwargs):
         called["args"] = {
             "lang": lang,
             "category": category,
@@ -142,7 +142,7 @@ def test_scrape_command(monkeypatch):
 def test_scrape_command_with_delay(monkeypatch):
     called = {}
 
-    def fake_main(lang, category, fmt, rate_limit_delay=None, client=None):
+    def fake_main(lang, category, fmt, rate_limit_delay=None, **kwargs):
         called["args"] = {
             "lang": lang,
             "category": category,
@@ -224,7 +224,7 @@ def test_parallelism_options(monkeypatch):
 def test_scrape_with_training_option(monkeypatch, tmp_path):
     called = {}
 
-    def fake_main(lang, category, fmt, rate_limit_delay=None, client=None):
+    def fake_main(lang, category, fmt, rate_limit_delay=None, **kwargs):
         called["scrape"] = True
 
     def fake_run(path):
@@ -253,8 +253,8 @@ def test_scrape_distributed(monkeypatch):
 
     captured = {}
 
-    def fake_main(lang, category, fmt, rate_limit_delay=None, client=None):
-        captured["client"] = client
+    def fake_main(lang, category, fmt, rate_limit_delay=None, **kwargs):
+        captured["client"] = kwargs.get("client")
 
     import cluster
     monkeypatch.setattr(cluster, "get_client", lambda: FakeClient())
@@ -263,3 +263,41 @@ def test_scrape_distributed(monkeypatch):
     result = runner.invoke(cli.app, ["scrape", "--distributed"])
     assert result.exit_code == 0
     assert captured["client"]
+
+
+def test_scrape_start_page_option(monkeypatch):
+    called = {}
+
+    def fake_main(
+        lang,
+        category,
+        fmt,
+        rate_limit_delay=None,
+        start_pages=None,
+        depth=1,
+        client=None,
+    ):
+        called["args"] = {
+            "lang": lang,
+            "category": category,
+            "fmt": fmt,
+            "delay": rate_limit_delay,
+            "start": start_pages,
+            "depth": depth,
+        }
+
+    monkeypatch.setattr(cli.scraper_wiki, "main", fake_main)
+    runner = CliRunner()
+    result = runner.invoke(
+        cli.app,
+        ["scrape", "--start-page", "Python", "--depth", "2"],
+    )
+    assert result.exit_code == 0
+    assert called["args"] == {
+        "lang": None,
+        "category": None,
+        "fmt": "all",
+        "delay": None,
+        "start": ["Python"],
+        "depth": 2,
+    }

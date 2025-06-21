@@ -828,6 +828,103 @@ def test_main_collects_pages_alias(monkeypatch):
     assert builder.pages[0]['category'] == 'Programação'
 
 
+def test_main_crawls_start_pages(monkeypatch):
+    class DummyWiki:
+        def __init__(self, lang):
+            self.lang = lang
+
+        def get_category_members(self, category_name):
+            return []
+
+        def crawl_links(self, start_page, depth):
+            return [
+                {
+                    'title': 'P',
+                    'url': 'url',
+                    'lang': self.lang,
+                    'category': start_page,
+                    'depth': 0,
+                }
+            ]
+
+    class DummyBuilder:
+        def __init__(self):
+            self.pages = []
+
+        def build_from_pages(self, pages, *a, **k):
+            self.pages.extend(pages)
+            return []
+
+        def enhance_with_clustering(self):
+            pass
+
+        def save_dataset(self, format=None):
+            pass
+
+    builder = DummyBuilder()
+
+    monkeypatch.setattr(sw, 'WikipediaAdvanced', DummyWiki)
+    monkeypatch.setattr(sw, 'DatasetBuilder', lambda: builder)
+    monkeypatch.setattr(sw.time, 'sleep', lambda *a, **k: None)
+    monkeypatch.setattr(sw.metrics, 'start_metrics_server', lambda *a, **k: None)
+
+    sw.main(langs=['en'], start_pages=['Start'], depth=2)
+
+    assert len(builder.pages) == 1
+    assert builder.pages[0]['category'] == 'Start'
+
+
+def test_main_async_crawls_start_pages(monkeypatch):
+    class DummyWiki:
+        def __init__(self, lang):
+            self.lang = lang
+
+        async def get_category_members_async(self, category_name):
+            return []
+
+        async def crawl_links_async(self, start_page, depth):
+            return [
+                {
+                    'title': 'P',
+                    'url': 'url',
+                    'lang': self.lang,
+                    'category': start_page,
+                    'depth': 0,
+                }
+            ]
+
+    class DummyBuilder:
+        def __init__(self):
+            self.pages = []
+
+        def build_from_pages(self, pages, *a, **k):
+            self.pages.extend(pages)
+            return []
+
+        async def build_from_pages_async(self, pages, *a, **k):
+            self.pages.extend(pages)
+            return []
+
+        def enhance_with_clustering(self):
+            pass
+
+        def save_dataset(self, format=None):
+            pass
+
+    builder = DummyBuilder()
+
+    monkeypatch.setattr(sw, 'WikipediaAdvanced', DummyWiki)
+    monkeypatch.setattr(sw, 'DatasetBuilder', lambda: builder)
+    monkeypatch.setattr(sw.time, 'sleep', lambda *a, **k: None)
+    monkeypatch.setattr(sw.metrics, 'start_metrics_server', lambda *a, **k: None)
+
+    import asyncio as aio
+    aio.run(sw.main_async(langs=['en'], start_pages=['Start'], depth=2))
+
+    assert len(builder.pages) == 1
+    assert builder.pages[0]['category'] == 'Start'
+
+
 def test_get_category_members_search_requests(monkeypatch):
     wiki = sw.WikipediaAdvanced('en')
     fetch_calls = []
