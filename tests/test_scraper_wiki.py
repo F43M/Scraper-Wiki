@@ -1061,6 +1061,124 @@ def test_fetch_with_retry_429_increases_delay(monkeypatch):
     assert rl.min_delay == 0.2
 
 
+def test_fetch_with_retry_uses_proxy(monkeypatch):
+    import asyncio
+
+    class DummyResp:
+        status = 200
+        request_info = history = headers = None
+        reason = 'OK'
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            pass
+
+        async def text(self):
+            return 'ok'
+
+        def raise_for_status(self):
+            pass
+
+    class DummySession:
+        def __init__(self):
+            self.proxies = []
+            self.calls = []
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            pass
+
+        def get(self, *a, **k):
+            self.calls.append(k.get('proxy'))
+            return DummyResp()
+
+    session_inst = DummySession()
+
+    monkeypatch.setattr(sw.aiohttp, 'ClientSession', lambda *a, **k: session_inst)
+    monkeypatch.setattr(sw.aiohttp, 'ClientTimeout', lambda *a, **k: None)
+    monkeypatch.setattr(sw.random, 'choice', lambda seq: seq[0])
+    monkeypatch.setattr(sw.Config, 'PROXIES', ['http://p1'])
+    monkeypatch.setattr(sw, 'log_failed_url', lambda url: None)
+    monkeypatch.setattr(sw, 'metrics', SimpleNamespace(
+        scrape_block=SimpleNamespace(inc=lambda: None),
+        requests_failed_total=SimpleNamespace(inc=lambda: None),
+        request_retries_total=SimpleNamespace(inc=lambda: None),
+    ))
+
+    asyncio.run(sw.fetch_with_retry('http://x'))
+
+    assert session_inst.calls == ['http://p1']
+
+
+def test_fetch_with_retry_semaphore_limits_concurrency(monkeypatch):
+    import asyncio
+
+    class DummyResp:
+        status = 200
+        request_info = history = headers = None
+        reason = 'OK'
+
+        async def __aenter__(self):
+            await asyncio.sleep(0)
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            pass
+
+        async def text(self):
+            return 'ok'
+
+        def raise_for_status(self):
+            pass
+
+    class DummySession:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            pass
+
+        def get(self, *a, **k):
+            return DummyResp()
+
+    monkeypatch.setattr(sw.aiohttp, 'ClientSession', lambda *a, **k: DummySession())
+    monkeypatch.setattr(sw.aiohttp, 'ClientTimeout', lambda *a, **k: None)
+    monkeypatch.setattr(sw, 'log_failed_url', lambda url: None)
+    monkeypatch.setattr(sw.Config, 'PROXIES', [])
+    monkeypatch.setattr(sw, 'metrics', SimpleNamespace(
+        scrape_block=SimpleNamespace(inc=lambda: None),
+        requests_failed_total=SimpleNamespace(inc=lambda: None),
+        request_retries_total=SimpleNamespace(inc=lambda: None),
+    ))
+
+    class DummySemaphore:
+        def __init__(self, limit):
+            self.limit = limit
+            self.active = 0
+            self.max_active = 0
+
+        async def __aenter__(self):
+            self.active += 1
+            self.max_active = max(self.max_active, self.active)
+            if self.active > self.limit:
+                raise AssertionError('limit exceeded')
+
+        async def __aexit__(self, exc_type, exc, tb):
+            self.active -= 1
+
+    sem = DummySemaphore(2)
+    monkeypatch.setattr(sw, 'fetch_semaphore', sem)
+
+    urls = ['http://a', 'http://b', 'http://c']
+    asyncio.run(sw.fetch_all(urls))
+
+    assert sem.max_active <= 2
+
+
 def test_main_records_session_histogram(monkeypatch):
     observed = {'c': 0}
 
