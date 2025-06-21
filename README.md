@@ -340,3 +340,17 @@ docker-compose up
 
 As imagens podem ser publicadas em um registro e implantadas em plataformas como Kubernetes ou AWS ECS para execução em escala.
 
+
+## Notebooks de Exemplo
+
+Os notebooks ficam em `examples/` e demonstram como utilizar os dados
+para treinamento de modelos. Para executá-los, instale as dependências e
+abra o Jupyter:
+
+```bash
+pip install -r requirements.txt jupyter
+jupyter notebook examples/ner_training.ipynb
+```
+
+O arquivo `ner_training.ipynb` carrega o dataset via Hugging Face e realiza
+um treinamento rápido de NER com Transformers.
