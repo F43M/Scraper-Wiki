@@ -625,6 +625,8 @@ def test_main_uses_normalized_category(monkeypatch):
             return []
 
     class DummyBuilder:
+        def __init__(self, *a, **k):
+            pass
         def build_from_pages(self, pages, *a, **k):
             return []
 
@@ -637,6 +639,9 @@ def test_main_uses_normalized_category(monkeypatch):
     monkeypatch.setattr(sw, 'WikipediaAdvanced', DummyWiki)
     monkeypatch.setattr(sw, 'DatasetBuilder', DummyBuilder)
     monkeypatch.setattr(sw.time, 'sleep', lambda *a, **k: None)
+    sys.modules['plugins'] = SimpleNamespace(
+        load_plugin=lambda name: SimpleNamespace(fetch_items=lambda l, c: [], parse_item=lambda i: None)
+    )
 
     sw.main(langs=['pt'], categories=['programacao'], fmt='json')
 
@@ -756,7 +761,7 @@ def test_main_collects_pages_unaccented(monkeypatch):
             }]
 
     class DummyBuilder:
-        def __init__(self):
+        def __init__(self, *a, **k):
             self.pages = []
 
         def build_from_pages(self, pages, *a, **k):
@@ -772,9 +777,13 @@ def test_main_collects_pages_unaccented(monkeypatch):
     builder = DummyBuilder()
 
     monkeypatch.setattr(sw, 'WikipediaAdvanced', DummyWiki)
-    monkeypatch.setattr(sw, 'DatasetBuilder', lambda: builder)
+    monkeypatch.setattr(sw, 'DatasetBuilder', lambda *a, **k: builder)
     monkeypatch.setattr(sw.time, 'sleep', lambda *a, **k: None)
     monkeypatch.setattr(sw.metrics, 'start_metrics_server', lambda *a, **k: None)
+    sys.modules['plugins'] = SimpleNamespace(load_plugin=lambda name: SimpleNamespace(fetch_items=lambda l, c: [], parse_item=lambda i: None))
+    sys.modules['plugins'] = SimpleNamespace(load_plugin=lambda name: SimpleNamespace(fetch_items=lambda l, c: [], parse_item=lambda i: None))
+    sys.modules['plugins'] = SimpleNamespace(load_plugin=lambda name: SimpleNamespace(fetch_items=lambda l, c: [], parse_item=lambda i: None))
+    sys.modules['plugins'] = SimpleNamespace(load_plugin=lambda name: SimpleNamespace(fetch_items=lambda l, c: [], parse_item=lambda i: None))
 
     sw.main(langs=['pt'], categories=['ciencia da computacao'], fmt='json')
 
@@ -805,7 +814,7 @@ def test_main_collects_pages_alias(monkeypatch):
             }]
 
     class DummyBuilder:
-        def __init__(self):
+        def __init__(self, *a, **k):
             self.pages = []
 
         def build_from_pages(self, pages, *a, **k):
@@ -821,7 +830,7 @@ def test_main_collects_pages_alias(monkeypatch):
     builder = DummyBuilder()
 
     monkeypatch.setattr(sw, 'WikipediaAdvanced', DummyWiki)
-    monkeypatch.setattr(sw, 'DatasetBuilder', lambda: builder)
+    monkeypatch.setattr(sw, 'DatasetBuilder', lambda *a, **k: builder)
     monkeypatch.setattr(sw.time, 'sleep', lambda *a, **k: None)
     monkeypatch.setattr(sw.metrics, 'start_metrics_server', lambda *a, **k: None)
 
@@ -851,7 +860,7 @@ def test_main_crawls_start_pages(monkeypatch):
             ]
 
     class DummyBuilder:
-        def __init__(self):
+        def __init__(self, *a, **k):
             self.pages = []
 
         def build_from_pages(self, pages, *a, **k):
@@ -867,7 +876,7 @@ def test_main_crawls_start_pages(monkeypatch):
     builder = DummyBuilder()
 
     monkeypatch.setattr(sw, 'WikipediaAdvanced', DummyWiki)
-    monkeypatch.setattr(sw, 'DatasetBuilder', lambda: builder)
+    monkeypatch.setattr(sw, 'DatasetBuilder', lambda *a, **k: builder)
     monkeypatch.setattr(sw.time, 'sleep', lambda *a, **k: None)
     monkeypatch.setattr(sw.metrics, 'start_metrics_server', lambda *a, **k: None)
 
@@ -897,7 +906,7 @@ def test_main_async_crawls_start_pages(monkeypatch):
             ]
 
     class DummyBuilder:
-        def __init__(self):
+        def __init__(self, *a, **k):
             self.pages = []
 
         def build_from_pages(self, pages, *a, **k):
@@ -917,7 +926,7 @@ def test_main_async_crawls_start_pages(monkeypatch):
     builder = DummyBuilder()
 
     monkeypatch.setattr(sw, 'WikipediaAdvanced', DummyWiki)
-    monkeypatch.setattr(sw, 'DatasetBuilder', lambda: builder)
+    monkeypatch.setattr(sw, 'DatasetBuilder', lambda *a, **k: builder)
     monkeypatch.setattr(sw.time, 'sleep', lambda *a, **k: None)
     monkeypatch.setattr(sw.metrics, 'start_metrics_server', lambda *a, **k: None)
 
@@ -1335,6 +1344,8 @@ def test_main_records_session_histogram(monkeypatch):
             return []
 
     class DummyBuilder:
+        def __init__(self, *a, **k):
+            pass
         def build_from_pages(self, pages, progress_desc, client=None):
             pass
 
@@ -1410,3 +1421,67 @@ def test_advanced_clean_text_removes_see_also_section():
     raw = 'Something\n== See also ==\nOther info'
     cleaned = sw.advanced_clean_text(raw, 'en')
     assert 'See also' not in cleaned
+
+
+def test_get_revision_history(monkeypatch):
+    called = {}
+
+    class DummyResp:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"query": {"pages": {"1": {"revisions": [{"timestamp": "t", "user": "u"}]}}}}
+
+    def fake_get(url, params=None, headers=None, timeout=None):
+        called["params"] = params
+        return DummyResp()
+
+    monkeypatch.setattr(sw.requests, "get", fake_get)
+    fake_cache = {}
+    monkeypatch.setattr(sw, "cache", SimpleNamespace(
+        get=lambda k: fake_cache.get(k),
+        set=lambda k, v, ttl=None: fake_cache.__setitem__(k, v),
+        stats=lambda: {},
+    ))
+    revs = sw.get_revision_history("Title", "en", 1)
+    assert revs == [{"timestamp": "t", "user": "u"}]
+    assert called["params"]["prop"] == "revisions"
+
+
+def test_process_page_includes_revisions(monkeypatch):
+    class DummyPage:
+        text = 'x' * 200
+
+        def exists(self):
+            return True
+
+    class DummyWiki:
+        def __init__(self, lang):
+            pass
+
+        def fetch_page(self, title):
+            return DummyPage()
+
+        def get_revision_history(self, title, limit):
+            return [{"timestamp": "t", "user": "u"}]
+
+    monkeypatch.setattr(sw, "WikipediaAdvanced", DummyWiki)
+    monkeypatch.setattr(sw, "clean_text", lambda t: t)
+    monkeypatch.setattr(sw, "advanced_clean_text", lambda t, lang, remove_stopwords=False: t)
+    monkeypatch.setattr(sw, "summarize_text", lambda *a, **k: '')
+    monkeypatch.setattr(sw.DatasetBuilder, "generate_qa_pairs", lambda self, **k: {"metadata": {}, "content_embedding": [], "summary_embedding": [], "questions": [], "answers": [], "summary": '', "content": ''})
+    monkeypatch.setattr(sw, "extract_entities", lambda text: [])
+    monkeypatch.setattr(sw, "extract_images", lambda html: [])
+    monkeypatch.setattr(sw, "metrics", SimpleNamespace(
+        scrape_success=SimpleNamespace(inc=lambda: None),
+        scrape_error=SimpleNamespace(inc=lambda: None),
+        pages_scraped_total=SimpleNamespace(inc=lambda: None),
+        requests_failed_total=SimpleNamespace(inc=lambda: None),
+        page_processing_seconds=SimpleNamespace(observe=lambda v: None),
+    ))
+    sw.NLPProcessor._embedding_model = None
+
+    builder = sw.DatasetBuilder(include_revisions=True, rev_limit=1)
+    res = builder.process_page({'title': 'T', 'lang': 'en'})
+    assert res['metadata']['revisions'] == [{"timestamp": "t", "user": "u"}]

@@ -59,6 +59,8 @@ def scrape(
         help="Profundidade de navegação para páginas iniciais",
     ),
     rate_limit_delay: float = typer.Option(None, "--rate-limit-delay", help="Delay entre requisições", show_default=False),
+    revisions: bool = typer.Option(False, "--revisions", help="Inclui histórico de revisões", is_flag=True),
+    rev_limit: int = typer.Option(5, "--rev-limit", help="Número máximo de revisões"),
     async_mode: bool = typer.Option(False, "--async", help="Usa scraping assíncrono", is_flag=True),
     plugin: str = typer.Option(
         "wikipedia",
@@ -86,6 +88,8 @@ def scrape(
                     rate_limit_delay,
                     start_pages=start_page,
                     depth=depth,
+                    revisions=revisions,
+                    rev_limit=rev_limit,
                 )
             )
         else:
@@ -96,6 +100,8 @@ def scrape(
                 rate_limit_delay,
                 start_pages=start_page,
                 depth=depth,
+                revisions=revisions,
+                rev_limit=rev_limit,
                 client=client,
             )
         dataset_file = Path(scraper_wiki.Config.OUTPUT_DIR) / "wikipedia_qa.json"

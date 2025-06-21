@@ -954,6 +954,61 @@ def search_category(keyword: str, lang: str) -> Optional[str]:
         logger.error(f"Erro ao buscar categorias para {keyword}: {e}")
         return cache.get(cache_key)
 
+
+def get_revision_history(title: str, lang: str, limit: int) -> List[dict]:
+    """Return revision metadata for a page using the Wikipedia API."""
+
+    cache_key = f"revisions_{lang}_{title}_{limit}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    url = f"{get_base_url(lang)}/w/api.php"
+    params = {
+        "action": "query",
+        "prop": "revisions",
+        "titles": title,
+        "rvlimit": limit,
+        "rvprop": "timestamp|user",
+        "format": "json",
+    }
+
+    @backoff.on_exception(
+        backoff.expo,
+        requests.exceptions.RequestException,
+        max_tries=Config.RETRIES,
+    )
+    def _request() -> List[dict]:
+        rate_limiter.wait()
+        resp = requests.get(
+            url,
+            params=params,
+            headers={"User-Agent": Config.get_random_user_agent()},
+            timeout=Config.TIMEOUT,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        pages = data.get("query", {}).get("pages", {})
+        revs: List[dict] = []
+        for page in pages.values():
+            for rev in page.get("revisions", []):
+                revs.append({
+                    "timestamp": rev.get("timestamp"),
+                    "user": rev.get("user"),
+                })
+        return revs
+
+    try:
+        revisions = _request()
+        cache.set(cache_key, revisions, ttl=Config.CACHE_TTL)
+        return revisions
+    except Exception as e:  # pragma: no cover - network issues
+        logger.error(f"Erro ao buscar revisões de {title}: {e}")
+        fallback = cache.get(cache_key)
+        if fallback is not None:
+            return fallback
+        return []
+
 # ============================
 # 🔗 Coletor Avançado com Retry
 # ============================
@@ -1107,6 +1162,11 @@ class WikipediaAdvanced:
             if fallback is not None:
                 return fallback
             return []
+
+    def get_revision_history(self, page_title: str, limit: int = 5) -> List[dict]:
+        """Wrapper around :func:`get_revision_history` for this language."""
+
+        return get_revision_history(page_title, self.lang, limit)
     
     def get_category_members(self, category_name: str, depth: int = 0, visited: Optional[Set[str]] = None) -> List[dict]:
         if visited is None:
@@ -1337,9 +1397,10 @@ def cpu_process_page(
     lang: str,
     category: str,
     images: List[Dict[str, str]] | None = None,
+    revisions: List[dict] | None = None,
 ) -> dict:
     """Executes CPU intensive operations for a page."""
-    builder = DatasetBuilder()
+    builder = DatasetBuilder(include_revisions=revisions, rev_limit=rev_limit)
     summary = summarize_text(content, lang)
     record = builder.generate_qa_pairs(
         title=title,
@@ -1351,15 +1412,19 @@ def cpu_process_page(
     record["entities"] = extract_entities(content)
     if images is not None:
         record["images"] = images
+    if revisions is not None:
+        record.setdefault("metadata", {})["revisions"] = revisions
     return record
 
 class DatasetBuilder:
-    def __init__(self):
+    def __init__(self, include_revisions: bool = False, rev_limit: int = 5, **_):
         self.embedding_model = NLPProcessor.get_embedding_model()
         self.dataset = []
         self.qa_pairs = []
         self.duplicates_removed = 0
         self.invalid_records = 0
+        self.include_revisions = include_revisions
+        self.rev_limit = rev_limit
 
     def _update_progress(self):
         """Update progress information in logs/progress.json"""
@@ -1413,6 +1478,11 @@ class DatasetBuilder:
 
             if proc_executor:
                 images = extract_images(getattr(page, "_html", ""))
+                revisions = None
+                if self.include_revisions:
+                    revisions = wiki.get_revision_history(
+                        page_info['title'], self.rev_limit
+                    )
                 return proc_executor.submit(
                     cpu_process_page,
                     page_info['title'],
@@ -1420,6 +1490,7 @@ class DatasetBuilder:
                     page_info['lang'],
                     page_info.get('category', ''),
                     images,
+                    revisions,
                 )
 
             # Sumariza o conteúdo
@@ -1436,6 +1507,10 @@ class DatasetBuilder:
             qa_data["entities"] = extract_entities(clean_content)
             images = extract_images(getattr(page, "_html", ""))
             qa_data["images"] = images
+            if self.include_revisions:
+                qa_data.setdefault("metadata", {})["revisions"] = wiki.get_revision_history(
+                    page_info['title'], self.rev_limit
+                )
             metrics.scrape_success.inc()
             metrics.pages_scraped_total.inc()
             return qa_data
@@ -1904,6 +1979,8 @@ def main(
     *,
     start_pages: Optional[List[str]] = None,
     depth: int = 1,
+    revisions: bool = False,
+    rev_limit: int = 5,
     client=None,
 ):
     """Gera o dataset utilizando os parâmetros fornecidos."""
@@ -1923,7 +2000,7 @@ def main(
         normalized = [normalize_category(c) or c for c in categories]
         cats = {c: Config.CATEGORIES.get(c, 1.0) for c in normalized}
 
-    builder = DatasetBuilder()
+    builder = DatasetBuilder(include_revisions=revisions, rev_limit=rev_limit)
 
     all_pages: List[dict] = []
     for lang in languages:
@@ -2019,6 +2096,8 @@ async def main_async(
     *,
     start_pages: Optional[List[str]] = None,
     depth: int = 1,
+    revisions: bool = False,
+    rev_limit: int = 5,
 ) -> None:
     """Asynchronous version of :func:`main`."""
     start_time = time.perf_counter()
@@ -2037,7 +2116,7 @@ async def main_async(
         normalized = [normalize_category(c) or c for c in categories]
         cats = {c: Config.CATEGORIES.get(c, 1.0) for c in normalized}
 
-    builder = DatasetBuilder()
+    builder = DatasetBuilder(include_revisions=revisions, rev_limit=rev_limit)
 
     all_pages: List[dict] = []
     for lang in languages:
