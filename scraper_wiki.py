@@ -32,6 +32,7 @@ import zlib
 from bs4 import BeautifulSoup
 import requests
 import aiohttp
+from training.formats import save_qa_dataset, save_text_corpus
 from urllib.parse import urlparse, urljoin
 import html2text
 from typing import List, Dict, Tuple, Optional, Set, Protocol
@@ -791,7 +792,15 @@ async def fetch_with_retry(
     for attempt in range(1, retries + 1):
         try:
             timeout = aiohttp.ClientTimeout(total=Config.TIMEOUT)
-            async with fetch_semaphore:
+            acquired_dummy = False
+            if hasattr(fetch_semaphore, "active") and hasattr(fetch_semaphore, "limit") and not hasattr(fetch_semaphore, "acquire"):
+                while fetch_semaphore.active >= fetch_semaphore.limit:
+                    await asyncio.sleep(0)
+                await fetch_semaphore.__aenter__()
+                acquired_dummy = True
+            else:
+                await fetch_semaphore.acquire()
+            try:
                 async with aiohttp.ClientSession(timeout=timeout) as session:
                     async with session.get(
                         url, params=params, headers=headers, proxy=proxy
@@ -809,6 +818,11 @@ async def fetch_with_retry(
                         resp.raise_for_status()
                         rate_limiter.record_success()
                         return resp.status, await resp.text()
+            finally:
+                if acquired_dummy:
+                    await fetch_semaphore.__aexit__(None, None, None)
+                else:
+                    fetch_semaphore.release()
         except aiohttp.ClientResponseError as e:
             if getattr(e, 'status', None) == 429:
                 logger.warning(f"HTTP 429 for {url}, backing off")
@@ -1814,6 +1828,11 @@ class DatasetBuilder:
         backend = storage.get_backend(Config.STORAGE_BACKEND, output_dir)
         backend.save_dataset(sorted_data, format)
         logger.info(f"Dataset salvo usando backend {Config.STORAGE_BACKEND}")
+
+        if format == 'qa':
+            save_qa_dataset(sorted_data, Path(output_dir) / 'qa_pairs.json')
+        if format == 'text':
+            save_text_corpus(sorted_data, Path(output_dir) / 'text_corpus')
 
         if format in ['all', 'hf', 'tfrecord']:
             try:
