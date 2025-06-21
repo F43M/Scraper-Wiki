@@ -110,6 +110,12 @@ O módulo `scraper_wiki.py` define o dicionário `BASE_URLS` com os domínios
 principais para cada idioma. A função `get_base_url(lang)` consulta esse mapa e
 retorna `"https://{lang}.wikipedia.org"` quando o idioma não está definido.
 
+### Proxies e User-Agents
+
+Defina `Config.PROXIES` com uma lista de proxies rotativos e adicione strings
+em `Config.USER_AGENTS` para alternar automaticamente o cabeçalho
+``User-Agent`` a cada requisição.
+
 ### Armazenamento
 
 Escolha onde salvar os datasets com `--storage-backend` ou variável `STORAGE_BACKEND`.

@@ -550,6 +550,8 @@ def clear_cache() -> None:
 
 # Global rate limiter for all network operations
 rate_limiter = RateLimiter(Config.RATE_LIMIT_DELAY)
+# Limit the number of concurrent HTTP requests
+fetch_semaphore = asyncio.Semaphore(Config.MAX_CONCURRENT_REQUESTS)
 
 # ============================
 # 🔍 Funções Avançadas de NLP
@@ -779,27 +781,34 @@ async def fetch_with_retry(
     params: dict | None = None,
     headers: dict | None = None,
     retries: int = Config.RETRIES,
+    proxy: str | None = None,
 ) -> tuple[int, str]:
     """Fetch a URL using ``aiohttp`` with automatic retries and logging."""
+
+    if proxy is None and Config.PROXIES:
+        proxy = random.choice(Config.PROXIES)
 
     for attempt in range(1, retries + 1):
         try:
             timeout = aiohttp.ClientTimeout(total=Config.TIMEOUT)
-            async with aiohttp.ClientSession(timeout=timeout) as session:
-                async with session.get(url, params=params, headers=headers) as resp:
-                    if resp.status == 429:
-                        metrics.scrape_block.inc()
-                    if 500 <= resp.status < 600:
-                        raise aiohttp.ClientResponseError(
-                            resp.request_info,
-                            resp.history,
-                            status=resp.status,
-                            message=resp.reason,
-                            headers=resp.headers,
-                        )
-                    resp.raise_for_status()
-                    rate_limiter.record_success()
-                    return resp.status, await resp.text()
+            async with fetch_semaphore:
+                async with aiohttp.ClientSession(timeout=timeout) as session:
+                    async with session.get(
+                        url, params=params, headers=headers, proxy=proxy
+                    ) as resp:
+                        if resp.status == 429:
+                            metrics.scrape_block.inc()
+                        if 500 <= resp.status < 600:
+                            raise aiohttp.ClientResponseError(
+                                resp.request_info,
+                                resp.history,
+                                status=resp.status,
+                                message=resp.reason,
+                                headers=resp.headers,
+                            )
+                        resp.raise_for_status()
+                        rate_limiter.record_success()
+                        return resp.status, await resp.text()
         except aiohttp.ClientResponseError as e:
             if getattr(e, 'status', None) == 429:
                 logger.warning(f"HTTP 429 for {url}, backing off")
@@ -850,6 +859,12 @@ async def fetch_html_content_async(title: str, lang: str) -> str:
         if cached is not None:
             return cached
         return ""
+
+
+async def fetch_all(urls: List[str]) -> List[str]:
+    """Fetch multiple URLs concurrently using ``fetch_with_retry``."""
+    results = await asyncio.gather(*(fetch_with_retry(u) for u in urls))
+    return [text for _, text in results]
 
 
 def search_category(keyword: str, lang: str) -> Optional[str]:
@@ -946,8 +961,30 @@ class WikipediaAdvanced:
         return None
 
     async def fetch_page_async(self, page_title: str) -> Optional[wikipediaapi.WikipediaPage]:
-        """Asynchronous version of :meth:`fetch_page`."""
-        return await asyncio.to_thread(self.fetch_page, page_title)
+        """Asynchronous version of :meth:`fetch_page` using ``aiohttp``."""
+        cache_key = f"page_{self.lang}_{page_title}"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        await rate_limiter.async_wait()
+
+        try:
+            page = await asyncio.to_thread(self.wiki.page, page_title)
+            if page.exists():
+                page._fullurl = self.wiki.api.article_url(page_title)
+                await rate_limiter.async_wait()
+                page._html = await fetch_html_content_async(page_title, self.lang)
+                page._html = extract_main_content(page._html)
+                cache.set(cache_key, page, ttl=Config.CACHE_TTL)
+                return page
+        except Exception as e:
+            rate_limiter.record_error()
+            logger.error(f"Erro ao buscar página {page_title}: {e}")
+            log_failed_url(self.wiki.api.article_url(page_title))
+            raise
+
+        return None
     
     @backoff.on_exception(backoff.expo, 
                          (requests.exceptions.RequestException, 
