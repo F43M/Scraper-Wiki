@@ -1,6 +1,8 @@
 # Scraper-Wiki
 Scraper para criacao de datasets para fine tuning e treinamento de modelos de inteligencia artificial
 
+A documentação da API está disponível em [docs/_build/index.html](docs/_build/index.html).
+
 ## Instalação
 
 Use o arquivo `requirements.txt` para instalar as dependências:
