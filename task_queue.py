@@ -4,16 +4,24 @@ from queue import Queue as _Queue
 
 try:
     import pika
-except Exception:
+except Exception:  # pragma: no cover - optional dependency
     pika = None
+
+try:
+    import redis
+except Exception:  # pragma: no cover - optional dependency
+    redis = None
+
 
 class BaseQueue:
     """Abstract queue backend."""
+
     def publish(self, queue: str, message: dict):
         raise NotImplementedError
 
     def consume(self, queue: str):
         raise NotImplementedError
+
 
 class InMemoryQueue(BaseQueue):
     def __init__(self):
@@ -32,6 +40,7 @@ class InMemoryQueue(BaseQueue):
             yield json.loads(msg)
             q.task_done()
 
+
 class RabbitMQQueue(BaseQueue):
     def __init__(self, url: str):
         if pika is None:
@@ -42,7 +51,7 @@ class RabbitMQQueue(BaseQueue):
     def publish(self, queue: str, message: dict):
         self.channel.queue_declare(queue=queue, durable=True)
         body = json.dumps(message).encode()
-        self.channel.basic_publish(exchange='', routing_key=queue, body=body)
+        self.channel.basic_publish(exchange="", routing_key=queue, body=body)
 
     def consume(self, queue: str):
         self.channel.queue_declare(queue=queue, durable=True)
@@ -51,15 +60,40 @@ class RabbitMQQueue(BaseQueue):
                 self.channel.basic_ack(method.delivery_tag)
                 yield json.loads(body.decode())
 
+
+class RedisQueue(BaseQueue):
+    """Queue backend using Redis lists."""
+
+    def __init__(self, url: str):
+        if redis is None:
+            raise RuntimeError("redis not installed")
+        self.client = redis.from_url(url)
+
+    def publish(self, queue: str, message: dict):
+        self.client.rpush(queue, json.dumps(message))
+
+    def consume(self, queue: str):
+        while True:
+            item = self.client.blpop(queue, timeout=1)
+            if item:
+                yield json.loads(item[1])
+
+
 _BACKEND = None
+
 
 def get_backend() -> BaseQueue:
     global _BACKEND
     if _BACKEND is not None:
         return _BACKEND
-    url = os.environ.get('QUEUE_URL')
-    if url and pika:
-        _BACKEND = RabbitMQQueue(url)
+    url = os.environ.get("QUEUE_URL")
+    if url:
+        if url.startswith("redis") and redis:
+            _BACKEND = RedisQueue(url)
+        elif pika:
+            _BACKEND = RabbitMQQueue(url)
+        else:
+            raise RuntimeError("No supported queue backend available")
     else:
         _BACKEND = InMemoryQueue()
     return _BACKEND
