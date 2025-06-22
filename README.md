@@ -133,6 +133,25 @@ Os valores suportados são `local` (padrão), `s3`/`minio`, `mongodb` e `postgre
 Para S3/MinIO defina `S3_BUCKET` e `S3_ENDPOINT` (ou `MINIO_ENDPOINT`).
 Para MongoDB use `MONGODB_URI`. Para PostgreSQL defina `POSTGRES_DSN`.
 
+O backend também pode ser escolhido definindo `STORAGE_BACKEND=<opção>`
+no ambiente (por exemplo `STORAGE_BACKEND=postgres`). Cada backend possui
+variáveis específicas para a conexão:
+
+- **MongoDB**: configure `MONGODB_URI`, `MONGODB_DB` e
+  `MONGODB_COLLECTION` (padrões `scraper` e `dataset`). A coleção deve
+  existir e receber os documentos gerados.
+- **PostgreSQL**: defina `POSTGRES_DSN` e `POSTGRES_TABLE` (padrão
+  `dataset`). Crie previamente a tabela com o esquema abaixo:
+
+```sql
+CREATE TABLE dataset (
+    id SERIAL PRIMARY KEY,
+    data JSONB NOT NULL
+);
+```
+
+Um DSN de exemplo é `dbname=scraper user=postgres password=secret host=localhost`.
+
 ### Utilidades de texto
 
 O pacote `utils.text` oferece funções auxiliares:
