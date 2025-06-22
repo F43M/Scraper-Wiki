@@ -9,6 +9,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 import scraper_wiki
+from utils.text import translate_text
 
 
 def _parse_wiki_url(url: str) -> tuple[str, str]:
@@ -42,7 +43,12 @@ def _parse_wiki_url(url: str) -> tuple[str, str]:
     show_default=True,
     help="Diretório para salvar o resultado",
 )
-def main(url: str | None, urls_file: str | None, output_format: str, out_dir: str) -> None:
+@click.option(
+    "--translate",
+    "translate_to",
+    help="Traduz o texto para o idioma especificado",
+)
+def main(url: str | None, urls_file: str | None, output_format: str, out_dir: str, translate_to: str | None) -> None:
     """Baixa o HTML de páginas da Wikipédia e salva em formatos variados."""
     if not url and not urls_file:
         raise click.UsageError("Informe --url ou --file")
@@ -57,6 +63,8 @@ def main(url: str | None, urls_file: str | None, output_format: str, out_dir: st
     for u in urls:
         title, lang = _parse_wiki_url(u)
         html = asyncio.run(scraper_wiki.fetch_html_content_async(title, lang))
+        if translate_to:
+            html = translate_text(html, translate_to)
         records.append({"url": u, "html": html})
 
     out_dir_path = Path(out_dir)

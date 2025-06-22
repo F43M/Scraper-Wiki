@@ -654,8 +654,9 @@ def advanced_clean_text(
     lang: str = 'en',
     remove_stopwords: bool = False,
     split: bool = False,
+    stem: bool = False,
 ) -> str | list[str]:
-    """Clean wiki text and optionally split sentences."""
+    """Clean wiki text with optional stopword removal, stemming and sentence splitting."""
     try:
         text = clean_wiki_text(text)
 
@@ -677,23 +678,44 @@ def advanced_clean_text(
         for section in sections_to_remove:
             text = re.sub(fr'==\s*{section}\s*==.*', '', text, flags=re.IGNORECASE | re.DOTALL)
 
-        if remove_stopwords:
+        if remove_stopwords or stem:
             removed = False
             try:
                 nlp = NLPProcessor.get_instance(lang)
                 doc = nlp(text)
-                text = ' '.join(t.text for t in doc if not getattr(t, 'is_stop', False))
+                tokens = []
+                for t in doc:
+                    if remove_stopwords and getattr(t, 'is_stop', False):
+                        continue
+                    tokens.append(t.lemma_ if stem else t.text)
+                text = ' '.join(tokens)
                 removed = True
             except Exception as e:
-                logger.error(f"Erro ao remover stopwords com spaCy: {e}")
+                logger.error(f"Erro ao processar texto com spaCy: {e}")
             if not removed:
                 try:
                     import nltk
                     from nltk.corpus import stopwords
-                    stop_words = set(stopwords.words(lang))
-                    text = ' '.join(w for w in text.split() if w.lower() not in stop_words)
+                    from nltk.stem import SnowballStemmer, PorterStemmer
+                    stop_words = set()
+                    if remove_stopwords:
+                        stop_words = set(stopwords.words(lang))
+                    if stem:
+                        try:
+                            stemmer = SnowballStemmer(lang)
+                        except Exception:
+                            stemmer = PorterStemmer()
+                    tokens = []
+                    for w in text.split():
+                        if remove_stopwords and w.lower() in stop_words:
+                            continue
+                        if stem:
+                            tokens.append(stemmer.stem(w))
+                        else:
+                            tokens.append(w)
+                    text = ' '.join(tokens)
                 except Exception as e:
-                    logger.error(f"Erro ao remover stopwords com NLTK: {e}")
+                    logger.error(f"Erro ao processar texto com NLTK: {e}")
 
         text = text.strip()
         if split:

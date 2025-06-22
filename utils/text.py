@@ -76,3 +76,17 @@ def normalize_infobox(infobox: Dict[str, str]) -> Dict[str, str]:
 def extract_entities(text: str) -> list[dict]:
     doc = nlp(text)
     return [{"text": ent.text, "type": ent.label_} for ent in doc.ents]
+
+
+def translate_text(text: str, target_lang: str) -> str:
+    """Translate ``text`` into ``target_lang`` using googletrans.
+
+    If translation fails, the original text is returned unchanged.
+    """
+    try:
+        from googletrans import Translator
+
+        translator = Translator()
+        return translator.translate(text, dest=target_lang).text
+    except Exception:
+        return text
