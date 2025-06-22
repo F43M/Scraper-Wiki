@@ -549,6 +549,10 @@ def test_save_dataset_json_csv(tmp_path, monkeypatch):
     }]
     builder.save_dataset('json', output_dir=tmp_path)
     assert (tmp_path/'wikipedia_qa.json').exists()
+    info_file = tmp_path / 'dataset_info.json'
+    assert info_file.exists()
+    info = json.loads(info_file.read_text(encoding='utf-8'))
+    assert set(['source', 'collection_date', 'license']).issubset(info)
     builder.save_dataset('csv', output_dir=tmp_path)
     assert (tmp_path/'wikipedia_qa.csv').exists()
 

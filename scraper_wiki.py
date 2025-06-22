@@ -2052,6 +2052,22 @@ class DatasetBuilder:
             except Exception as e:
                 logger.error(f"Erro ao salvar dataset HuggingFace: {e}")
 
+        # Write metadata about the dataset
+        try:
+            sources = {
+                item.get("metadata", {}).get("source", "unknown")
+                for item in sorted_data
+            }
+            info = {
+                "source": list(sources)[0] if len(sources) == 1 else sorted(sources),
+                "collection_date": datetime.utcnow().date().isoformat(),
+                "license": "CC BY-SA 4.0",
+            }
+            with open(os.path.join(output_dir, "dataset_info.json"), "w", encoding="utf-8") as f:
+                json.dump(info, f, ensure_ascii=False, indent=2)
+        except Exception as e:  # pragma: no cover - unexpected I/O errors
+            logger.error(f"Erro ao salvar dataset_info.json: {e}")
+
 # ============================
 # 🚦 Pipeline de Execução Principal
 # ============================
