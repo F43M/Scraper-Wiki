@@ -1,4 +1,5 @@
 """Plugin utilities and registry."""
+
 import importlib
 from typing import List
 from core.builder import DatasetBuilder
@@ -11,6 +12,7 @@ AVAILABLE_PLUGINS = {
     "stackoverflow": "stackoverflow",
     "infobox_parser": "infobox_parser",
     "table_parser": "table_parser",
+    "github_scraper": "github_scraper",
 }
 
 
@@ -22,7 +24,9 @@ def load_plugin(name: str) -> Plugin:
     return plugin_cls()
 
 
-def run_plugin(plugin: Plugin, langs: List[str], categories: List[str], fmt: str = "all") -> List[dict]:
+def run_plugin(
+    plugin: Plugin, langs: List[str], categories: List[str], fmt: str = "all"
+) -> List[dict]:
     """Execute scraping using a plugin."""
     builder = DatasetBuilder()
     for lang in langs:
@@ -34,5 +38,6 @@ def run_plugin(plugin: Plugin, langs: List[str], categories: List[str], fmt: str
                     builder.dataset.append(result)
     builder.save_dataset(fmt)
     return builder.dataset
+
 
 __all__ = ["load_plugin", "run_plugin", "AVAILABLE_PLUGINS"]
