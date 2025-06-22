@@ -403,4 +403,8 @@ jupyter notebook examples/ner_training.ipynb
 ```
 
 O arquivo `ner_training.ipynb` carrega o dataset via Hugging Face e realiza
-um treinamento rápido de NER com Transformers.
+um treinamento rápido de NER com Transformers. Outros notebooks disponíveis
+incluem `qa_training.ipynb`, que mostra como filtrar por tópico e idioma para
+fazer fine-tuning de um modelo de Perguntas e Respostas, e `filtering.ipynb`,
+que demonstra como selecionar artigos por categoria ou linguagem e exportar
+subconjuntos do dataset.
