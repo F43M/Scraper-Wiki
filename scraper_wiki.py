@@ -1421,10 +1421,39 @@ class DatasetBuilder:
         self.embedding_model = NLPProcessor.get_embedding_model()
         self.dataset = []
         self.qa_pairs = []
+        self.pending_pages: List[dict] = []
         self.duplicates_removed = 0
         self.invalid_records = 0
         self.include_revisions = include_revisions
         self.rev_limit = rev_limit
+
+        # Load checkpoints if available
+        pages_path = os.path.join(Config.LOG_DIR, "checkpoint_pages.json")
+        data_path = os.path.join(Config.LOG_DIR, "checkpoint_data.json")
+        if os.path.exists(data_path):
+            try:
+                with open(data_path, "r", encoding="utf-8") as f:
+                    self.dataset = json.load(f)
+            except Exception as e:  # pragma: no cover - corrupted file
+                logger.error(f"Erro ao carregar {data_path}: {e}")
+            else:
+                try:
+                    os.remove(data_path)
+                except OSError:
+                    pass
+        if os.path.exists(pages_path):
+            try:
+                with open(pages_path, "r", encoding="utf-8") as f:
+                    self.pending_pages = json.load(f)
+            except Exception as e:  # pragma: no cover - corrupted file
+                logger.error(f"Erro ao carregar {pages_path}: {e}")
+            else:
+                try:
+                    os.remove(pages_path)
+                except OSError:
+                    pass
+        if self.dataset or self.pending_pages:
+            self._update_progress()
 
     def _update_progress(self):
         """Update progress information in logs/progress.json"""
@@ -1449,6 +1478,15 @@ class DatasetBuilder:
             with open(temp_file, 'w', encoding='utf-8') as f:
                 json.dump(progress, f, ensure_ascii=False, indent=2)
             os.replace(temp_file, progress_file)
+
+            data_path = os.path.join(Config.LOG_DIR, 'checkpoint_data.json')
+            pages_path = os.path.join(Config.LOG_DIR, 'checkpoint_pages.json')
+            with open(data_path + '.tmp', 'w', encoding='utf-8') as df:
+                json.dump(self.dataset, df, ensure_ascii=False)
+            os.replace(data_path + '.tmp', data_path)
+            with open(pages_path + '.tmp', 'w', encoding='utf-8') as pf:
+                json.dump(self.pending_pages, pf, ensure_ascii=False)
+            os.replace(pages_path + '.tmp', pages_path)
         except Exception as e:
             logger.error(f"Erro ao atualizar progresso: {e}")
 
@@ -1771,6 +1809,11 @@ class DatasetBuilder:
         client=None,
     ) -> List[dict]:
         """Process pages locally or enfileira tarefas para processamento."""
+        if self.pending_pages:
+            pages = self.pending_pages
+        else:
+            self.pending_pages = pages.copy()
+
         if client:
             futures = [client.submit(self.process_page, page) for page in pages]
             processed = 0
@@ -1780,9 +1823,12 @@ class DatasetBuilder:
                 processed += 1
                 if processed % 10 == 0 or processed == total:
                     logger.info(f"Distributed progress: {processed}/{total}")
+                page = pages[processed - 1]
+                if page in self.pending_pages:
+                    self.pending_pages.remove(page)
                 if result:
                     self.dataset.append(result)
-                    self._update_progress()
+                self._update_progress()
             return self.dataset
 
         if not use_queue:
@@ -1799,11 +1845,15 @@ class DatasetBuilder:
                 total = len(page_futures)
                 for future in tqdm(as_completed(page_futures), total=total, desc=progress_desc):
                     cpu_future = future.result()
+                    page = page_futures[future]
                     processed += 1
+                    if page in self.pending_pages:
+                        self.pending_pages.remove(page)
                     if processed % 10 == 0 or processed == total:
                         logger.info(f"Thread progress: {processed}/{total}")
                     if cpu_future:
                         cpu_futures.append(cpu_future)
+                    self._update_progress()
 
                 processed_cpu = 0
                 total_cpu = len(cpu_futures)
@@ -1814,7 +1864,7 @@ class DatasetBuilder:
                         logger.info(f"Process progress: {processed_cpu}/{total_cpu}")
                     if result:
                         self.dataset.append(result)
-                        self._update_progress()
+                    self._update_progress()
 
             return self.dataset
 
@@ -1830,6 +1880,10 @@ class DatasetBuilder:
             if result is None:
                 continue
             processed += 1
+            for p in list(self.pending_pages):
+                if p.get('title') == result.get('title') and p.get('lang', p.get('language')) == result.get('language'):
+                    self.pending_pages.remove(p)
+                    break
             self.dataset.append(result)
             self._update_progress()
             if processed % 10 == 0 or processed == total:
@@ -1841,6 +1895,11 @@ class DatasetBuilder:
 
     async def build_from_pages_async(self, pages: List[dict], progress_desc: str = "Processando páginas") -> List[dict]:
         """Asynchronous version of :meth:`build_from_pages`."""
+        if self.pending_pages:
+            pages = self.pending_pages
+        else:
+            self.pending_pages = pages.copy()
+
         cpu_futures = []
         with ProcessPoolExecutor(max_workers=Config.MAX_PROCESSES) as pr_executor:
             tasks = [self.process_page_async(page, pr_executor) for page in pages]
@@ -1850,10 +1909,13 @@ class DatasetBuilder:
             for coro in tqdm(asyncio.as_completed(tasks), total=total, desc=progress_desc):
                 cpu_future = await coro
                 processed += 1
+                if self.pending_pages:
+                    self.pending_pages.pop(0)
                 if processed % 10 == 0 or processed == total:
                     logger.info(f"Async progress: {processed}/{total}")
                 if cpu_future:
                     cpu_futures.append(cpu_future)
+                self._update_progress()
 
             processed_cpu = 0
             total_cpu = len(cpu_futures)
@@ -1864,7 +1926,7 @@ class DatasetBuilder:
                     logger.info(f"Process progress: {processed_cpu}/{total_cpu}")
                 if result:
                     self.dataset.append(result)
-                    self._update_progress()
+                self._update_progress()
 
         return self.dataset
     
