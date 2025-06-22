@@ -57,6 +57,11 @@ import storage_sqlite
 from utils.text import clean_text, extract_entities
 from utils.relation import extract_relations, extract_relations_regex
 from utils.cleaner import clean_wiki_text, split_sentences
+from utils.code import (
+    normalize_indentation,
+    remove_comments,
+    detect_programming_language,
+)
 
 
 # ============================
@@ -1687,6 +1692,10 @@ class DatasetBuilder:
         category: str,
         extra_metadata: dict | None = None,
     ) -> dict:
+        code_lang = detect_programming_language(content)
+        if code_lang != "unknown":
+            content = normalize_indentation(remove_comments(content, code_lang))
+
         # Extrai keywords para gerar perguntas variadas
         keywords = extract_keywords(content, lang)
 
@@ -1734,6 +1743,8 @@ class DatasetBuilder:
                 "source_url": f"{get_base_url(lang)}/wiki/{title.replace(' ', '_')}",
             },
         }
+        if code_lang != "unknown":
+            record["metadata"]["code_language"] = code_lang
         if extra_metadata:
             if "wikidata_id" in extra_metadata:
                 record["wikidata_id"] = extra_metadata["wikidata_id"]
