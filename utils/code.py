@@ -14,14 +14,17 @@ def remove_comments(code: str, language: str) -> str:
     patterns = []
     lang = language.lower()
     if lang in {"python", "py"}:
-        patterns = [r"#.*", r'""".*?"""', r"'''(.|\n)*?'''"]
+        patterns = [r"#.*$", r'""".*?"""', r"'''(.|\n)*?'''"]
     elif lang in {"javascript", "js", "java", "c", "cpp", "go", "php", "rust"}:
         patterns = [r"//.*", r"/\*.*?\*/"]
     else:
         patterns = [r"#.*", r"//.*", r"/\*.*?\*/"]
     text = code
     for pat in patterns:
-        text = re.sub(pat, "", text, flags=re.DOTALL)
+        flags = re.DOTALL
+        if pat == r"#.*$":
+            flags = re.MULTILINE
+        text = re.sub(pat, "", text, flags=flags)
     lines = [line for line in text.splitlines() if line.strip()]
     return "\n".join(lines)
 

@@ -51,6 +51,34 @@ class GitHubScraper:
         resp.raise_for_status()
         return resp.json()
 
+    def get_issue_commit_pairs(
+        self, repo_url: str, state: str = "closed"
+    ) -> List[Tuple[Dict, Dict]]:
+        """Return pairs of issues and commits that reference them."""
+        issues = self.get_issues(repo_url, state=state)
+        commits = self.get_commits(repo_url)
+        pairs: List[Tuple[Dict, Dict]] = []
+        for issue in issues:
+            number = issue.get("number")
+            if not number:
+                continue
+            token = f"#{number}"
+            for commit in commits:
+                message = commit.get("commit", {}).get("message", "")
+                if token in message:
+                    pairs.append((issue, commit))
+                    break
+        return pairs
+
+    def build_problem_solution_records(self, repo_url: str) -> List[Dict]:
+        """Return dataset records combining issues and closing commits."""
+        records = []
+        for issue, commit in self.get_issue_commit_pairs(repo_url):
+            problem = f"{issue.get('title', '')}\n\n{issue.get('body', '')}"
+            solution = commit.get("commit", {}).get("message", "")
+            records.append({"problem": problem, "solution": solution})
+        return records
+
 
 class Plugin(GitHubScraper):
     """Alias for plugin registry compatibility."""
