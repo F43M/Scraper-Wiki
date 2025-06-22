@@ -22,3 +22,18 @@ def test_extract_images_no_caption():
     html = "<figure><img src='pic.png'/></figure>"
     res = sw.extract_images(html)
     assert res == [{"image_url": "pic.png", "caption": ""}]
+
+
+def test_extract_images_multiple():
+    html = (
+        "<div class='thumb'>"
+        "<img src='img1.png'/>"
+        "<div class='thumbcaption'>One</div>"
+        "</div>"
+        "<figure><img src='//example.com/img2.jpg'/><figcaption>Two</figcaption></figure>"
+    )
+    res = sw.extract_images(html)
+    assert res == [
+        {"image_url": "img1.png", "caption": "One"},
+        {"image_url": "https://example.com/img2.jpg", "caption": "Two"},
+    ]

@@ -1523,3 +1523,44 @@ def test_resume_from_checkpoint(tmp_path, monkeypatch):
     assert titles == {"Done", "A", "B"}
     saved = json.loads(pages_path.read_text(encoding="utf-8"))
     assert saved == []
+
+
+def test_get_revision_history_from_cache(monkeypatch):
+    fake_cache = {"revisions_en_Title_5": [{"timestamp": "t", "user": "u"}]}
+    monkeypatch.setattr(sw, "cache", SimpleNamespace(
+        get=lambda k: fake_cache.get(k),
+        set=lambda k, v, ttl=None: fake_cache.__setitem__(k, v),
+        stats=lambda: {},
+    ))
+    monkeypatch.setattr(sw.requests, "get", lambda *a, **k: (_ for _ in ()).throw(AssertionError("network called")))
+    res = sw.get_revision_history("Title", "en", 5)
+    assert res == [{"timestamp": "t", "user": "u"}]
+
+
+def test_wikipedia_advanced_revision_history(monkeypatch):
+    captured = {}
+
+    def fake_get_rev(title, lang, limit):
+        captured["args"] = (title, lang, limit)
+        return ["ok"]
+
+    monkeypatch.setattr(sw, "get_revision_history", fake_get_rev)
+    wiki = sw.WikipediaAdvanced("pt")
+    res = wiki.get_revision_history("Page", 3)
+    assert res == ["ok"]
+    assert captured["args"] == ("Page", "pt", 3)
+
+
+def test_dataset_builder_initializes_from_checkpoints(tmp_path, monkeypatch):
+    monkeypatch.setattr(sw.Config, "LOG_DIR", str(tmp_path))
+
+    data = [{"title": "D"}]
+    pages = [{"title": "P", "lang": "en"}]
+    (Path(tmp_path) / "checkpoint_data.json").write_text(json.dumps(data), encoding="utf-8")
+    (Path(tmp_path) / "checkpoint_pages.json").write_text(json.dumps(pages), encoding="utf-8")
+
+    builder = sw.DatasetBuilder()
+
+    assert builder.dataset == data
+    assert builder.pending_pages == pages
+    assert (Path(tmp_path) / "progress.json").exists()
