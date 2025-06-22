@@ -307,6 +307,15 @@ e validação:
 Em seguida, os registros passam por verificações de integridade dos campos e dos
 embeddings para garantir consistência.
 
+### Arquivo `dataset_info.json`
+
+O método `save_dataset` gera também o arquivo `dataset_info.json` com
+informações básicas sobre o conjunto criado:
+
+- `source`: origem dos registros, por exemplo `"wikipedia"`;
+- `collection_date`: data da coleta no formato `AAAA-MM-DD`;
+- `license`: licença aplicável, padrão `"CC BY-SA 4.0"`.
+
 ## Integração com frameworks de ML
 
 Os arquivos gerados em `training/` permitem treinar modelos de NLP de forma simples. A seguir alguns exemplos.
