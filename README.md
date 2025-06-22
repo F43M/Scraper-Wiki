@@ -248,6 +248,11 @@ Essa interface lê `logs/progress.json` e exibe o total de páginas processadas,
 Agora o dashboard também consulta `GET /stats` quando disponível para mostrar as estatísticas em tempo real.
 Além das contagens, ele exibe a média de tempo de processamento das páginas baseada no histograma `page_processing_seconds`.
 
+### Checkpoints
+
+Após cada atualização de progresso o scraper salva `checkpoint_pages.json` com as páginas pendentes e `checkpoint_data.json` com os registros já processados.
+Se a execução for interrompida, esses arquivos serão carregados automaticamente na próxima inicialização e o processamento continuará de onde parou.
+
 O projeto expõe métricas no formato Prometheus através da função `metrics.start_metrics_server()`. Estão disponíveis os contadores e o histograma:
 
 - `scrape_success_total`

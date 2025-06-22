@@ -3,6 +3,7 @@ import json
 import sys
 from types import SimpleNamespace, ModuleType
 from pathlib import Path
+import pytest
 
 # Ensure repository root is on sys.path
 ROOT = Path(__file__).resolve().parents[1]
@@ -67,6 +68,12 @@ if not hasattr(wikipediaapi, 'WikipediaException'):
     wikipediaapi.WikipediaException = Exception
 
 import scraper_wiki as sw
+
+
+@pytest.fixture(autouse=True)
+def tmp_log_dir(tmp_path, monkeypatch):
+    monkeypatch.setattr(sw.Config, "LOG_DIR", str(tmp_path))
+    yield
 
 
 class DummyEmbed:
@@ -1485,3 +1492,30 @@ def test_process_page_includes_revisions(monkeypatch):
     builder = sw.DatasetBuilder(include_revisions=True, rev_limit=1)
     res = builder.process_page({'title': 'T', 'lang': 'en'})
     assert res['metadata']['revisions'] == [{"timestamp": "t", "user": "u"}]
+
+
+def test_resume_from_checkpoint(tmp_path, monkeypatch):
+    monkeypatch.setattr(sw.Config, "LOG_DIR", str(tmp_path))
+
+    data_path = tmp_path / "checkpoint_data.json"
+    pages_path = tmp_path / "checkpoint_pages.json"
+    data_path.write_text(json.dumps([{"title": "Done"}]), encoding="utf-8")
+    pages_path.write_text(json.dumps([{"title": "A", "lang": "en"}, {"title": "B", "lang": "en"}]), encoding="utf-8")
+
+    monkeypatch.setattr(sw, "ThreadPoolExecutor", DummyExecutor)
+    monkeypatch.setattr(sw, "ProcessPoolExecutor", DummyExecutor)
+    monkeypatch.setattr(sw, "as_completed", lambda it: it)
+    monkeypatch.setattr(sw, "tqdm", lambda it, **k: it)
+
+    def fake_proc(self, page, proc_executor=None):
+        return DummyFuture({"title": page["title"]})
+
+    monkeypatch.setattr(sw.DatasetBuilder, "process_page", fake_proc)
+
+    builder = sw.DatasetBuilder()
+    builder.build_from_pages([{"title": "ignored", "lang": "en"}])
+
+    titles = {d["title"] for d in builder.dataset}
+    assert titles == {"Done", "A", "B"}
+    saved = json.loads(pages_path.read_text(encoding="utf-8"))
+    assert saved == []
