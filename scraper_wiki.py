@@ -9,6 +9,7 @@ import wikipediaapi
 # compatibility with those versions we provide a simple fallback to the
 # base ``Exception`` type when the attribute is missing.
 if not hasattr(wikipediaapi, "WikipediaException"):
+
     class WikipediaException(Exception):
         """Fallback exception used when ``wikipediaapi`` lacks one."""
 
@@ -57,18 +58,19 @@ from utils.text import clean_text, extract_entities
 from utils.relation import extract_relations, extract_relations_regex
 from utils.cleaner import clean_wiki_text, split_sentences
 
+
 # ============================
 # 🔧 Configurações Avançadas
 # ============================
 class Config:
     # Idiomas suportados (prioridade ordenada)
-    LANGUAGES = ['pt', 'en', 'es', 'fr', 'de', 'it', 'ja', 'zh']
-    
+    LANGUAGES = ["pt", "en", "es", "fr", "de", "it", "ja", "zh"]
+
     # Diretórios de saída
-    OUTPUT_DIR = 'datasets_wikipedia_pro'
-    CACHE_DIR = '.wiki_cache'
-    LOG_DIR = 'logs'
-    
+    OUTPUT_DIR = "datasets_wikipedia_pro"
+    CACHE_DIR = ".wiki_cache"
+    LOG_DIR = "logs"
+
     # Categorias avançadas com pesos
     CATEGORIES = {
         "Programação": 1.0,
@@ -90,9 +92,9 @@ class Config:
         "Blockchain": 0.9,
         "Internet das Coisas": 0.85,
         "Realidade virtual": 0.8,
-        "DevOps": 1.0
+        "DevOps": 1.0,
     }
-    
+
     # Parâmetros avançados
     MAX_DEPTH = 3  # Profundidade máxima de navegação em categorias
     MAX_THREADS = int(os.environ.get("MAX_THREADS", multiprocessing.cpu_count() * 2))
@@ -105,39 +107,39 @@ class Config:
     MIN_TEXT_LENGTH = 150  # mínimo de caracteres para considerar uma página
     MAX_TEXT_LENGTH = 10000  # máximo de caracteres a extrair por página
     REMOVE_STOPWORDS = os.environ.get("REMOVE_STOPWORDS", "0") == "1"
-    
+
     # Modelos de NLP
     NLP_MODELS = {
-        'en': 'en_core_web_lg',
-        'pt': 'pt_core_news_lg',
-        'es': 'es_core_news_lg',
-        'fr': 'fr_core_news_lg',
-        'de': 'de_core_news_lg',
-        'it': 'it_core_news_lg'
+        "en": "en_core_web_lg",
+        "pt": "pt_core_news_lg",
+        "es": "es_core_news_lg",
+        "fr": "fr_core_news_lg",
+        "de": "de_core_news_lg",
+        "it": "it_core_news_lg",
     }
-    
+
     # Configuração de embeddings
-    EMBEDDING_MODEL = 'paraphrase-multilingual-MiniLM-L12-v2'
-    
+    EMBEDDING_MODEL = "paraphrase-multilingual-MiniLM-L12-v2"
+
     # Configuração de sumarização
     SUMMARY_SENTENCES = 3
-    
+
     # Configuração de clustering
     CLUSTER_K = 10
-    
+
     # Proxies e headers
     PROXIES = []  # Lista de proxies rotativos pode ser adicionada
     USER_AGENTS = [
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:89.0) Gecko/20100101 Firefox/89.0',
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Safari/605.1.15'
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:89.0) Gecko/20100101 Firefox/89.0",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Safari/605.1.15",
     ]
 
     # Backend de cache: 'file' (padrão), 'redis' ou 'sqlite'
-    CACHE_BACKEND = 'file'
-    REDIS_URL = 'redis://localhost:6379/0'
-    SQLITE_PATH = os.path.join(CACHE_DIR, 'cache.sqlite')
+    CACHE_BACKEND = "file"
+    REDIS_URL = "redis://localhost:6379/0"
+    SQLITE_PATH = os.path.join(CACHE_DIR, "cache.sqlite")
     CACHE_TTL: Optional[int] = int(os.environ.get("CACHE_TTL", "0")) or None
     STORAGE_BACKEND = os.environ.get("STORAGE_BACKEND", "local")
     LOG_SERVICE_URL = os.environ.get("LOG_SERVICE_URL")
@@ -151,7 +153,7 @@ class Config:
     WIKIDATA_API_ENDPOINT = os.environ.get(
         "WIKIDATA_API_ENDPOINT", "https://www.wikidata.org/w/api.php"
     )
-    
+
     @classmethod
     def get_random_user_agent(cls):
         return random.choice(cls.USER_AGENTS)
@@ -230,6 +232,7 @@ def normalize_category(name: str) -> Optional[str]:
 
     return CATEGORY_ALIASES.get(normalized)
 
+
 # ============================
 # 📊 Logging Avançado
 # ============================
@@ -239,14 +242,16 @@ class CustomFormatter(logging.Formatter):
     red = "\x1b[31;20m"
     bold_red = "\x1b[31;1m"
     reset = "\x1b[0m"
-    format_str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s (%(filename)s:%(lineno)d)"
+    format_str = (
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s (%(filename)s:%(lineno)d)"
+    )
 
     FORMATS = {
         logging.DEBUG: grey + format_str + reset,
         logging.INFO: grey + format_str + reset,
         logging.WARNING: yellow + format_str + reset,
         logging.ERROR: red + format_str + reset,
-        logging.CRITICAL: bold_red + format_str + reset
+        logging.CRITICAL: bold_red + format_str + reset,
     }
 
     def format(self, record):
@@ -283,7 +288,7 @@ class LokiHandler(logging.Handler):
             payload = {
                 "streams": [
                     {
-                        "labels": "{job=\"scraper\"}",
+                        "labels": '{job="scraper"}',
                         "entries": [
                             {
                                 "ts": datetime.utcnow().isoformat() + "Z",
@@ -320,6 +325,7 @@ class ElasticsearchHandler(logging.Handler):
         except Exception:
             pass
 
+
 def setup_logger(name, log_file, level: int = logging.INFO, fmt: str = "text"):
     """Configure and return a logger with console and file handlers."""
     os.makedirs(Config.LOG_DIR, exist_ok=True)
@@ -348,31 +354,31 @@ def setup_logger(name, log_file, level: int = logging.INFO, fmt: str = "text"):
 
     return logger
 
-logger = setup_logger('wiki_scraper', 'scraper.log')
+
+logger = setup_logger("wiki_scraper", "scraper.log")
 
 
 def log_failed_url(url: str) -> None:
     """Append a failing URL to ``failed_urls.log`` within :data:`Config.LOG_DIR`."""
     try:
         os.makedirs(Config.LOG_DIR, exist_ok=True)
-        with open(os.path.join(Config.LOG_DIR, 'failed_urls.log'), 'a') as fh:
+        with open(os.path.join(Config.LOG_DIR, "failed_urls.log"), "a") as fh:
             fh.write(f"{url}\n")
     except Exception:
         pass
+
 
 # ============================
 # 🧠 Cache Inteligente
 # ============================
 
+
 class CacheBackend(Protocol):
-    def get(self, key: str):
-        ...
+    def get(self, key: str): ...
 
-    def set(self, key: str, data, ttl: Optional[int] = None):
-        ...
+    def set(self, key: str, data, ttl: Optional[int] = None): ...
 
-    def stats(self) -> dict:
-        ...
+    def stats(self) -> dict: ...
 
 
 class FileCache(CacheBackend):
@@ -382,7 +388,7 @@ class FileCache(CacheBackend):
         self.misses = 0
 
     def _get_cache_path(self, key: str) -> str:
-        hash_key = hashlib.md5(key.encode('utf-8')).hexdigest()
+        hash_key = hashlib.md5(key.encode("utf-8")).hexdigest()
         return os.path.join(Config.CACHE_DIR, f"{hash_key}.pkl.gz")
 
     @backoff.on_exception(backoff.expo, Exception, max_tries=3)
@@ -390,7 +396,7 @@ class FileCache(CacheBackend):
         cache_file = self._get_cache_path(key)
         if os.path.exists(cache_file):
             try:
-                with open(cache_file, 'rb') as f:
+                with open(cache_file, "rb") as f:
                     compressed_data = f.read()
                 data = pickle.loads(zlib.decompress(compressed_data))
                 self.hits += 1
@@ -407,8 +413,8 @@ class FileCache(CacheBackend):
         cache_file = self._get_cache_path(key)
         try:
             compressed_data = zlib.compress(pickle.dumps(data))
-            temp_file = cache_file + '.tmp'
-            with open(temp_file, 'wb') as f:
+            temp_file = cache_file + ".tmp"
+            with open(temp_file, "wb") as f:
                 f.write(compressed_data)
             os.replace(temp_file, cache_file)
         except Exception as e:
@@ -418,9 +424,13 @@ class FileCache(CacheBackend):
 
     def stats(self) -> dict:
         return {
-            'hits': self.hits,
-            'misses': self.misses,
-            'hit_rate': self.hits / (self.hits + self.misses) if (self.hits + self.misses) > 0 else 0
+            "hits": self.hits,
+            "misses": self.misses,
+            "hit_rate": (
+                self.hits / (self.hits + self.misses)
+                if (self.hits + self.misses) > 0
+                else 0
+            ),
         }
 
 
@@ -458,9 +468,13 @@ class RedisCache(CacheBackend):
 
     def stats(self) -> dict:
         return {
-            'hits': self.hits,
-            'misses': self.misses,
-            'hit_rate': self.hits / (self.hits + self.misses) if (self.hits + self.misses) > 0 else 0
+            "hits": self.hits,
+            "misses": self.misses,
+            "hit_rate": (
+                self.hits / (self.hits + self.misses)
+                if (self.hits + self.misses) > 0
+                else 0
+            ),
         }
 
 
@@ -475,7 +489,9 @@ class SQLiteCache(CacheBackend):
         self.misses = 0
 
     def get(self, key: str):
-        cur = self.conn.execute("SELECT value, expires_at FROM cache WHERE key=?", (key,))
+        cur = self.conn.execute(
+            "SELECT value, expires_at FROM cache WHERE key=?", (key,)
+        )
         row = cur.fetchone()
         if row:
             value, exp = row
@@ -500,22 +516,27 @@ class SQLiteCache(CacheBackend):
         val = zlib.compress(pickle.dumps(data))
         exp = int(time.time()) + ttl if ttl else None
         self.conn.execute(
-            "REPLACE INTO cache (key, value, expires_at) VALUES (?, ?, ?)", (key, val, exp)
+            "REPLACE INTO cache (key, value, expires_at) VALUES (?, ?, ?)",
+            (key, val, exp),
         )
         self.conn.commit()
 
     def stats(self) -> dict:
         return {
-            'hits': self.hits,
-            'misses': self.misses,
-            'hit_rate': self.hits / (self.hits + self.misses) if (self.hits + self.misses) > 0 else 0
+            "hits": self.hits,
+            "misses": self.misses,
+            "hit_rate": (
+                self.hits / (self.hits + self.misses)
+                if (self.hits + self.misses) > 0
+                else 0
+            ),
         }
 
 
 def init_cache() -> CacheBackend:
-    if Config.CACHE_BACKEND == 'redis':
+    if Config.CACHE_BACKEND == "redis":
         return RedisCache(Config.REDIS_URL)
-    if Config.CACHE_BACKEND == 'sqlite':
+    if Config.CACHE_BACKEND == "sqlite":
         return SQLiteCache(Config.SQLITE_PATH)
     return FileCache()
 
@@ -526,7 +547,7 @@ cache: CacheBackend = init_cache()
 def clear_cache() -> None:
     """Remove arquivos ou registros expirados do cache."""
     ttl = Config.CACHE_TTL
-    if Config.CACHE_BACKEND == 'sqlite':
+    if Config.CACHE_BACKEND == "sqlite":
         if not os.path.exists(Config.SQLITE_PATH):
             return
         conn = sqlite3.connect(Config.SQLITE_PATH)
@@ -536,7 +557,7 @@ def clear_cache() -> None:
         )
         conn.commit()
         conn.close()
-    elif Config.CACHE_BACKEND == 'file':
+    elif Config.CACHE_BACKEND == "file":
         if ttl is None:
             return
         cutoff = time.time() - ttl
@@ -549,17 +570,19 @@ def clear_cache() -> None:
         # Redis remove chaves expiradas automaticamente
         pass
 
+
 # Global rate limiter for all network operations
 rate_limiter = RateLimiter(Config.RATE_LIMIT_DELAY)
 # Limit the number of concurrent HTTP requests
 fetch_semaphore = asyncio.Semaphore(Config.MAX_CONCURRENT_REQUESTS)
+
 
 # ============================
 # 🔍 Funções Avançadas de NLP
 # ============================
 class NLPProcessor:
     _instances = {}
-    
+
     @classmethod
     def get_instance(cls, lang: str):
         if lang not in cls._instances:
@@ -581,26 +604,27 @@ class NLPProcessor:
                         )
                         cls._instances[lang] = spacy.load("en_core_web_sm")
             else:
-                logger.warning(
-                    f"Modelo NLP para {lang} não configurado, usando inglês"
-                )
+                logger.warning(f"Modelo NLP para {lang} não configurado, usando inglês")
                 cls._instances[lang] = spacy.load(Config.NLP_MODELS["en"])
         return cls._instances[lang]
-    
+
     @classmethod
     def get_embedding_model(cls):
-        if not hasattr(cls, '_embedding_model'):
+        if not hasattr(cls, "_embedding_model"):
             cls._embedding_model = SentenceTransformer(Config.EMBEDDING_MODEL)
         return cls._embedding_model
 
-def extract_keywords(text: str, lang: str = 'en', n: int = 10) -> List[str]:
+
+def extract_keywords(text: str, lang: str = "en", n: int = 10) -> List[str]:
     try:
         nlp = NLPProcessor.get_instance(lang)
         doc = nlp(text)
-        
+
         # Filtra substantivos e nomes próprios
-        keywords = [chunk.text for chunk in doc.noun_chunks if len(chunk.text.split()) <= 3]
-        
+        keywords = [
+            chunk.text for chunk in doc.noun_chunks if len(chunk.text.split()) <= 3
+        ]
+
         # Remove duplicatas e conta frequência
         freq = {}
         for word in keywords:
@@ -609,49 +633,56 @@ def extract_keywords(text: str, lang: str = 'en', n: int = 10) -> List[str]:
                 freq[word_lower] += 1
             else:
                 freq[word_lower] = 1
-        
+
         # Ordena por frequência e pega os top N
         sorted_keywords = sorted(freq.items(), key=lambda x: x[1], reverse=True)
         return [kw[0] for kw in sorted_keywords[:n]]
-    
+
     except Exception as e:
         logger.error(f"Erro ao extrair keywords: {e}")
         return []
 
-def summarize_text(text: str, lang: str = 'en') -> str:
+
+def summarize_text(text: str, lang: str = "en") -> str:
     try:
         parser = PlaintextParser.from_string(text, Tokenizer(lang))
         summarizer = LsaSummarizer()
         summary = summarizer(parser.document, Config.SUMMARY_SENTENCES)
-        return ' '.join([str(sentence) for sentence in summary])
+        return " ".join([str(sentence) for sentence in summary])
     except Exception as e:
         logger.error(f"Erro ao sumarizar texto: {e}")
-        return text[:Config.MIN_TEXT_LENGTH] if len(text) > Config.MIN_TEXT_LENGTH else text
+        return (
+            text[: Config.MIN_TEXT_LENGTH]
+            if len(text) > Config.MIN_TEXT_LENGTH
+            else text
+        )
+
 
 def cluster_texts(texts: List[str], k: int = Config.CLUSTER_K) -> np.ndarray:
     try:
         model = NLPProcessor.get_embedding_model()
         embeddings = model.encode(texts, show_progress_bar=False)
-        
+
         # Normaliza os embeddings
         norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
         normalized_embeddings = embeddings / norms
-        
+
         # Clusteriza usando K-means
         kmeans = KMeans(n_clusters=k, random_state=42)
         clusters = kmeans.fit_predict(normalized_embeddings)
-        
+
         return clusters
     except Exception as e:
         logger.error(f"Erro no clustering: {e}")
         return np.zeros(len(texts))
+
 
 # ============================
 # 🧹 Limpeza Avançada de Texto
 # ============================
 def advanced_clean_text(
     text: str,
-    lang: str = 'en',
+    lang: str = "en",
     remove_stopwords: bool = False,
     split: bool = False,
     stem: bool = False,
@@ -661,22 +692,35 @@ def advanced_clean_text(
         text = clean_wiki_text(text)
 
         # Remove caracteres especiais, mantendo acentos quando relevante
-        if lang in ['en', 'de']:
+        if lang in ["en", "de"]:
             text = unidecode(text)
 
         # Remove padrões específicos da Wikipedia
-        text = re.sub(r'\[\d+\]', '', text)  # Referências [1], [2], etc.
-        text = re.sub(r'\b(ver também|see also|véase también|voir aussi)\b.*', '', text, flags=re.IGNORECASE)
-        text = re.sub(r'\{\|.*?\|\}', '', text, flags=re.DOTALL)  # Remove tables
+        text = re.sub(r"\[\d+\]", "", text)  # Referências [1], [2], etc.
+        text = re.sub(
+            r"\b(ver também|see also|véase también|voir aussi)\b.*",
+            "",
+            text,
+            flags=re.IGNORECASE,
+        )
+        text = re.sub(r"\{\|.*?\|\}", "", text, flags=re.DOTALL)  # Remove tables
 
         # Remove seções específicas
         sections_to_remove = [
-            'referências', 'references', 'referencias',
-            'bibliografia', 'bibliography', 'bibliografía',
-            'ligações externas', 'external links', 'enlaces externos'
+            "referências",
+            "references",
+            "referencias",
+            "bibliografia",
+            "bibliography",
+            "bibliografía",
+            "ligações externas",
+            "external links",
+            "enlaces externos",
         ]
         for section in sections_to_remove:
-            text = re.sub(fr'==\s*{section}\s*==.*', '', text, flags=re.IGNORECASE | re.DOTALL)
+            text = re.sub(
+                rf"==\s*{section}\s*==.*", "", text, flags=re.IGNORECASE | re.DOTALL
+            )
 
         if remove_stopwords or stem:
             removed = False
@@ -685,10 +729,10 @@ def advanced_clean_text(
                 doc = nlp(text)
                 tokens = []
                 for t in doc:
-                    if remove_stopwords and getattr(t, 'is_stop', False):
+                    if remove_stopwords and getattr(t, "is_stop", False):
                         continue
                     tokens.append(t.lemma_ if stem else t.text)
-                text = ' '.join(tokens)
+                text = " ".join(tokens)
                 removed = True
             except Exception as e:
                 logger.error(f"Erro ao processar texto com spaCy: {e}")
@@ -697,6 +741,7 @@ def advanced_clean_text(
                     import nltk
                     from nltk.corpus import stopwords
                     from nltk.stem import SnowballStemmer, PorterStemmer
+
                     stop_words = set()
                     if remove_stopwords:
                         stop_words = set(stopwords.words(lang))
@@ -713,7 +758,7 @@ def advanced_clean_text(
                             tokens.append(stemmer.stem(w))
                         else:
                             tokens.append(w)
-                    text = ' '.join(tokens)
+                    text = " ".join(tokens)
                 except Exception as e:
                     logger.error(f"Erro ao processar texto com NLTK: {e}")
 
@@ -725,23 +770,35 @@ def advanced_clean_text(
         logger.error(f"Erro na limpeza de texto: {e}")
         return text
 
+
 def extract_main_content(page_html: str) -> str:
     try:
-        soup = BeautifulSoup(page_html, 'html.parser')
-        
+        soup = BeautifulSoup(page_html, "html.parser")
+
         # Remove elementos indesejados
-        for element in soup.find_all(['table', 'div.infobox', 'span.reference', 'ol.references', 
-                                    'div.navbox', 'div.hatnote', 'div.thumb', 'div.notice']):
+        for element in soup.find_all(
+            [
+                "table",
+                "div.infobox",
+                "span.reference",
+                "ol.references",
+                "div.navbox",
+                "div.hatnote",
+                "div.thumb",
+                "div.notice",
+            ]
+        ):
             element.decompose()
-        
+
         # Extrai conteúdo principal
-        content_div = soup.find('div', {'id': 'mw-content-text'})
+        content_div = soup.find("div", {"id": "mw-content-text"})
         if content_div:
             return str(content_div)
         return page_html
     except Exception as e:
         logger.error(f"Erro ao extrair conteúdo principal: {e}")
         return page_html
+
 
 def extract_links(html: str, base_url: str) -> List[str]:
     """Return absolute links from ``html`` that contain ``/wiki/`` in the href."""
@@ -849,7 +906,11 @@ async def fetch_with_retry(
         try:
             timeout = aiohttp.ClientTimeout(total=Config.TIMEOUT)
             acquired_dummy = False
-            if hasattr(fetch_semaphore, "active") and hasattr(fetch_semaphore, "limit") and not hasattr(fetch_semaphore, "acquire"):
+            if (
+                hasattr(fetch_semaphore, "active")
+                and hasattr(fetch_semaphore, "limit")
+                and not hasattr(fetch_semaphore, "acquire")
+            ):
                 while fetch_semaphore.active >= fetch_semaphore.limit:
                     await asyncio.sleep(0)
                 await fetch_semaphore.__aenter__()
@@ -880,20 +941,18 @@ async def fetch_with_retry(
                 else:
                     fetch_semaphore.release()
         except aiohttp.ClientResponseError as e:
-            if getattr(e, 'status', None) == 429:
+            if getattr(e, "status", None) == 429:
                 logger.warning(f"HTTP 429 for {url}, backing off")
                 rate_limiter.record_error()
             else:
-                logger.warning(
-                    f"Attempt {attempt} failed for {url}: {e}")
+                logger.warning(f"Attempt {attempt} failed for {url}: {e}")
             exc = e
         except asyncio.TimeoutError as e:
             logger.warning(f"Timeout while fetching {url}")
             rate_limiter.record_error()
             exc = e
         except Exception as e:
-            logger.warning(
-                f"Attempt {attempt} failed for {url}: {e}")
+            logger.warning(f"Attempt {attempt} failed for {url}: {e}")
             exc = e
         if attempt < retries:
             metrics.request_retries_total.inc()
@@ -902,6 +961,7 @@ async def fetch_with_retry(
             log_failed_url(url)
             metrics.requests_failed_total.inc()
             raise exc
+
 
 def fetch_html_content(title: str, lang: str) -> str:
     """Retrieve the raw HTML for a Wikipedia page using the REST API."""
@@ -1014,10 +1074,12 @@ def get_revision_history(title: str, lang: str, limit: int) -> List[dict]:
         revs: List[dict] = []
         for page in pages.values():
             for rev in page.get("revisions", []):
-                revs.append({
-                    "timestamp": rev.get("timestamp"),
-                    "user": rev.get("user"),
-                })
+                revs.append(
+                    {
+                        "timestamp": rev.get("timestamp"),
+                        "user": rev.get("user"),
+                    }
+                )
         return revs
 
     try:
@@ -1031,6 +1093,7 @@ def get_revision_history(title: str, lang: str, limit: int) -> List[dict]:
             return fallback
         return []
 
+
 # ============================
 # 🔗 Coletor Avançado com Retry
 # ============================
@@ -1040,23 +1103,24 @@ class WikipediaAdvanced:
         self.wiki = wikipediaapi.Wikipedia(
             language=lang,
             extract_format=wikipediaapi.ExtractFormat.HTML,
-            user_agent=Config.get_random_user_agent()
+            user_agent=Config.get_random_user_agent(),
         )
         self.session = requests.Session()
-        self.session.headers.update({'User-Agent': Config.get_random_user_agent()})
+        self.session.headers.update({"User-Agent": Config.get_random_user_agent()})
 
     def _prepare_session(self):
         """Refresh User-Agent and proxy settings before a request."""
-        self.session.headers['User-Agent'] = Config.get_random_user_agent()
+        self.session.headers["User-Agent"] = Config.get_random_user_agent()
         if Config.PROXIES:
             self.session.proxies = random.choice(Config.PROXIES)
         else:
             self.session.proxies = {}
-    
-    @backoff.on_exception(backoff.expo, 
-                         (requests.exceptions.RequestException, 
-                          wikipediaapi.WikipediaException),
-                         max_tries=Config.RETRIES)
+
+    @backoff.on_exception(
+        backoff.expo,
+        (requests.exceptions.RequestException, wikipediaapi.WikipediaException),
+        max_tries=Config.RETRIES,
+    )
     def fetch_page(self, page_title: str) -> Optional[wikipediaapi.WikipediaPage]:
         cache_key = f"page_{self.lang}_{page_title}"
         cached = cache.get(cache_key)
@@ -1082,10 +1146,12 @@ class WikipediaAdvanced:
             logger.error(f"Erro ao buscar página {page_title}: {e}")
             log_failed_url(self.wiki.api.article_url(page_title))
             raise
-        
+
         return None
 
-    async def fetch_page_async(self, page_title: str) -> Optional[wikipediaapi.WikipediaPage]:
+    async def fetch_page_async(
+        self, page_title: str
+    ) -> Optional[wikipediaapi.WikipediaPage]:
         """Asynchronous version of :meth:`fetch_page` using ``aiohttp``."""
         cache_key = f"page_{self.lang}_{page_title}"
         cached = cache.get(cache_key)
@@ -1110,13 +1176,20 @@ class WikipediaAdvanced:
             raise
 
         return None
-    
-    @backoff.on_exception(backoff.expo, 
-                         (requests.exceptions.RequestException, 
-                          wikipediaapi.WikipediaException),
-                         max_tries=Config.RETRIES)
-    def fetch_category(self, category_name: str) -> Optional[wikipediaapi.WikipediaPage]:
-        category_title = f"Category:{category_name}" if self.lang != 'pt' else f"Categoria:{category_name}"
+
+    @backoff.on_exception(
+        backoff.expo,
+        (requests.exceptions.RequestException, wikipediaapi.WikipediaException),
+        max_tries=Config.RETRIES,
+    )
+    def fetch_category(
+        self, category_name: str
+    ) -> Optional[wikipediaapi.WikipediaPage]:
+        category_title = (
+            f"Category:{category_name}"
+            if self.lang != "pt"
+            else f"Categoria:{category_name}"
+        )
         self._prepare_session()
         rate_limiter.wait()
         return self.fetch_page(category_title)
@@ -1125,7 +1198,9 @@ class WikipediaAdvanced:
         """Return wiki links from the HTML of a category page."""
         try:
             title = (
-                f"Category:{category_name}" if self.lang != "pt" else f"Categoria:{category_name}"
+                f"Category:{category_name}"
+                if self.lang != "pt"
+                else f"Categoria:{category_name}"
             )
             html = fetch_html_content(title, self.lang)
             base_url = get_base_url(self.lang)
@@ -1150,11 +1225,11 @@ class WikipediaAdvanced:
         def _request():
             url = f"{get_base_url(self.lang)}/w/api.php"
             params = {
-                'action': 'query',
-                'titles': page_title,
-                'prop': 'links',
-                'pllimit': limit,
-                'format': 'json'
+                "action": "query",
+                "titles": page_title,
+                "prop": "links",
+                "pllimit": limit,
+                "format": "json",
             }
             rate_limiter.wait()
             response = self.session.get(url, params=params, timeout=Config.TIMEOUT)
@@ -1164,16 +1239,13 @@ class WikipediaAdvanced:
         try:
             data = _request()
 
-            pages = data.get('query', {}).get('pages', {})
+            pages = data.get("query", {}).get("pages", {})
             links = []
 
             for page in pages.values():
-                for link in page.get('links', []):
-                    if 'ns' in link and link['ns'] == 0:  # Only main namespace
-                        links.append({
-                            'title': link['title'],
-                            'lang': self.lang
-                        })
+                for link in page.get("links", []):
+                    if "ns" in link and link["ns"] == 0:  # Only main namespace
+                        links.append({"title": link["title"], "lang": self.lang})
 
             cache.set(cache_key, links, ttl=Config.CACHE_TTL)
             return links
@@ -1189,11 +1261,13 @@ class WikipediaAdvanced:
         """Wrapper around :func:`get_revision_history` for this language."""
 
         return get_revision_history(page_title, self.lang, limit)
-    
-    def get_category_members(self, category_name: str, depth: int = 0, visited: Optional[Set[str]] = None) -> List[dict]:
+
+    def get_category_members(
+        self, category_name: str, depth: int = 0, visited: Optional[Set[str]] = None
+    ) -> List[dict]:
         if visited is None:
             visited = set()
-        
+
         category = self.fetch_category(category_name)
         if not category or not category.exists():
             alt = search_category(category_name, self.lang)
@@ -1204,31 +1278,36 @@ class WikipediaAdvanced:
         if not category or not category.exists():
             logger.warning(f"Categoria não encontrada: {category_name}")
             return []
-        
+
         members = []
         for member in category.categorymembers.values():
             if member.title not in visited:
                 visited.add(member.title)
-                
-                if member.ns == wikipediaapi.Namespace.CATEGORY and depth < Config.MAX_DEPTH:
+
+                if (
+                    member.ns == wikipediaapi.Namespace.CATEGORY
+                    and depth < Config.MAX_DEPTH
+                ):
                     sub_members = self.get_category_members(
                         member.title.replace("Category:", "").replace("Categoria:", ""),
                         depth + 1,
-                        visited
+                        visited,
                     )
                     members.extend(sub_members)
                 elif member.ns == wikipediaapi.Namespace.MAIN:
-                    members.append({
-                        'title': member.title,
-                        'url': member.fullurl,
-                        'lang': self.lang,
-                        'category': category_name,
-                        'depth': depth
-                    })
-                
+                    members.append(
+                        {
+                            "title": member.title,
+                            "url": member.fullurl,
+                            "lang": self.lang,
+                            "category": category_name,
+                            "depth": depth,
+                        }
+                    )
+
                 if len(members) >= Config.MAX_PAGES_PER_CATEGORY:
                     break
-        
+
         return members
 
     async def get_category_members_async(
@@ -1263,7 +1342,10 @@ class WikipediaAdvanced:
                 return []
             visited.add(member.title)
 
-            if member.ns == wikipediaapi.Namespace.CATEGORY and depth < Config.MAX_DEPTH:
+            if (
+                member.ns == wikipediaapi.Namespace.CATEGORY
+                and depth < Config.MAX_DEPTH
+            ):
                 async with sem:
                     return await self.get_category_members_async(
                         member.title.replace("Category:", "").replace("Categoria:", ""),
@@ -1409,9 +1491,11 @@ class WikipediaAdvanced:
 
         return results
 
+
 # ============================
 # 🏗️ Builder de Dataset Profissional
 # ============================
+
 
 def cpu_process_page(
     title: str,
@@ -1420,6 +1504,7 @@ def cpu_process_page(
     category: str,
     images: List[Dict[str, str]] | None = None,
     revisions: List[dict] | None = None,
+    rev_limit: int = 5,
 ) -> dict:
     """Executes CPU intensive operations for a page."""
     builder = DatasetBuilder(include_revisions=revisions, rev_limit=rev_limit)
@@ -1437,6 +1522,7 @@ def cpu_process_page(
     if revisions is not None:
         record.setdefault("metadata", {})["revisions"] = revisions
     return record
+
 
 class DatasetBuilder:
     def __init__(self, include_revisions: bool = False, rev_limit: int = 5, **_):
@@ -1481,46 +1567,50 @@ class DatasetBuilder:
         """Update progress information in logs/progress.json"""
         try:
             os.makedirs(Config.LOG_DIR, exist_ok=True)
-            progress_file = os.path.join(Config.LOG_DIR, 'progress.json')
-            temp_file = progress_file + '.tmp'
+            progress_file = os.path.join(Config.LOG_DIR, "progress.json")
+            temp_file = progress_file + ".tmp"
 
-            clusters = sorted({item.get('cluster') for item in self.dataset if 'cluster' in item})
-            topics = sorted({item.get('topic') for item in self.dataset if item.get('topic')})
-            languages = sorted({item.get('language') for item in self.dataset if item.get('language')})
+            clusters = sorted(
+                {item.get("cluster") for item in self.dataset if "cluster" in item}
+            )
+            topics = sorted(
+                {item.get("topic") for item in self.dataset if item.get("topic")}
+            )
+            languages = sorted(
+                {item.get("language") for item in self.dataset if item.get("language")}
+            )
 
             progress = {
-                'pages_processed': len(self.dataset),
-                'clusters': clusters,
-                'topics': topics,
-                'languages': languages,
-                'duplicates_removed': self.duplicates_removed,
-                'invalid_records': self.invalid_records,
+                "pages_processed": len(self.dataset),
+                "clusters": clusters,
+                "topics": topics,
+                "languages": languages,
+                "duplicates_removed": self.duplicates_removed,
+                "invalid_records": self.invalid_records,
             }
 
-            with open(temp_file, 'w', encoding='utf-8') as f:
+            with open(temp_file, "w", encoding="utf-8") as f:
                 json.dump(progress, f, ensure_ascii=False, indent=2)
             os.replace(temp_file, progress_file)
 
-            data_path = os.path.join(Config.LOG_DIR, 'checkpoint_data.json')
-            pages_path = os.path.join(Config.LOG_DIR, 'checkpoint_pages.json')
-            with open(data_path + '.tmp', 'w', encoding='utf-8') as df:
+            data_path = os.path.join(Config.LOG_DIR, "checkpoint_data.json")
+            pages_path = os.path.join(Config.LOG_DIR, "checkpoint_pages.json")
+            with open(data_path + ".tmp", "w", encoding="utf-8") as df:
                 json.dump(self.dataset, df, ensure_ascii=False)
-            os.replace(data_path + '.tmp', data_path)
-            with open(pages_path + '.tmp', 'w', encoding='utf-8') as pf:
+            os.replace(data_path + ".tmp", data_path)
+            with open(pages_path + ".tmp", "w", encoding="utf-8") as pf:
                 json.dump(self.pending_pages, pf, ensure_ascii=False)
-            os.replace(pages_path + '.tmp', pages_path)
+            os.replace(pages_path + ".tmp", pages_path)
         except Exception as e:
             logger.error(f"Erro ao atualizar progresso: {e}")
 
     def process_page(
-        self,
-        page_info: dict,
-        proc_executor: Optional[ProcessPoolExecutor] = None
+        self, page_info: dict, proc_executor: Optional[ProcessPoolExecutor] = None
     ) -> Optional[object]:
         start_time = time.perf_counter()
         try:
-            wiki = WikipediaAdvanced(page_info['lang'])
-            page = wiki.fetch_page(page_info['title'])
+            wiki = WikipediaAdvanced(page_info["lang"])
+            page = wiki.fetch_page(page_info["title"])
 
             if not page or not page.exists():
                 return None
@@ -1529,7 +1619,7 @@ class DatasetBuilder:
             raw_text = clean_text(page.text)
             clean_content = advanced_clean_text(
                 raw_text,
-                page_info['lang'],
+                page_info["lang"],
                 remove_stopwords=Config.REMOVE_STOPWORDS,
             )
 
@@ -1541,56 +1631,53 @@ class DatasetBuilder:
                 revisions = None
                 if self.include_revisions:
                     revisions = wiki.get_revision_history(
-                        page_info['title'], self.rev_limit
+                        page_info["title"], self.rev_limit
                     )
                 return proc_executor.submit(
                     cpu_process_page,
-                    page_info['title'],
+                    page_info["title"],
                     clean_content,
-                    page_info['lang'],
-                    page_info.get('category', ''),
+                    page_info["lang"],
+                    page_info.get("category", ""),
                     images,
                     revisions,
+                    self.rev_limit,
                 )
 
             # Sumariza o conteúdo
-            summary = summarize_text(clean_content, page_info['lang'])
+            summary = summarize_text(clean_content, page_info["lang"])
 
             # Gera QA pairs avançadas
             qa_data = self.generate_qa_pairs(
-                title=page_info['title'],
+                title=page_info["title"],
                 content=clean_content,
                 summary=summary,
-                lang=page_info['lang'],
-                category=page_info.get('category', '')
+                lang=page_info["lang"],
+                category=page_info.get("category", ""),
             )
             qa_data["entities"] = extract_entities(clean_content)
             images = extract_images(getattr(page, "_html", ""))
             qa_data["images"] = images
             if self.include_revisions:
-                qa_data.setdefault("metadata", {})["revisions"] = wiki.get_revision_history(
-                    page_info['title'], self.rev_limit
+                qa_data.setdefault("metadata", {})["revisions"] = (
+                    wiki.get_revision_history(page_info["title"], self.rev_limit)
                 )
             metrics.scrape_success.inc()
             metrics.pages_scraped_total.inc()
             return qa_data
         except Exception as e:
             metrics.scrape_error.inc()
-            logger.error(
-                f"Erro ao processar página {page_info.get('title', '')}: {e}"
-            )
+            logger.error(f"Erro ao processar página {page_info.get('title', '')}: {e}")
             return None
         finally:
             metrics.page_processing_seconds.observe(time.perf_counter() - start_time)
 
     async def process_page_async(
-        self,
-        page_info: dict,
-        proc_executor: Optional[ProcessPoolExecutor] = None
+        self, page_info: dict, proc_executor: Optional[ProcessPoolExecutor] = None
     ) -> Optional[object]:
         """Asynchronous wrapper for :meth:`process_page`."""
         return await asyncio.to_thread(self.process_page, page_info, proc_executor)
-    
+
     def generate_qa_pairs(
         self,
         title: str,
@@ -1602,10 +1689,10 @@ class DatasetBuilder:
     ) -> dict:
         # Extrai keywords para gerar perguntas variadas
         keywords = extract_keywords(content, lang)
-        
+
         # Gera múltiplas perguntas baseadas no conteúdo
         questions = self._generate_questions(title, content, lang, keywords)
-        
+
         # Gera respostas completas
         answers = self._generate_answers(content, summary, lang)
 
@@ -1613,216 +1700,281 @@ class DatasetBuilder:
         relations = extract_relations(content, lang)
         relations_regex = extract_relations_regex(content)
         relations.extend(r for r in relations_regex if r not in relations)
-        
+
         # Cria embeddings para busca semântica
-        content_embedding = self.embedding_model.encode(content, show_progress_bar=False)
-        summary_embedding = self.embedding_model.encode(summary, show_progress_bar=False)
-        
+        content_embedding = self.embedding_model.encode(
+            content, show_progress_bar=False
+        )
+        summary_embedding = self.embedding_model.encode(
+            summary, show_progress_bar=False
+        )
+
         # Classificação avançada de tópicos
         topic, subtopic = self._classify_topic(title, content, lang)
 
         record = {
-            'id': hashlib.md5(f"{title}_{lang}".encode('utf-8')).hexdigest(),
-            'title': title,
-            'language': lang,
-            'category': category,
-            'topic': topic,
-            'subtopic': subtopic,
-            'keywords': keywords,
-            'content': content,
-            'summary': summary,
-            'content_embedding': content_embedding.tolist(),
-            'summary_embedding': summary_embedding.tolist(),
-            'questions': questions,
-            'answers': answers,
-            'relations': relations,
-            'created_at': datetime.utcnow().isoformat(),
-            'metadata': {
-                'length': len(content),
-                'source': 'wikipedia',
-                'source_url': f"{get_base_url(lang)}/wiki/{title.replace(' ', '_')}"
-            }
+            "id": hashlib.md5(f"{title}_{lang}".encode("utf-8")).hexdigest(),
+            "title": title,
+            "language": lang,
+            "category": category,
+            "topic": topic,
+            "subtopic": subtopic,
+            "keywords": keywords,
+            "content": content,
+            "summary": summary,
+            "content_embedding": content_embedding.tolist(),
+            "summary_embedding": summary_embedding.tolist(),
+            "questions": questions,
+            "answers": answers,
+            "relations": relations,
+            "created_at": datetime.utcnow().isoformat(),
+            "metadata": {
+                "length": len(content),
+                "source": "wikipedia",
+                "source_url": f"{get_base_url(lang)}/wiki/{title.replace(' ', '_')}",
+            },
         }
         if extra_metadata:
-            if 'wikidata_id' in extra_metadata:
-                record['wikidata_id'] = extra_metadata['wikidata_id']
-            if 'image_url' in extra_metadata:
-                record['image_url'] = extra_metadata['image_url']
+            if "wikidata_id" in extra_metadata:
+                record["wikidata_id"] = extra_metadata["wikidata_id"]
+            if "image_url" in extra_metadata:
+                record["image_url"] = extra_metadata["image_url"]
         try:
-            storage_sqlite.save_to_db({'id': record['id'], 'metadata': record.get('metadata', {})})
+            storage_sqlite.save_to_db(
+                {"id": record["id"], "metadata": record.get("metadata", {})}
+            )
         except Exception as e:
             logger.error(f"Erro ao salvar no SQLite: {e}")
         return record
-    
-    def _generate_questions(self, title: str, content: str, lang: str, keywords: List[str]) -> List[dict]:
+
+    def _generate_questions(
+        self, title: str, content: str, lang: str, keywords: List[str]
+    ) -> List[dict]:
         questions = []
-        
+
         # Pergunta básica sobre o título
         base_question = {
-            'text': self._translate_question(f"What is {title}?", lang),
-            'type': 'definition',
-            'difficulty': 'easy'
+            "text": self._translate_question(f"What is {title}?", lang),
+            "type": "definition",
+            "difficulty": "easy",
         }
         questions.append(base_question)
-        
+
         # Perguntas baseadas em keywords
         for keyword in keywords[:5]:  # Limita a 5 perguntas por keyword
             question_types = [
-                (f"How does {keyword} relate to {title}?", 'relation', 'medium'),
-                (f"What is the role of {keyword} in {title}?", 'role', 'medium'),
-                (f"Can you explain {keyword} in the context of {title}?", 'explanation', 'hard')
+                (f"How does {keyword} relate to {title}?", "relation", "medium"),
+                (f"What is the role of {keyword} in {title}?", "role", "medium"),
+                (
+                    f"Can you explain {keyword} in the context of {title}?",
+                    "explanation",
+                    "hard",
+                ),
             ]
-            
+
             for q_text, q_type, q_diff in question_types:
-                questions.append({
-                    'text': self._translate_question(q_text, lang),
-                    'type': q_type,
-                    'difficulty': q_diff
-                })
-        
+                questions.append(
+                    {
+                        "text": self._translate_question(q_text, lang),
+                        "type": q_type,
+                        "difficulty": q_diff,
+                    }
+                )
+
         # Perguntas baseadas em conteúdo (usando NLP)
         try:
             nlp = NLPProcessor.get_instance(lang)
             doc = nlp(content)
-            
+
             # Perguntas sobre entidades nomeadas
             for ent in doc.ents[:5]:  # Limita a 5 entidades
-                if ent.label_ in ['PERSON', 'ORG', 'LOC', 'PRODUCT']:
-                    questions.append({
-                        'text': self._translate_question(f"What is the significance of {ent.text} in {title}?", lang),
-                        'type': 'significance',
-                        'difficulty': 'medium'
-                    })
-            
+                if ent.label_ in ["PERSON", "ORG", "LOC", "PRODUCT"]:
+                    questions.append(
+                        {
+                            "text": self._translate_question(
+                                f"What is the significance of {ent.text} in {title}?",
+                                lang,
+                            ),
+                            "type": "significance",
+                            "difficulty": "medium",
+                        }
+                    )
+
             # Perguntas sobre verbos/ações
             for sent in doc.sents[:3]:  # Analisa as primeiras 3 sentenças
-                root = [token for token in sent if token.dep_ == 'ROOT']
+                root = [token for token in sent if token.dep_ == "ROOT"]
                 if root:
                     verb = root[0].lemma_
-                    questions.append({
-                        'text': self._translate_question(f"How does {title} {verb}?", lang),
-                        'type': 'process',
-                        'difficulty': 'hard'
-                    })
+                    questions.append(
+                        {
+                            "text": self._translate_question(
+                                f"How does {title} {verb}?", lang
+                            ),
+                            "type": "process",
+                            "difficulty": "hard",
+                        }
+                    )
         except Exception as e:
             logger.error(f"Erro ao gerar perguntas NLP para {title}: {e}")
-        
+
         return questions
-    
+
     def _generate_answers(self, content: str, summary: str, lang: str) -> List[dict]:
         answers = []
-        
+
         # Resposta resumida
-        answers.append({
-            'text': summary,
-            'type': 'summary',
-            'length': 'short'
-        })
-        
+        answers.append({"text": summary, "type": "summary", "length": "short"})
+
         # Resposta completa
-        answers.append({
-            'text': content[:Config.MAX_TEXT_LENGTH],  # Limita o tamanho
-            'type': 'detailed',
-            'length': 'long'
-        })
-        
+        answers.append(
+            {
+                "text": content[: Config.MAX_TEXT_LENGTH],  # Limita o tamanho
+                "type": "detailed",
+                "length": "long",
+            }
+        )
+
         # Respostas específicas por parágrafo
-        paragraphs = [p for p in content.split('\n') if len(p.strip()) > 0]
+        paragraphs = [p for p in content.split("\n") if len(p.strip()) > 0]
         for para in paragraphs[:3]:  # Limita a 3 parágrafos
-            answers.append({
-                'text': para,
-                'type': 'paragraph',
-                'length': 'medium'
-            })
-        
+            answers.append({"text": para, "type": "paragraph", "length": "medium"})
+
         return answers
-    
+
     def _translate_question(self, question: str, lang: str) -> str:
         translations = {
-            'pt': {
-                'What is': 'O que é',
-                'How does': 'Como',
-                'relate to': 'se relaciona com',
-                'What is the role of': 'Qual é o papel de',
-                'Can you explain': 'Você pode explicar',
-                'in the context of': 'no contexto de',
-                'What is the significance of': 'Qual é a importância de'
+            "pt": {
+                "What is": "O que é",
+                "How does": "Como",
+                "relate to": "se relaciona com",
+                "What is the role of": "Qual é o papel de",
+                "Can you explain": "Você pode explicar",
+                "in the context of": "no contexto de",
+                "What is the significance of": "Qual é a importância de",
             },
-            'es': {
-                'What is': 'Qué es',
-                'How does': 'Cómo',
-                'relate to': 'se relaciona con',
-                'What is the role of': 'Cuál es el papel de',
-                'Can you explain': 'Puedes explicar',
-                'in the context of': 'en el contexto de',
-                'What is the significance of': 'Cuál es la importancia de'
+            "es": {
+                "What is": "Qué es",
+                "How does": "Cómo",
+                "relate to": "se relaciona con",
+                "What is the role of": "Cuál es el papel de",
+                "Can you explain": "Puedes explicar",
+                "in the context of": "en el contexto de",
+                "What is the significance of": "Cuál es la importancia de",
             },
-            'fr': {
-                'What is': 'Qu\'est-ce que',
-                'How does': 'Comment',
-                'relate to': 'se rapporte à',
-                'What is the role of': 'Quel est le rôle de',
-                'Can you explain': 'Pouvez-vous expliquer',
-                'in the context of': 'dans le contexte de',
-                'What is the significance of': 'Quelle est l\'importance de'
-            }
+            "fr": {
+                "What is": "Qu'est-ce que",
+                "How does": "Comment",
+                "relate to": "se rapporte à",
+                "What is the role of": "Quel est le rôle de",
+                "Can you explain": "Pouvez-vous expliquer",
+                "in the context of": "dans le contexte de",
+                "What is the significance of": "Quelle est l'importance de",
+            },
         }
-        
+
         if lang in translations:
             for eng, trans in translations[lang].items():
                 question = question.replace(eng, trans)
-        
+
         return question
-    
+
     def _classify_topic(self, title: str, content: str, lang: str) -> Tuple[str, str]:
         title_lower = title.lower()
         content_lower = content.lower()
-        
+
         # Mapeamento de tópicos principais e subtópicos
         topics = {
-            'ai': {
-                'keywords': ['inteligência artificial', 'machine learning', 'ai', 'deep learning', 'redes neurais'],
-                'subtopics': {
-                    'nlp': ['processamento de linguagem natural', 'pln', 'nlu', 'nlp'],
-                    'vision': ['visão computacional', 'computer vision', 'reconhecimento de imagem'],
-                    'robotics': ['robótica', 'robots', 'autonomous systems']
-                }
+            "ai": {
+                "keywords": [
+                    "inteligência artificial",
+                    "machine learning",
+                    "ai",
+                    "deep learning",
+                    "redes neurais",
+                ],
+                "subtopics": {
+                    "nlp": ["processamento de linguagem natural", "pln", "nlu", "nlp"],
+                    "vision": [
+                        "visão computacional",
+                        "computer vision",
+                        "reconhecimento de imagem",
+                    ],
+                    "robotics": ["robótica", "robots", "autonomous systems"],
+                },
             },
-            'web': {
-                'keywords': ['desenvolvimento web', 'frontend', 'backend', 'full stack', 'javascript', 'html', 'css'],
-                'subtopics': {
-                    'frontend': ['frontend', 'interface', 'ui', 'ux', 'react', 'vue', 'angular'],
-                    'backend': ['backend', 'servidor', 'api', 'rest', 'graphql', 'node.js'],
-                    'fullstack': ['full stack', 'full-stack', 'mern', 'mean']
-                }
+            "web": {
+                "keywords": [
+                    "desenvolvimento web",
+                    "frontend",
+                    "backend",
+                    "full stack",
+                    "javascript",
+                    "html",
+                    "css",
+                ],
+                "subtopics": {
+                    "frontend": [
+                        "frontend",
+                        "interface",
+                        "ui",
+                        "ux",
+                        "react",
+                        "vue",
+                        "angular",
+                    ],
+                    "backend": [
+                        "backend",
+                        "servidor",
+                        "api",
+                        "rest",
+                        "graphql",
+                        "node.js",
+                    ],
+                    "fullstack": ["full stack", "full-stack", "mern", "mean"],
+                },
             },
-            'data': {
-                'keywords': ['banco de dados', 'big data', 'data science', 'data analytics', 'sql', 'nosql'],
-                'subtopics': {
-                    'sql': ['sql', 'relacional', 'mysql', 'postgresql', 'oracle'],
-                    'nosql': ['nosql', 'mongodb', 'cassandra', 'redis', 'elasticsearch'],
-                    'bigdata': ['big data', 'hadoop', 'spark', 'data lake']
-                }
-            }
+            "data": {
+                "keywords": [
+                    "banco de dados",
+                    "big data",
+                    "data science",
+                    "data analytics",
+                    "sql",
+                    "nosql",
+                ],
+                "subtopics": {
+                    "sql": ["sql", "relacional", "mysql", "postgresql", "oracle"],
+                    "nosql": [
+                        "nosql",
+                        "mongodb",
+                        "cassandra",
+                        "redis",
+                        "elasticsearch",
+                    ],
+                    "bigdata": ["big data", "hadoop", "spark", "data lake"],
+                },
+            },
         }
-        
+
         # Tenta encontrar o tópico principal
-        main_topic = 'engenharia de software'
-        subtopic = 'geral'
-        
+        main_topic = "engenharia de software"
+        subtopic = "geral"
+
         for topic, data in topics.items():
-            if any(kw in title_lower or kw in content_lower for kw in data['keywords']):
+            if any(kw in title_lower or kw in content_lower for kw in data["keywords"]):
                 main_topic = topic
-                
+
                 # Tenta encontrar subtópico
-                for sub, sub_kws in data['subtopics'].items():
-                    if any(skw in title_lower or skw in content_lower for skw in sub_kws):
+                for sub, sub_kws in data["subtopics"].items():
+                    if any(
+                        skw in title_lower or skw in content_lower for skw in sub_kws
+                    ):
                         subtopic = sub
                         break
                 break
-        
+
         return (main_topic, subtopic)
-    
+
     def build_from_pages(
         self,
         pages: List[dict],
@@ -1855,8 +2007,11 @@ class DatasetBuilder:
 
         if not use_queue:
             cpu_futures = []
-            with ThreadPoolExecutor(max_workers=Config.MAX_THREADS) as th_executor, \
-                    ProcessPoolExecutor(max_workers=Config.MAX_PROCESSES) as pr_executor:
+            with ThreadPoolExecutor(
+                max_workers=Config.MAX_THREADS
+            ) as th_executor, ProcessPoolExecutor(
+                max_workers=Config.MAX_PROCESSES
+            ) as pr_executor:
 
                 page_futures = {
                     th_executor.submit(self.process_page, page, pr_executor): page
@@ -1865,7 +2020,9 @@ class DatasetBuilder:
 
                 processed = 0
                 total = len(page_futures)
-                for future in tqdm(as_completed(page_futures), total=total, desc=progress_desc):
+                for future in tqdm(
+                    as_completed(page_futures), total=total, desc=progress_desc
+                ):
                     cpu_future = future.result()
                     page = page_futures[future]
                     processed += 1
@@ -1879,7 +2036,11 @@ class DatasetBuilder:
 
                 processed_cpu = 0
                 total_cpu = len(cpu_futures)
-                for future in tqdm(as_completed(cpu_futures), total=total_cpu, desc="Processando conteúdo"):
+                for future in tqdm(
+                    as_completed(cpu_futures),
+                    total=total_cpu,
+                    desc="Processando conteúdo",
+                ):
                     result = future.result()
                     processed_cpu += 1
                     if processed_cpu % 10 == 0 or processed_cpu == total_cpu:
@@ -1903,7 +2064,9 @@ class DatasetBuilder:
                 continue
             processed += 1
             for p in list(self.pending_pages):
-                if p.get('title') == result.get('title') and p.get('lang', p.get('language')) == result.get('language'):
+                if p.get("title") == result.get("title") and p.get(
+                    "lang", p.get("language")
+                ) == result.get("language"):
                     self.pending_pages.remove(p)
                     break
             self.dataset.append(result)
@@ -1915,7 +2078,9 @@ class DatasetBuilder:
 
         return self.dataset
 
-    async def build_from_pages_async(self, pages: List[dict], progress_desc: str = "Processando páginas") -> List[dict]:
+    async def build_from_pages_async(
+        self, pages: List[dict], progress_desc: str = "Processando páginas"
+    ) -> List[dict]:
         """Asynchronous version of :meth:`build_from_pages`."""
         if self.pending_pages:
             pages = self.pending_pages
@@ -1928,7 +2093,9 @@ class DatasetBuilder:
 
             processed = 0
             total = len(tasks)
-            for coro in tqdm(asyncio.as_completed(tasks), total=total, desc=progress_desc):
+            for coro in tqdm(
+                asyncio.as_completed(tasks), total=total, desc=progress_desc
+            ):
                 cpu_future = await coro
                 processed += 1
                 if self.pending_pages:
@@ -1941,7 +2108,9 @@ class DatasetBuilder:
 
             processed_cpu = 0
             total_cpu = len(cpu_futures)
-            for future in tqdm(as_completed(cpu_futures), total=total_cpu, desc="Processando conteúdo"):
+            for future in tqdm(
+                as_completed(cpu_futures), total=total_cpu, desc="Processando conteúdo"
+            ):
                 result = future.result()
                 processed_cpu += 1
                 if processed_cpu % 10 == 0 or processed_cpu == total_cpu:
@@ -1951,20 +2120,20 @@ class DatasetBuilder:
                 self._update_progress()
 
         return self.dataset
-    
+
     def enhance_with_clustering(self):
         if not self.dataset:
             return
-        
+
         # Clusteriza baseado nos embeddings de conteúdo
-        texts = [item['content'] for item in self.dataset]
+        texts = [item["content"] for item in self.dataset]
         clusters = cluster_texts(texts)
-        
+
         # Adiciona clusters ao dataset
         for i, item in enumerate(self.dataset):
-            item['cluster'] = int(clusters[i])
-    
-    def save_dataset(self, format: str = 'all', output_dir: str = Config.OUTPUT_DIR):
+            item["cluster"] = int(clusters[i])
+
+    def save_dataset(self, format: str = "all", output_dir: str = Config.OUTPUT_DIR):
         os.makedirs(output_dir, exist_ok=True)
 
         if not self.dataset:
@@ -1984,39 +2153,39 @@ class DatasetBuilder:
             valid = True
 
             # Checa se embeddings contêm apenas números finitos
-            if not np.all(np.isfinite(item.get('content_embedding', []))):
+            if not np.all(np.isfinite(item.get("content_embedding", []))):
                 logger.warning(
                     f"content_embedding inválido para {item.get('id', 'desconhecido')}"
                 )
                 valid = False
 
-            if not np.all(np.isfinite(item.get('summary_embedding', []))):
+            if not np.all(np.isfinite(item.get("summary_embedding", []))):
                 logger.warning(
                     f"summary_embedding inválido para {item.get('id', 'desconhecido')}"
                 )
                 valid = False
 
             # Checa presença de perguntas e respostas
-            if not item.get('questions'):
+            if not item.get("questions"):
                 logger.warning(
                     f"Registro {item.get('id', 'desconhecido')} sem perguntas"
                 )
                 valid = False
 
-            if not item.get('answers'):
+            if not item.get("answers"):
                 logger.warning(
                     f"Registro {item.get('id', 'desconhecido')} sem respostas"
                 )
                 valid = False
 
-            if 'relations' not in item:
+            if "relations" not in item:
                 logger.warning(
                     f"Registro {item.get('id', 'desconhecido')} sem relações"
                 )
                 valid = False
 
             # Verifica tamanho do resumo
-            summary_text = item.get('summary', '')
+            summary_text = item.get("summary", "")
             if len(summary_text) < Config.MIN_TEXT_LENGTH:
                 logger.warning(
                     f"Resumo muito curto para {item.get('id', 'desconhecido')}"
@@ -2031,21 +2200,21 @@ class DatasetBuilder:
             return
 
         # Ordena por idioma e tópico
-        sorted_data = sorted(validated_data, key=lambda x: (x['language'], x['topic']))
-        
+        sorted_data = sorted(validated_data, key=lambda x: (x["language"], x["topic"]))
+
         backend = storage.get_backend(Config.STORAGE_BACKEND, output_dir)
         backend.save_dataset(sorted_data, format)
         logger.info(f"Dataset salvo usando backend {Config.STORAGE_BACKEND}")
 
-        if format == 'qa':
-            save_qa_dataset(sorted_data, Path(output_dir) / 'qa_pairs.json')
-        if format == 'text':
-            save_text_corpus(sorted_data, Path(output_dir) / 'text_corpus')
+        if format == "qa":
+            save_qa_dataset(sorted_data, Path(output_dir) / "qa_pairs.json")
+        if format == "text":
+            save_text_corpus(sorted_data, Path(output_dir) / "text_corpus")
 
-        if format in ['all', 'hf', 'tfrecord']:
+        if format in ["all", "hf", "tfrecord"]:
             try:
                 hf_dataset = Dataset.from_list(sorted_data)
-                hf_dataset.save_to_disk(os.path.join(output_dir, 'huggingface'))
+                hf_dataset.save_to_disk(os.path.join(output_dir, "huggingface"))
                 logger.info(
                     f"Dataset salvo para HuggingFace: {os.path.join(output_dir, 'huggingface')}"
                 )
@@ -2063,10 +2232,13 @@ class DatasetBuilder:
                 "collection_date": datetime.utcnow().date().isoformat(),
                 "license": "CC BY-SA 4.0",
             }
-            with open(os.path.join(output_dir, "dataset_info.json"), "w", encoding="utf-8") as f:
+            with open(
+                os.path.join(output_dir, "dataset_info.json"), "w", encoding="utf-8"
+            ) as f:
                 json.dump(info, f, ensure_ascii=False, indent=2)
         except Exception as e:  # pragma: no cover - unexpected I/O errors
             logger.error(f"Erro ao salvar dataset_info.json: {e}")
+
 
 # ============================
 # 🚦 Pipeline de Execução Principal
@@ -2114,7 +2286,7 @@ def main(
             logger.info(f"📄 Páginas encontradas em {category}: {len(pages)}")
 
             for page in pages:
-                page['weight'] = weight
+                page["weight"] = weight
 
             all_pages.extend(pages)
             time.sleep(Config.RATE_LIMIT_DELAY * 2)
@@ -2125,9 +2297,7 @@ def main(
                     f"🕸️ Rastreiando links a partir de: {sp} (profundidade: {depth})"
                 )
                 pages = wiki.crawl_links(sp, depth)
-                logger.info(
-                    f"📄 Páginas coletadas de {sp}: {len(pages)}"
-                )
+                logger.info(f"📄 Páginas coletadas de {sp}: {len(pages)}")
                 all_pages.extend(pages)
                 time.sleep(Config.RATE_LIMIT_DELAY * 2)
 
@@ -2241,9 +2411,7 @@ async def main_async(
                     f"🕸️ Rastreiando links a partir de: {sp} (profundidade: {depth})"
                 )
                 pages = await wiki.crawl_links_async(sp, depth)
-                logger.info(
-                    f"📄 Páginas coletadas de {sp}: {len(pages)}"
-                )
+                logger.info(f"📄 Páginas coletadas de {sp}: {len(pages)}")
                 all_pages.extend(pages)
                 await asyncio.sleep(Config.RATE_LIMIT_DELAY * 2)
 
@@ -2300,6 +2468,7 @@ async def main_async(
     logger.info("✅ Dataset finalizado com sucesso!")
     logger.info(f"📊 Estatísticas de cache: {cache.stats()}")
     metrics.scrape_session_seconds.observe(time.perf_counter() - start_time)
+
 
 if __name__ == "__main__":
     main()
