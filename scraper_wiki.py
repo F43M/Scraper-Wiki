@@ -105,6 +105,7 @@ class Config:
     MAX_THREADS = int(os.environ.get("MAX_THREADS", multiprocessing.cpu_count() * 2))
     MAX_PROCESSES = int(os.environ.get("MAX_PROCESSES", multiprocessing.cpu_count()))
     MAX_CONCURRENT_REQUESTS = int(os.environ.get("MAX_CONCURRENT_REQUESTS", "5"))
+    WORKER_CONCURRENCY = int(os.environ.get("WORKER_CONCURRENCY", "5"))
     RETRIES = 5
     TIMEOUT = 10
     RATE_LIMIT_DELAY = float(os.environ.get("RATE_LIMIT_DELAY", 0.5))

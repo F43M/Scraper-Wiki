@@ -112,6 +112,10 @@ Controle o número de threads e processos utilizados pelo scraper com as opçõe
 `--max-threads` e `--max-processes`. Esses valores também podem ser definidos
 pelas variáveis de ambiente `MAX_THREADS` e `MAX_PROCESSES`.
 
+Para limitar o número de tarefas executadas em paralelo pelo worker assíncrono
+defina `WORKER_CONCURRENCY` (padrão `5`). O número máximo de requisições HTTP
+em andamento continua controlado por `MAX_CONCURRENT_REQUESTS`.
+
 Para acelerar a coleta também é possível ativar o modo assíncrono com `--async`,
 que realiza múltiplas requisições HTTP em paralelo respeitando o limite definido
 por `MAX_CONCURRENT_REQUESTS`.
@@ -289,9 +293,13 @@ Esses valores podem ser consultados por Prometheus e visualizados em dashboards 
 
 ## Filas e Workers
 
-O módulo `task_queue.py` abstrai o uso de backends como RabbitMQ. Execute `worker.py`
-em contêiner separado para processar as tarefas enviadas por
-`DatasetBuilder.build_from_pages(use_queue=True)`.
+O módulo `task_queue.py` abstrai o uso de backends de fila. Utilize `QUEUE_URL`
+para apontar para instâncias `redis://` ou `amqp://` (RabbitMQ). Execute
+`worker.py` ou `worker.py --async` em contêiner separado para processar as
+tarefas enviadas por `DatasetBuilder.build_from_pages(use_queue=True)`.
+
+O nível de paralelismo do worker assíncrono é controlado por
+`WORKER_CONCURRENCY`.
 
 Um `Dockerfile.worker` está disponível para criar a imagem do worker e a pasta
 contém o exemplo `cluster.yaml` para configuração de múltiplos nós com Dask ou
