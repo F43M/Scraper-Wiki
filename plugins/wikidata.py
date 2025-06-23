@@ -51,9 +51,7 @@ class Plugin(Plugin):  # type: ignore[misc]
         if isinstance(claims, dict) and "P18" in claims:
             image_claim = claims.get("P18", [{}])[0]
             image_name = (
-                image_claim.get("mainsnak", {})
-                .get("datavalue", {})
-                .get("value")
+                image_claim.get("mainsnak", {}).get("datavalue", {}).get("value")
             )
         image_url = (
             f"https://commons.wikimedia.org/wiki/Special:FilePath/{image_name}"
@@ -62,12 +60,21 @@ class Plugin(Plugin):  # type: ignore[misc]
         )
 
         lang = item.get("lang", "en")
-        return {
+        record = {
             "title": labels.get(lang, {}).get("value", item.get("label", "")),
             "language": lang,
             "category": item.get("category", ""),
-            "description": descriptions.get(lang, {}).get("value", item.get("description", "")),
+            "description": descriptions.get(lang, {}).get(
+                "value", item.get("description", "")
+            ),
             "wikidata_id": qid,
             "image_url": image_url,
         }
-
+        record.setdefault("raw_code", "")
+        record.setdefault("context", "")
+        record.setdefault("problems", [])
+        record.setdefault("fixed_version", "")
+        record.setdefault("lessons", "")
+        record.setdefault("origin_metrics", {})
+        record.setdefault("challenge", "")
+        return record

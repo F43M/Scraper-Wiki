@@ -110,23 +110,47 @@ def test_legacy_forums_plugin(monkeypatch):
     assert len(items) == 3
     assert items[0]["source"] == "yahoo"
     py = plugin.parse_item(items[0])
-    assert py == {
-        "question": "YQ",
-        "answer": "YA",
-        "source": "yahoo",
-        "language": "pt",
-    }
+    assert py["question"] == "YQ"
+    assert py["answer"] == "YA"
+    assert py["source"] == "yahoo"
+    assert py["language"] == "pt"
+    for field in [
+        "raw_code",
+        "context",
+        "problems",
+        "fixed_version",
+        "lessons",
+        "origin_metrics",
+        "challenge",
+    ]:
+        assert field in py
     pd = plugin.parse_item(items[1])
-    assert pd == {
-        "question": "DQ",
-        "answer": "DA",
-        "source": "delphi",
-        "language": "pt",
-    }
+    assert pd["question"] == "DQ"
+    assert pd["answer"] == "DA"
+    assert pd["source"] == "delphi"
+    assert pd["language"] == "pt"
+    for field in [
+        "raw_code",
+        "context",
+        "problems",
+        "fixed_version",
+        "lessons",
+        "origin_metrics",
+        "challenge",
+    ]:
+        assert field in pd
     pp = plugin.parse_item(items[2])
-    assert pp == {
-        "question": "PQ",
-        "answer": "PA",
-        "source": "php",
-        "language": "pt",
-    }
+    assert pp["question"] == "PQ"
+    assert pp["answer"] == "PA"
+    assert pp["source"] == "php"
+    assert pp["language"] == "pt"
+    for field in [
+        "raw_code",
+        "context",
+        "problems",
+        "fixed_version",
+        "lessons",
+        "origin_metrics",
+        "challenge",
+    ]:
+        assert field in pp

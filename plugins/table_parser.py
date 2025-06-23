@@ -1,4 +1,5 @@
 """Plugin to extract table data from Wikipedia pages."""
+
 from typing import List, Dict
 
 from bs4 import BeautifulSoup
@@ -23,8 +24,16 @@ class Plugin(Plugin):  # type: ignore[misc]
         tables = extract_tables(html)
         if not tables:
             return {}
-        return {
+        record = {
             "title": item["title"],
             "language": item.get("lang", "en"),
             "tables": tables,
         }
+        record.setdefault("raw_code", "")
+        record.setdefault("context", "")
+        record.setdefault("problems", [])
+        record.setdefault("fixed_version", "")
+        record.setdefault("lessons", "")
+        record.setdefault("origin_metrics", {})
+        record.setdefault("challenge", "")
+        return record

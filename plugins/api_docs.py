@@ -47,11 +47,19 @@ class APIDocsScraper(Plugin):  # type: ignore[misc]
             if pre.previous_sibling and getattr(pre.previous_sibling, "get_text", None):
                 explanation = pre.previous_sibling.get_text(" ", strip=True)
             blocks.append({"code": code, "text": explanation})
-        return {
+        record = {
             "url": item["url"],
             "language": item.get("lang", "en"),
             "blocks": blocks,
         }
+        record.setdefault("raw_code", "")
+        record.setdefault("context", "")
+        record.setdefault("problems", [])
+        record.setdefault("fixed_version", "")
+        record.setdefault("lessons", "")
+        record.setdefault("origin_metrics", {})
+        record.setdefault("challenge", "")
+        return record
 
 
 # Registry alias

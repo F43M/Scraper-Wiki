@@ -81,7 +81,7 @@ class GitLabScraper:
         stars = repo.get("star_count", 0)
         issues = repo.get("open_issues_count", 0)
         quality_score = stars / (issues + 1)
-        return {
+        record = {
             "repository": repo.get("path_with_namespace"),
             "stars": stars,
             "open_issues": issues,
@@ -92,6 +92,13 @@ class GitLabScraper:
             "docstring": "",
             "quality_score": quality_score,
         }
+        record.setdefault("raw_code", "")
+        record.setdefault("problems", [])
+        record.setdefault("fixed_version", "")
+        record.setdefault("lessons", "")
+        record.setdefault("origin_metrics", {})
+        record.setdefault("challenge", "")
+        return record
 
 
 class Plugin(GitLabScraper):

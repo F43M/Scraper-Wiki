@@ -85,6 +85,15 @@ def test_collect_repository_data(monkeypatch):
     assert len(data["files"]) == 2
     assert data["quality_score"] == 5 / 2
     assert data["context"] == "repo desc"
+    for field in [
+        "raw_code",
+        "problems",
+        "fixed_version",
+        "lessons",
+        "origin_metrics",
+        "challenge",
+    ]:
+        assert field in data
 
 
 def test_gitlab_scraper_search(monkeypatch):
@@ -167,3 +176,12 @@ def test_gitlab_collect_repository_data(monkeypatch):
     assert data["has_tests"] is True
     assert data["quality_score"] == 4 / 2
     assert data["context"] == "desc"
+    for field in [
+        "raw_code",
+        "problems",
+        "fixed_version",
+        "lessons",
+        "origin_metrics",
+        "challenge",
+    ]:
+        assert field in data

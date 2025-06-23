@@ -83,7 +83,7 @@ class CodeExtractor:
         stars = repo.get("stargazers_count", 0)
         issues = repo.get("open_issues_count", 0)
         quality_score = stars / (issues + 1)
-        return {
+        record = {
             "repository": full_name,
             "stars": stars,
             "open_issues": issues,
@@ -94,6 +94,13 @@ class CodeExtractor:
             "docstring": "",
             "quality_score": quality_score,
         }
+        record.setdefault("raw_code", "")
+        record.setdefault("problems", [])
+        record.setdefault("fixed_version", "")
+        record.setdefault("lessons", "")
+        record.setdefault("origin_metrics", {})
+        record.setdefault("challenge", "")
+        return record
 
 
 class Plugin(CodeExtractor):

@@ -52,21 +52,37 @@ def test_codepen_scraper(monkeypatch):
     items = scraper.fetch_items("en", "https://codepen.io/u/pen/1")
     assert called[0].endswith("/pen/1")
     record = scraper.parse_item(items[0])
-    assert record == {
-        "url": "https://codepen.io/u/pen/1",
-        "language": "en",
-        "html": "<h1>Hello</h1>",
-        "css": "h1{color:red;}",
-        "js": "console.log(1);",
-    }
+    assert record["url"] == "https://codepen.io/u/pen/1"
+    assert record["language"] == "en"
+    assert record["html"] == "<h1>Hello</h1>"
+    assert record["css"] == "h1{color:red;}"
+    assert record["js"] == "console.log(1);"
+    for field in [
+        "raw_code",
+        "context",
+        "problems",
+        "fixed_version",
+        "lessons",
+        "origin_metrics",
+        "challenge",
+    ]:
+        assert field in record
 
     items2 = scraper.fetch_items("en", "https://jsfiddle.net/test")
     assert called[1].endswith("/test")
     record2 = scraper.parse_item(items2[0])
-    assert record2 == {
-        "url": "https://jsfiddle.net/test",
-        "language": "en",
-        "html": "<h1>Hi</h1>",
-        "css": "body{}",
-        "js": "console.log(2);",
-    }
+    assert record2["url"] == "https://jsfiddle.net/test"
+    assert record2["language"] == "en"
+    assert record2["html"] == "<h1>Hi</h1>"
+    assert record2["css"] == "body{}"
+    assert record2["js"] == "console.log(2);"
+    for field in [
+        "raw_code",
+        "context",
+        "problems",
+        "fixed_version",
+        "lessons",
+        "origin_metrics",
+        "challenge",
+    ]:
+        assert field in record2

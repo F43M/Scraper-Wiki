@@ -1,4 +1,5 @@
 """Plugin to extract infobox data from Wikipedia pages."""
+
 from typing import List, Dict
 
 from bs4 import BeautifulSoup
@@ -23,8 +24,16 @@ class Plugin(Plugin):  # type: ignore[misc]
         data = extract_infobox(html)
         if not data:
             return {}
-        return {
+        record = {
             "title": item["title"],
             "language": item.get("lang", "en"),
             "infobox": data,
         }
+        record.setdefault("raw_code", "")
+        record.setdefault("context", "")
+        record.setdefault("problems", [])
+        record.setdefault("fixed_version", "")
+        record.setdefault("lessons", "")
+        record.setdefault("origin_metrics", {})
+        record.setdefault("challenge", "")
+        return record

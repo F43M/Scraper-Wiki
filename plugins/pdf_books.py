@@ -36,11 +36,19 @@ class PDFBooksPlugin(Plugin):  # type: ignore[misc]
         for page in reader.pages:
             page_text = page.extract_text() or ""
             text_parts.append(page_text)
-        return {
+        record = {
             "path": file_path,
             "language": item.get("lang", "en"),
             "content": "\n".join(text_parts),
         }
+        record.setdefault("raw_code", "")
+        record.setdefault("context", "")
+        record.setdefault("problems", [])
+        record.setdefault("fixed_version", "")
+        record.setdefault("lessons", "")
+        record.setdefault("origin_metrics", {})
+        record.setdefault("challenge", "")
+        return record
 
 
 # Registry alias

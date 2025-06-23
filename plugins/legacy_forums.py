@@ -50,12 +50,20 @@ class LegacyForumsPlugin(Plugin):
             return {}
         question = data.get("question") or data.get("title", "")
         answer = data.get("answer") or data.get("reply") or data.get("content", "")
-        return {
+        record = {
             "question": question,
             "answer": answer,
             "source": source,
             "language": item.get("lang", "en"),
         }
+        record.setdefault("raw_code", "")
+        record.setdefault("context", "")
+        record.setdefault("problems", [])
+        record.setdefault("fixed_version", "")
+        record.setdefault("lessons", "")
+        record.setdefault("origin_metrics", {})
+        record.setdefault("challenge", "")
+        return record
 
 
 # Registry alias
