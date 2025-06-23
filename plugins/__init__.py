@@ -16,6 +16,8 @@ AVAILABLE_PLUGINS = {
     "github_scraper": "github_scraper",
     "code_extractor": "code_extractor",
     "gitlab_scraper": "gitlab_scraper",
+    "api_docs": "api_docs",
+    "competitions": "competitions",
 }
 
 
