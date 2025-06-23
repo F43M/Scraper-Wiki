@@ -288,6 +288,8 @@ O projeto expõe métricas no formato Prometheus através da função `metrics.s
 - `request_retries_total`
 - `page_processing_seconds`
 - `scrape_session_seconds`
+- `dataset_completeness_ratio`
+- `dataset_topic_diversity`
 
 Esses valores podem ser consultados por Prometheus e visualizados em dashboards Grafana para monitorar o scraping.
 
@@ -332,6 +334,7 @@ e validação:
 1. `deduplicate_by_hash` remove entradas idênticas pelo hash do conteúdo;
 2. `deduplicate_by_embedding` descarta registros muito semelhantes pelos embeddings;
 3. `deduplicate_by_simhash` detecta textos quase idênticos usando Simhash.
+4. Funções de *leak detection* verificam sobreposição com conjuntos de referência.
 
 Em seguida, os registros passam por verificações de integridade dos campos e dos
 embeddings para garantir consistência.

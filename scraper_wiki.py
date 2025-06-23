@@ -2207,6 +2207,18 @@ class DatasetBuilder:
             if valid:
                 validated_data.append(item)
 
+        # Quality metrics
+        try:
+            metrics.dataset_completeness.set(
+                len(validated_data) / len(self.dataset) if self.dataset else 0.0
+            )
+            topics = {i.get("topic") for i in validated_data if i.get("topic")}
+            metrics.dataset_topic_diversity.set(
+                len(topics) / len(validated_data) if validated_data else 0.0
+            )
+        except Exception:  # pragma: no cover - metrics failures
+            pass
+
         if not validated_data:
             logger.warning("Nenhum registro válido para salvar")
             return

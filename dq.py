@@ -39,7 +39,9 @@ def deduplicate_by_hash(records: List[Dict]) -> Tuple[List[Dict], int]:
     return unique, removed
 
 
-def deduplicate_by_embedding(records: List[Dict], threshold: float = 0.95) -> Tuple[List[Dict], int]:
+def deduplicate_by_embedding(
+    records: List[Dict], threshold: float = 0.95
+) -> Tuple[List[Dict], int]:
     """Remove semantically duplicated records using cosine similarity."""
     if not records:
         return records, 0
@@ -66,7 +68,9 @@ def deduplicate_by_embedding(records: List[Dict], threshold: float = 0.95) -> Tu
     return unique, len(to_remove)
 
 
-def deduplicate_by_simhash(records: List[Dict], distance: int = 3) -> Tuple[List[Dict], int]:
+def deduplicate_by_simhash(
+    records: List[Dict], distance: int = 3
+) -> Tuple[List[Dict], int]:
     """Remove near-duplicate records using Simhash of the text content.
 
     Parameters
@@ -100,6 +104,46 @@ def deduplicate_by_simhash(records: List[Dict], distance: int = 3) -> Tuple[List
     return unique, len(to_remove)
 
 
+def detect_leaks_by_hash(records: List[Dict], reference: List[Dict]) -> List[Dict]:
+    """Detect records that also appear in the reference dataset using hashing."""
+    ref_hashes = set()
+    for rec in reference:
+        base = rec.get("content", "")[:50] + rec.get("language", "")
+        ref_hashes.add(hashlib.md5(base.encode("utf-8")).hexdigest())
+
+    leaks = []
+    for rec in records:
+        base = rec.get("content", "")[:50] + rec.get("language", "")
+        if hashlib.md5(base.encode("utf-8")).hexdigest() in ref_hashes:
+            leaks.append(rec)
+    return leaks
+
+
+def detect_leaks_by_embedding(
+    records: List[Dict], reference: List[Dict], threshold: float = 0.95
+) -> List[Dict]:
+    """Detect semantic leaks comparing embeddings with a reference dataset."""
+    if not records or not reference:
+        return []
+
+    rec_emb = [r.get("content_embedding", []) for r in records]
+    ref_emb = [r.get("content_embedding", []) for r in reference]
+    if not rec_emb or not ref_emb or not isinstance(rec_emb[0], list):
+        return []
+
+    rec_arr = np.array(rec_emb, dtype=float)
+    ref_arr = np.array(ref_emb, dtype=float)
+    rec_arr = rec_arr / np.linalg.norm(rec_arr, axis=1, keepdims=True)
+    ref_arr = ref_arr / np.linalg.norm(ref_arr, axis=1, keepdims=True)
+
+    leaks = []
+    for idx, emb in enumerate(rec_arr):
+        sims = np.dot(ref_arr, emb)
+        if np.any(sims >= threshold):
+            leaks.append(records[idx])
+    return leaks
+
+
 def validate_semantics(records: List[Dict]) -> Tuple[List[Dict], int]:
     """Validate semantic integrity of records."""
     valid: List[Dict] = []
@@ -123,9 +167,7 @@ def validate_semantics(records: List[Dict]) -> Tuple[List[Dict], int]:
 
 def complete_missing_fields(records: List[Dict], extra: List[Dict]) -> List[Dict]:
     """Fill empty fields using extra plugin data."""
-    lookup = {
-        (item.get("title"), item.get("language")): item for item in extra
-    }
+    lookup = {(item.get("title"), item.get("language")): item for item in extra}
     for rec in records:
         key = (rec.get("title"), rec.get("language"))
         more = lookup.get(key)
@@ -140,4 +182,3 @@ def complete_missing_fields(records: List[Dict], extra: List[Dict]) -> List[Dict
             elif k not in rec or rec[k] in (None, "", []):
                 rec[k] = v
     return records
-

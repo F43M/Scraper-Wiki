@@ -732,6 +732,66 @@ def test_save_dataset_qa_and_text(tmp_path, monkeypatch):
     assert (txt_dir / "1.txt").exists()
 
 
+def test_save_dataset_sets_quality_metrics(tmp_path, monkeypatch):
+    builder = sw.DatasetBuilder()
+    monkeypatch.setattr(sw.Config, "MIN_TEXT_LENGTH", 5)
+    builder.dataset = [
+        {
+            "id": "1",
+            "title": "t",
+            "language": "en",
+            "category": "c",
+            "topic": "ai",
+            "subtopic": "nlp",
+            "keywords": [],
+            "content": "c" * 20,
+            "summary": "s" * 20,
+            "content_embedding": [0.1, 0.2],
+            "summary_embedding": [0.1, 0.2],
+            "questions": ["q"],
+            "answers": ["a"],
+            "relations": [],
+            "created_at": "now",
+            "metadata": {},
+        },
+        {
+            "id": "2",
+            "title": "t2",
+            "language": "en",
+            "category": "c",
+            "topic": "ai",
+            "subtopic": "nlp",
+            "keywords": [],
+            "content": "d" * 20,
+            "summary": "s" * 20,
+            "content_embedding": [0.1, 0.2],
+            "summary_embedding": [0.1, 0.2],
+            "questions": [],
+            "answers": [],
+            "relations": [],
+            "created_at": "now",
+            "metadata": {},
+        },
+    ]
+
+    observed = {"comp": None, "div": None}
+    monkeypatch.setattr(
+        sw.metrics,
+        "dataset_completeness",
+        SimpleNamespace(set=lambda v: observed.__setitem__("comp", v)),
+    )
+    monkeypatch.setattr(
+        sw.metrics,
+        "dataset_topic_diversity",
+        SimpleNamespace(set=lambda v: observed.__setitem__("div", v)),
+    )
+
+    builder.save_dataset("json", output_dir=tmp_path)
+
+    assert observed["comp"] == 0.5
+    assert observed["div"] == 1.0
+
+
 def test_normalize_category_alias():
     assert sw.normalize_category("programacao") == "Programação"
 

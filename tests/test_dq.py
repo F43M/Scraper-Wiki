@@ -30,3 +30,23 @@ def test_complete_missing_fields_adds_new_keys():
     assert res[0]["wikidata_id"] == "Q1"
     assert res[0]["image_url"] == "img"
 
+
+def test_detect_leaks_by_hash_identifies_overlap():
+    ref = [{"id": "1", "content": "abc", "language": "en"}]
+    recs = [
+        {"id": "2", "content": "abc", "language": "en"},
+        {"id": "3", "content": "xyz", "language": "en"},
+    ]
+    leaks = dq.detect_leaks_by_hash(recs, ref)
+    assert len(leaks) == 1
+    assert leaks[0]["id"] == "2"
+
+
+def test_detect_leaks_by_embedding_identifies_similar():
+    ref = [{"content_embedding": [0.0, 1.0]}]
+    recs = [
+        {"content_embedding": [0.0, 0.99]},
+        {"content_embedding": [1.0, 0.0]},
+    ]
+    leaks = dq.detect_leaks_by_embedding(recs, ref, threshold=0.98)
+    assert len(leaks) == 1
