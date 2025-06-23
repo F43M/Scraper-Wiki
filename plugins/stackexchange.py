@@ -53,6 +53,8 @@ class StackExchangePlugin(Plugin):
         body = item.get("body", "")
         text = html2text.html2text(body) if hasattr(html2text, "html2text") else body
         clean = advanced_clean_text(text, item.get("lang", "en"))
+        tags = item.get("tags", [])
+        tag_data = [{"tag": t, "link": item.get("link", "")} for t in tags]
         return {
             "title": item.get("title", ""),
             "language": item.get("lang", "en"),
@@ -60,6 +62,7 @@ class StackExchangePlugin(Plugin):
             "score": item.get("score", 0),
             "link": item.get("link", ""),
             "content": clean,
+            "tags": tag_data,
         }
 
 

@@ -156,10 +156,34 @@ def test_generate_qa_pairs_accepts_extra_metadata(monkeypatch):
         summary="sum",
         lang="en",
         category="c",
-        extra_metadata={"wikidata_id": "Q1", "image_url": "img"},
+        extra_metadata={
+            "wikidata_id": "Q1",
+            "image_url": "img",
+            "tags": ["python"],
+            "tag_links": {"python": "url"},
+        },
     )
     assert result["wikidata_id"] == "Q1"
     assert result["image_url"] == "img"
+    assert result["tags"] == [{"tag": "python", "link": "url"}]
+
+
+def test_generate_qa_pairs_extracts_tags(monkeypatch):
+    qb = sw.DatasetBuilder()
+    monkeypatch.setattr(qb, "_generate_questions", lambda *a, **k: [])
+    monkeypatch.setattr(qb, "_generate_answers", lambda *a, **k: [])
+    monkeypatch.setattr(sw, "extract_relations", lambda *a, **k: [])
+    import numpy as np
+
+    monkeypatch.setattr(qb.embedding_model, "encode", lambda *a, **k: np.array([0.0]))
+    result = qb.generate_qa_pairs(
+        title="T",
+        content="content about Python",
+        summary="sum",
+        lang="en",
+        category="c",
+    )
+    assert {"tag": "python", "link": None} in result["tags"]
 
 
 def test_advanced_clean_text_removes_html():
