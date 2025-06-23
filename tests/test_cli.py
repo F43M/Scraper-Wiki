@@ -373,3 +373,27 @@ def test_scrape_incremental_option(monkeypatch):
     )
     assert result.exit_code == 0
     assert captured.get("inc") is True
+
+
+def test_start_crawler_cli(monkeypatch):
+    called = {}
+    import crawling.distributed as dist
+
+    monkeypatch.setattr(
+        dist, "start_crawler", lambda path=None: called.setdefault("ok", True)
+    )
+    runner = CliRunner()
+    result = runner.invoke(cli.app, ["start-crawler"])
+    assert result.exit_code == 0
+    assert called.get("ok")
+
+
+def test_stop_crawler_cli(monkeypatch):
+    called = {}
+    import crawling.distributed as dist
+
+    monkeypatch.setattr(dist, "stop_crawler", lambda: called.setdefault("ok", True))
+    runner = CliRunner()
+    result = runner.invoke(cli.app, ["stop-crawler"])
+    assert result.exit_code == 0
+    assert called.get("ok")
