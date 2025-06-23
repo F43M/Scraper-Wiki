@@ -240,5 +240,25 @@ def clear_cache_cmd():
     typer.echo("Cache limpo")
 
 
+@app.command("start-crawler")
+def start_crawler_cmd(
+    config: str = typer.Option(None, "--config", help="Path to cluster config")
+):
+    """Start the distributed crawler."""
+
+    from crawling.distributed import start_crawler
+
+    start_crawler(config)
+
+
+@app.command("stop-crawler")
+def stop_crawler_cmd():
+    """Stop the distributed crawler."""
+
+    from crawling.distributed import stop_crawler
+
+    stop_crawler()
+
+
 if __name__ == "__main__":
     app()
