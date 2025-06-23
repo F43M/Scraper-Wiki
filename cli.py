@@ -7,6 +7,7 @@ import typer
 
 import scraper_wiki
 import dashboard
+from search import indexer
 
 app = typer.Typer(help="Scraper Wiki command line interface")
 
@@ -238,6 +239,13 @@ def clear_cache_cmd():
     """Remove entradas expiradas do cache."""
     scraper_wiki.clear_cache()
     typer.echo("Cache limpo")
+
+
+@app.command("search")
+def search_cli(query: str):
+    """Search indexed records using Elasticsearch."""
+    results = indexer.query_index(query)
+    typer.echo(json.dumps(results, ensure_ascii=False))
 
 
 @app.command("process")
