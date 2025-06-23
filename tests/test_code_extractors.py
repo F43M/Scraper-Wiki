@@ -76,12 +76,15 @@ def test_collect_repository_data(monkeypatch):
         "default_branch": "master",
         "stargazers_count": 5,
         "open_issues_count": 1,
+        "description": "repo desc",
     }
     data = extractor.collect_repository_data(repo)
     assert data["has_tests"] is True
     assert data["stars"] == 5
     assert data["open_issues"] == 1
     assert len(data["files"]) == 2
+    assert data["quality_score"] == 5 / 2
+    assert data["context"] == "repo desc"
 
 
 def test_gitlab_scraper_search(monkeypatch):
@@ -121,3 +124,46 @@ def test_gitlab_scraper_search(monkeypatch):
     assert called["params"]["search"] == "python"
     assert len(repos) == 1
     assert repos[0]["id"] == 1
+
+
+def test_gitlab_collect_repository_data(monkeypatch):
+    import requests
+
+    core_stub = ModuleType("core")
+    core_stub.builder = SimpleNamespace(DatasetBuilder=object)
+    monkeypatch.setitem(sys.modules, "core", core_stub)
+    monkeypatch.setitem(sys.modules, "core.builder", core_stub.builder)
+
+    class DummyResp:
+        def __init__(self, data):
+            self._data = data
+
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return self._data
+
+    def fake_get(url, headers=None, params=None):
+        return DummyResp(
+            [
+                {"path": "main.py", "type": "blob"},
+                {"path": "tests/test_main.py", "type": "blob"},
+            ]
+        )
+
+    mod = importlib.import_module("plugins.gitlab_scraper")
+    monkeypatch.setattr(requests, "get", fake_get)
+    scraper = mod.GitLabScraper()
+    repo = {
+        "id": 1,
+        "path_with_namespace": "u/r",
+        "star_count": 4,
+        "open_issues_count": 1,
+        "description": "desc",
+        "default_branch": "master",
+    }
+    data = scraper.collect_repository_data(repo)
+    assert data["has_tests"] is True
+    assert data["quality_score"] == 4 / 2
+    assert data["context"] == "desc"
