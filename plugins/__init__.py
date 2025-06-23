@@ -13,6 +13,8 @@ AVAILABLE_PLUGINS = {
     "infobox_parser": "infobox_parser",
     "table_parser": "table_parser",
     "github_scraper": "github_scraper",
+    "code_extractor": "code_extractor",
+    "gitlab_scraper": "gitlab_scraper",
 }
 
 

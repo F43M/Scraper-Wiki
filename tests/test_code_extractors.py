@@ -1,0 +1,123 @@
+import importlib
+import sys
+from pathlib import Path
+from types import ModuleType, SimpleNamespace
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
+
+def test_code_extractor_search(monkeypatch):
+    import requests
+
+    core_stub = ModuleType("core")
+    core_stub.builder = SimpleNamespace(DatasetBuilder=object)
+    monkeypatch.setitem(sys.modules, "core", core_stub)
+    monkeypatch.setitem(sys.modules, "core.builder", core_stub.builder)
+
+    called = {}
+
+    class DummyResp:
+        def __init__(self, data):
+            self._data = data
+
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return self._data
+
+    def fake_get(url, headers=None, params=None):
+        called["url"] = url
+        called["params"] = params
+        return DummyResp({"items": [{"full_name": "u/r", "stargazers_count": 100}]})
+
+    mod = importlib.import_module("plugins.code_extractor")
+    monkeypatch.setattr(requests, "get", fake_get)
+    extractor = mod.CodeExtractor()
+    repos = extractor.search_repositories("python", 50)
+    assert called["params"]["q"] == "language:python stars:>=50"
+    assert repos[0]["full_name"] == "u/r"
+
+
+def test_collect_repository_data(monkeypatch):
+    import requests
+
+    core_stub = ModuleType("core")
+    core_stub.builder = SimpleNamespace(DatasetBuilder=object)
+    monkeypatch.setitem(sys.modules, "core", core_stub)
+    monkeypatch.setitem(sys.modules, "core.builder", core_stub.builder)
+
+    class DummyResp:
+        def __init__(self, data):
+            self._data = data
+
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return self._data
+
+    def fake_get(url, headers=None, params=None):
+        return DummyResp(
+            {
+                "tree": [
+                    {"path": "app.py", "type": "blob"},
+                    {"path": "tests/test_app.py", "type": "blob"},
+                ]
+            }
+        )
+
+    mod = importlib.import_module("plugins.code_extractor")
+    monkeypatch.setattr(requests, "get", fake_get)
+    extractor = mod.CodeExtractor()
+    repo = {
+        "full_name": "u/r",
+        "default_branch": "master",
+        "stargazers_count": 5,
+        "open_issues_count": 1,
+    }
+    data = extractor.collect_repository_data(repo)
+    assert data["has_tests"] is True
+    assert data["stars"] == 5
+    assert data["open_issues"] == 1
+    assert len(data["files"]) == 2
+
+
+def test_gitlab_scraper_search(monkeypatch):
+    import requests
+
+    core_stub = ModuleType("core")
+    core_stub.builder = SimpleNamespace(DatasetBuilder=object)
+    monkeypatch.setitem(sys.modules, "core", core_stub)
+    monkeypatch.setitem(sys.modules, "core.builder", core_stub.builder)
+
+    called = {}
+
+    class DummyResp:
+        def __init__(self, data):
+            self._data = data
+
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return self._data
+
+    response = [
+        {"id": 1, "path_with_namespace": "u/r", "star_count": 30},
+        {"id": 2, "path_with_namespace": "x/y", "star_count": 10},
+    ]
+
+    def fake_get(url, headers=None, params=None):
+        called["url"] = url
+        called["params"] = params
+        return DummyResp(response)
+
+    mod = importlib.import_module("plugins.gitlab_scraper")
+    monkeypatch.setattr(requests, "get", fake_get)
+    scraper = mod.GitLabScraper()
+    repos = scraper.search_repositories("python", 20)
+    assert called["params"]["search"] == "python"
+    assert len(repos) == 1
+    assert repos[0]["id"] == 1
