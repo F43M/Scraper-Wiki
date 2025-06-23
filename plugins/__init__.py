@@ -25,6 +25,7 @@ AVAILABLE_PLUGINS = {
     "competitions": "competitions",
     "codepen_scraper": "codepen_scraper",
     "legacy_forums": "legacy_forums",
+    "pdf_books": "pdf_books",
 }
 
 
