@@ -62,6 +62,7 @@ from utils.code import (
     remove_comments,
     detect_programming_language,
 )
+from utils.ast_tools import get_functions_complexity
 
 
 # ============================
@@ -1541,7 +1542,14 @@ def cpu_process_page(
 
 
 class DatasetBuilder:
-    def __init__(self, include_revisions: bool = False, rev_limit: int = 5, **_):
+    def __init__(
+        self,
+        include_revisions: bool = False,
+        rev_limit: int = 5,
+        min_complexity: int | None = None,
+        max_complexity: int | None = None,
+        **_,
+    ):
         self.embedding_model = NLPProcessor.get_embedding_model()
         self.dataset = []
         self.qa_pairs = []
@@ -1550,6 +1558,8 @@ class DatasetBuilder:
         self.invalid_records = 0
         self.include_revisions = include_revisions
         self.rev_limit = rev_limit
+        self.min_complexity = min_complexity
+        self.max_complexity = max_complexity
 
         # Load checkpoints if available
         pages_path = os.path.join(Config.LOG_DIR, "checkpoint_pages.json")
@@ -1704,8 +1714,16 @@ class DatasetBuilder:
         extra_metadata: dict | None = None,
     ) -> dict:
         code_lang = detect_programming_language(content)
+        complexities = {}
         if code_lang != "unknown":
             content = normalize_indentation(remove_comments(content, code_lang))
+            complexities = get_functions_complexity(content, code_lang)
+            if self.min_complexity is not None and complexities:
+                if max(complexities.values()) < self.min_complexity:
+                    return {}
+            if self.max_complexity is not None and complexities:
+                if max(complexities.values()) > self.max_complexity:
+                    return {}
 
         # Extrai keywords para gerar perguntas variadas
         keywords = extract_keywords(content, lang)
@@ -1756,6 +1774,8 @@ class DatasetBuilder:
         }
         if code_lang != "unknown":
             record["metadata"]["code_language"] = code_lang
+            if complexities:
+                record["metadata"]["complexities"] = complexities
         if extra_metadata:
             if "wikidata_id" in extra_metadata:
                 record["wikidata_id"] = extra_metadata["wikidata_id"]
