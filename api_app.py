@@ -9,6 +9,7 @@ from datetime import datetime
 import graphene
 from utils.text import clean_text, extract_entities
 import asyncio
+from search import indexer
 
 app = FastAPI()
 
@@ -47,10 +48,18 @@ def filter_dataset(
         result = [d for d in result if d.get("category") in categories]
     if start_date:
         s_dt = datetime.fromisoformat(start_date)
-        result = [d for d in result if "created_at" in d and datetime.fromisoformat(d["created_at"]) >= s_dt]
+        result = [
+            d
+            for d in result
+            if "created_at" in d and datetime.fromisoformat(d["created_at"]) >= s_dt
+        ]
     if end_date:
         e_dt = datetime.fromisoformat(end_date)
-        result = [d for d in result if "created_at" in d and datetime.fromisoformat(d["created_at"]) <= e_dt]
+        result = [
+            d
+            for d in result
+            if "created_at" in d and datetime.fromisoformat(d["created_at"]) <= e_dt
+        ]
     return result
 
 
@@ -60,11 +69,13 @@ def enrich_record(record: dict) -> dict:
     record = {**record, "clean_content": text, "entities": extract_entities(text)}
     return record
 
+
 class ScrapeParams(BaseModel):
     lang: Optional[List[str]] | Optional[str] = None
     category: Optional[List[str]] | Optional[str] = None
     format: str = "all"
     plugin: str = "wikipedia"  # e.g. "infobox_parser" or "table_parser"
+
 
 @app.post("/scrape")
 async def scrape(params: ScrapeParams):
@@ -100,7 +111,9 @@ async def get_records(
     end_date: Optional[str] = None,
 ):
     langs = lang if isinstance(lang, list) else ([lang] if lang else None)
-    cats = category if isinstance(category, list) else ([category] if category else None)
+    cats = (
+        category if isinstance(category, list) else ([category] if category else None)
+    )
     data = load_dataset()
     filtered = filter_dataset(data, langs, cats, start_date, end_date)
     processed = await asyncio.gather(
@@ -112,6 +125,13 @@ async def get_records(
 @app.get("/stats")
 async def get_stats():
     return load_progress()
+
+
+@app.get("/search")
+async def search_endpoint(q: str):
+    """Return records matching ``q`` from Elasticsearch."""
+    results = await asyncio.to_thread(indexer.query_index, q)
+    return results
 
 
 class RecordType(graphene.ObjectType):
@@ -134,7 +154,9 @@ class Query(graphene.ObjectType):
         end_date=graphene.String(),
     )
 
-    def resolve_records(root, info, lang=None, category=None, start_date=None, end_date=None):
+    def resolve_records(
+        root, info, lang=None, category=None, start_date=None, end_date=None
+    ):
         data = load_dataset()
         filtered = filter_dataset(data, lang, category, start_date, end_date)
         return [enrich_record(rec) for rec in filtered]
