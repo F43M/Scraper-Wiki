@@ -195,6 +195,26 @@ plg = load_plugin("wikidata")
 records = run_plugin(plg, ["en"], ["Artificial intelligence"])
 ```
 
+### Configuração via YAML
+
+O arquivo `examples/code_dataset_config.yaml` demonstra como definir idiomas,
+categorias e opções específicas de cada plugin em um único lugar. Para executar
+o scraping carregando essa configuração utilize:
+
+```python
+import yaml
+from plugins import load_plugin, run_plugin
+
+cfg = yaml.safe_load(open("examples/code_dataset_config.yaml", encoding="utf-8"))
+langs = cfg.get("languages", [])
+cats = cfg.get("categories", [])
+fmt = cfg.get("format", "json")
+for name, opts in cfg.get("plugins", {}).items():
+    plugin = load_plugin(name)(**opts)
+    run_plugin(plugin, langs, cats, fmt)
+```
+
+
 ## Limpeza e NLP
 
 Estas funções podem ser utilizadas isoladamente ou combinadas com o
