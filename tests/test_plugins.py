@@ -136,12 +136,14 @@ def test_stackexchange_plugin(monkeypatch):
                 "body": "<p>code</p>",
                 "score": 5,
                 "link": "url",
+                "tags": ["python"],
             },
             {
                 "title": "Q2",
                 "body": "<p>low</p>",
                 "score": 1,
                 "link": "url2",
+                "tags": ["python"],
             },
         ]
     }
@@ -163,6 +165,7 @@ def test_stackexchange_plugin(monkeypatch):
     assert parsed["category"] == "python"
     assert parsed["score"] == 5
     assert parsed["link"] == "url"
+    assert parsed["tags"] == [{"tag": "python", "link": "url"}]
 
 
 def test_wikidata_plugin(monkeypatch):

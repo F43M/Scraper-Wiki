@@ -1750,6 +1750,8 @@ class DatasetBuilder:
         # Extrai keywords para gerar perguntas variadas
         keywords = extract_keywords(content, lang)
 
+        tags = self._extract_tags(keywords, extra_metadata)
+
         # Gera múltiplas perguntas baseadas no conteúdo
         questions = self._generate_questions(title, content, lang, keywords)
 
@@ -1780,6 +1782,7 @@ class DatasetBuilder:
             "topic": topic,
             "subtopic": subtopic,
             "keywords": keywords,
+            "tags": tags,
             "content": content,
             "summary": summary,
             "content_embedding": content_embedding.tolist(),
@@ -2042,6 +2045,18 @@ class DatasetBuilder:
                 break
 
         return (main_topic, subtopic)
+
+    def _extract_tags(
+        self, keywords: List[str], extra_metadata: dict | None
+    ) -> List[dict]:
+        """Return tags with optional explanation links."""
+        if extra_metadata and extra_metadata.get("tags"):
+            tag_links = extra_metadata.get("tag_links", {})
+            return [
+                {"tag": t, "link": tag_links.get(t)}
+                for t in extra_metadata.get("tags", [])
+            ]
+        return [{"tag": kw, "link": None} for kw in keywords[:5]]
 
     def build_from_pages(
         self,
