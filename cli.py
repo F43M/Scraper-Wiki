@@ -240,6 +240,22 @@ def clear_cache_cmd():
     typer.echo("Cache limpo")
 
 
+@app.command("process")
+def process_pipeline(
+    dataset: str = typer.Argument(..., help="Caminho do dataset"),
+    pipeline: str = typer.Option("default", "--pipeline", help="Nome do pipeline"),
+):
+    """Run processing pipeline on an existing dataset."""
+    from processing.pipeline import get_pipeline
+
+    data_path = Path(dataset)
+    records = json.loads(data_path.read_text(encoding="utf-8"))
+    pipe = get_pipeline(pipeline)
+    result = pipe(records)
+    data_path.write_text(json.dumps(result, ensure_ascii=False, indent=2))
+    typer.echo(f"Processados {len(result)} registros")
+
+
 @app.command("start-crawler")
 def start_crawler_cmd(
     config: str = typer.Option(None, "--config", help="Path to cluster config")
