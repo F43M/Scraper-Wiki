@@ -166,6 +166,8 @@ def test_generate_qa_pairs_accepts_extra_metadata(monkeypatch):
     assert result["wikidata_id"] == "Q1"
     assert result["image_url"] == "img"
     assert result["tags"] == [{"tag": "python", "link": "url"}]
+    for field in ["diagram_path", "theory_links", "explanations"]:
+        assert field in result
 
 
 def test_generate_qa_pairs_extracts_tags(monkeypatch):
@@ -184,6 +186,8 @@ def test_generate_qa_pairs_extracts_tags(monkeypatch):
         category="c",
     )
     assert {"tag": "python", "link": None} in result["tags"]
+    for field in ["diagram_path", "theory_links", "explanations"]:
+        assert field in result
 
 
 def test_advanced_clean_text_removes_html():

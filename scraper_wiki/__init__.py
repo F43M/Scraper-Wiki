@@ -79,6 +79,11 @@ from utils.ast_tools import get_functions_complexity
 from utils.code_sniffer import scan as scan_code
 from utils.contextualizer import search_discussions
 from processing.pipeline import get_pipeline
+from enrichment.generator import (
+    generate_diagram,
+    generate_explanations,
+    link_theory,
+)
 
 
 # ============================
@@ -1812,8 +1817,20 @@ class DatasetBuilder:
         # Classificação avançada de tópicos
         topic, subtopic = self._classify_topic(title, content, lang)
 
+        rec_id = hashlib.md5(f"{title}_{lang}".encode("utf-8")).hexdigest()
+        diagram_path = ""
+        if code_lang != "unknown":
+            try:
+                diagram_path = generate_diagram(
+                    content, os.path.join(Config.LOG_DIR, "diagrams"), rec_id
+                )
+            except Exception:
+                diagram_path = ""
+        explanations = generate_explanations(content, lang)
+        theory_links = link_theory(content)
+
         record = {
-            "id": hashlib.md5(f"{title}_{lang}".encode("utf-8")).hexdigest(),
+            "id": rec_id,
             "title": title,
             "language": lang,
             "category": category,
@@ -1847,6 +1864,9 @@ class DatasetBuilder:
             "relations": relations,
             "tests": extra_metadata.get("tests", []) if extra_metadata else [],
             "docstring": docstring,
+            "diagram_path": diagram_path,
+            "theory_links": theory_links,
+            "explanations": explanations,
             "created_at": datetime.utcnow().isoformat(),
             "metadata": {
                 "length": len(content),
