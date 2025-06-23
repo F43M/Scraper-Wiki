@@ -16,6 +16,7 @@ from .code import (
 )
 from .ast_tools import parse_code, get_functions_complexity
 from .code_sniffer import scan
+from .contextualizer import search_discussions
 
 __all__ = [
     "clean_text",
@@ -34,4 +35,5 @@ __all__ = [
     "parse_code",
     "get_functions_complexity",
     "scan",
+    "search_discussions",
 ]

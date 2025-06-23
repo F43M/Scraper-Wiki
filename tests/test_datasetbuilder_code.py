@@ -97,6 +97,7 @@ def test_generate_qa_pairs_processes_code(monkeypatch):
     monkeypatch.setattr(builder, "_generate_questions", lambda *a, **k: [])
     monkeypatch.setattr(builder, "_generate_answers", lambda *a, **k: [])
     monkeypatch.setattr(sw, "extract_relations", lambda *a, **k: [])
+    monkeypatch.setattr(sw, "search_discussions", lambda _id: ["d1"])
     import numpy as np
 
     monkeypatch.setattr(
@@ -116,8 +117,10 @@ def test_generate_qa_pairs_processes_code(monkeypatch):
         "lessons",
         "origin_metrics",
         "challenge",
+        "discussion_links",
     ]:
         assert field in result
+    assert result["discussion_links"] == ["d1"]
 
 
 def test_generate_qa_pairs_extracts_docstring_and_signature(monkeypatch):
@@ -125,6 +128,7 @@ def test_generate_qa_pairs_extracts_docstring_and_signature(monkeypatch):
     monkeypatch.setattr(builder, "_generate_questions", lambda *a, **k: [])
     monkeypatch.setattr(builder, "_generate_answers", lambda *a, **k: [])
     monkeypatch.setattr(sw, "extract_relations", lambda *a, **k: [])
+    monkeypatch.setattr(sw, "search_discussions", lambda _id: [])
     import numpy as np
 
     monkeypatch.setattr(

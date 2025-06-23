@@ -79,7 +79,13 @@ class GitHubScraper:
         for issue, commit in self.get_issue_commit_pairs(repo_url, since=since):
             problem = f"{issue.get('title', '')}\n\n{issue.get('body', '')}"
             solution = commit.get("commit", {}).get("message", "")
-            records.append({"problem": problem, "solution": solution})
+            link = issue.get("html_url") or issue.get("url")
+            rec = {
+                "problem": problem,
+                "solution": solution,
+            }
+            rec["discussion_links"] = [link] if link else []
+            records.append(rec)
         return records
 
 

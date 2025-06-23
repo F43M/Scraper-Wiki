@@ -84,6 +84,7 @@ class StackExchangePlugin(Plugin):
         record.setdefault("lessons", "")
         record.setdefault("origin_metrics", {})
         record.setdefault("challenge", "")
+        record.setdefault("discussion_links", [item.get("link", "")])
         return record
 
 
