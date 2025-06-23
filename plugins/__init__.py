@@ -23,6 +23,7 @@ AVAILABLE_PLUGINS = {
     "gist_scraper": "gist_scraper",
     "api_docs": "api_docs",
     "competitions": "competitions",
+    "codepen_scraper": "codepen_scraper",
 }
 
 
