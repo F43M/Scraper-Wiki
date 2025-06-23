@@ -174,10 +174,14 @@ O pacote `utils.text` oferece funções auxiliares:
 
 ### Sistema de Plugins
 
-Os plugins permitem estender o scraper com novos analisadores. Em
-`plugins/` foram adicionados `infobox_parser` e `table_parser`, que
-extraem respectivamente infoboxes e tabelas das páginas da Wikipédia.
-Use `--plugin` ou o campo `plugin` na API para escolher qual utilizar.
+Os plugins permitem estender o scraper com novos analisadores.
+`plugins/` inclui `infobox_parser` e `table_parser`, que extraem
+respectivamente infoboxes e tabelas das páginas da Wikipédia. Outros
+plugins disponíveis são `api_docs`, `code_extractor`, `gist_scraper`,
+`codepen_scraper`, `pdf_books`, `gitlab_scraper`, `gitlab_snippets`,
+`competitions`, `bug_history_scraper`, `legacy_forums` e
+`stackexchange` (acessível como `stackoverflow`). Use `--plugin` ou o
+campo `plugin` na API para escolher qual utilizar.
 
 Exemplo executando o plugin do StackOverflow:
 
@@ -478,6 +482,13 @@ nx.write_graphml(G, 'relations.graphml')
   "answers": [{"text": "Ada worked at IBM."}],
   "relations": [],
   "docstring": "",
+  "raw_code": "",
+  "problems": [],
+  "fixed_version": "",
+  "lessons": "",
+  "origin_metrics": {},
+  "challenge": "",
+  "images": [],
   "created_at": "2024-01-01T00:00:00",
   "metadata": {"source": "wikipedia", "length": 17}
 }

@@ -20,8 +20,15 @@ Example dataset entry:
         "title": "Title",
         "language": "en",
         "category": "History",
-        "quality_score": 0.0,
-        "tests": [],
-        "context": "Ada summary",
-        "docstring": ""
-    }
+   "quality_score": 0.0,
+   "tests": [],
+   "context": "Ada summary",
+   "docstring": "",
+   "raw_code": "",
+   "problems": [],
+   "fixed_version": "",
+   "lessons": "",
+   "origin_metrics": {},
+   "challenge": "",
+   "images": []
+   }
