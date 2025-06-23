@@ -1,0 +1,7 @@
+dataset:
+  plugin: github_scraper
+  languages:
+    - en
+  categories:
+    - machine-learning
+  format: jsonl

@@ -479,6 +479,41 @@ ds = Dataset.from_list(records)
 ds.save_to_disk("github_code")
 ```
 
+Você pode definir as configurações de coleta em um arquivo YAML, como em
+`examples/code_dataset_config.yaml`:
+
+```yaml
+dataset:
+  plugin: github_scraper
+  languages:
+    - en
+  categories:
+    - machine-learning
+  format: jsonl
+```
+
+Para executar o scraping lendo esse arquivo:
+
+```python
+import yaml
+from plugins import load_plugin, run_plugin
+
+cfg = yaml.safe_load(open("examples/code_dataset_config.yaml"))
+plg = load_plugin(cfg["dataset"]["plugin"])
+records = run_plugin(
+    plg,
+    cfg["dataset"]["languages"],
+    cfg["dataset"]["categories"],
+    cfg["dataset"].get("format", "all"),
+)
+```
+
+O mesmo pode ser feito pela linha de comando:
+
+```bash
+python cli.py scrape --plugin github_scraper --lang en --category machine-learning --format jsonl
+```
+
 O diretório salvo pode ser carregado por `datasets` e utilizado em
 `examples/code_fine_tuning.ipynb`, que demonstra o fine-tuning do modelo
 `codegen-350M-multi` utilizando o `Trainer` da biblioteca Transformers.
