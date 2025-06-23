@@ -122,7 +122,7 @@ por `MAX_CONCURRENT_REQUESTS`.
 
 ### URLs base personalizadas
 
-O módulo `scraper_wiki.py` define o dicionário `BASE_URLS` com os domínios
+O pacote `scraper_wiki` define o dicionário `BASE_URLS` com os domínios
 principais para cada idioma. A função `get_base_url(lang)` consulta esse mapa e
 retorna `"https://{lang}.wikipedia.org"` quando o idioma não está definido.
 
@@ -325,6 +325,26 @@ python cli.py scrape --distributed --lang pt --category "Programação"
 ```
 
 O `DatasetBuilder` enviará as tarefas para o cluster usando `client.submit`.
+
+## Scrapy
+
+Para rastrear páginas em larga escala é possível usar o spider
+`scraper_wiki.scrapy_spider.WikiSpider`. Execute com `scrapy runspider` e
+defina `lang` e `category` se desejar iniciar por uma categoria específica:
+
+```bash
+scrapy runspider scraper_wiki/scrapy_spider.py -a lang=pt -a category=Programacao
+```
+
+## Spark Pipeline
+
+O módulo `training.spark_pipeline` oferece uma etapa de pré-processamento
+distribuído com PySpark. Basta informar o dataset de entrada e o diretório de
+saída para gerar os pares pergunta/resposta em cluster:
+
+```bash
+python -m training.spark_pipeline dataset.json out_dir
+```
 
 ## Controle de Qualidade
 

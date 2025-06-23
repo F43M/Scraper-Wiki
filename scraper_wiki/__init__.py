@@ -179,6 +179,19 @@ class Config:
         return random.choice(cls.USER_AGENTS)
 
 
+_proxy_index = 0
+
+
+def get_next_proxy() -> str | None:
+    """Return the next proxy from ``Config.PROXIES`` cycling sequentially."""
+    global _proxy_index
+    if not Config.PROXIES:
+        return None
+    proxy = Config.PROXIES[_proxy_index % len(Config.PROXIES)]
+    _proxy_index += 1
+    return proxy
+
+
 BASE_URLS = {
     "en": "https://en.wikipedia.org",
     "pt": "https://pt.wikipedia.org",
@@ -920,7 +933,7 @@ async def fetch_with_retry(
     """Fetch a URL using ``aiohttp`` with automatic retries and logging."""
 
     if proxy is None and Config.PROXIES:
-        proxy = random.choice(Config.PROXIES)
+        proxy = get_next_proxy()
 
     for attempt in range(1, retries + 1):
         try:
@@ -1132,7 +1145,7 @@ class WikipediaAdvanced:
         """Refresh User-Agent and proxy settings before a request."""
         self.session.headers["User-Agent"] = Config.get_random_user_agent()
         if Config.PROXIES:
-            self.session.proxies = random.choice(Config.PROXIES)
+            self.session.proxies = get_next_proxy()
         else:
             self.session.proxies = {}
 
