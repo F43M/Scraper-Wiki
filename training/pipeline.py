@@ -2,6 +2,12 @@ import json
 from pathlib import Path
 from typing import List, Dict
 
+from .formats import (
+    save_arrow_table,
+    save_hf_dataset,
+    save_tfrecord_dataset,
+)
+
 
 def load_dataset(path: str | Path) -> List[Dict]:
     """Load dataset from JSON file."""
@@ -31,10 +37,7 @@ def convert_to_embeddings(records: List[Dict]) -> List[Dict]:
     """Extract embeddings from dataset."""
     emb = []
     for rec in records:
-        emb.append({
-            "id": rec.get("id"),
-            "embedding": rec.get("content_embedding")
-        })
+        emb.append({"id": rec.get("id"), "embedding": rec.get("content_embedding")})
     return emb
 
 
@@ -62,3 +65,7 @@ def run_pipeline(dataset_path: str | Path) -> None:
 
     triples = convert_to_triples(records)
     save_json(triples, base.with_name(base.name + "_triples.json"))
+
+    save_hf_dataset(records, base.with_name(base.name + "_hf"))
+    save_tfrecord_dataset(records, base.with_suffix(".tfrecord"))
+    save_arrow_table(records, base.with_suffix(".arrow"))
