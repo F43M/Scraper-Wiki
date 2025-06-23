@@ -72,6 +72,7 @@ from utils.code import (
     parse_function_signature,
 )
 from utils.ast_tools import get_functions_complexity
+from utils.code_sniffer import scan as scan_code
 
 
 # ============================
@@ -1740,6 +1741,8 @@ class DatasetBuilder:
         complexities = {}
         docstring = ""
         signature = ""
+        problems: list[str] = []
+        fixed_version = content
         if code_lang != "unknown":
             signature = parse_function_signature(content)
             try:
@@ -1760,12 +1763,15 @@ class DatasetBuilder:
                 pass
             content = normalize_indentation(remove_comments(content, code_lang))
             complexities = get_functions_complexity(content, code_lang)
+            problems, fixed_version = scan_code(content)
             if self.min_complexity is not None and complexities:
                 if max(complexities.values()) < self.min_complexity:
                     return {}
             if self.max_complexity is not None and complexities:
                 if max(complexities.values()) > self.max_complexity:
                     return {}
+        else:
+            problems, fixed_version = scan_code(content)
 
         # Extrai keywords para gerar perguntas variadas
         keywords = extract_keywords(content, lang)
@@ -1807,10 +1813,8 @@ class DatasetBuilder:
             "raw_code": raw_code if code_lang != "unknown" else "",
             "summary": summary,
             "context": summary,
-            "problems": extra_metadata.get("problems", []) if extra_metadata else [],
-            "fixed_version": (
-                extra_metadata.get("fixed_version", "") if extra_metadata else ""
-            ),
+            "problems": problems,
+            "fixed_version": fixed_version,
             "lessons": extra_metadata.get("lessons", "") if extra_metadata else "",
             "origin_metrics": (
                 extra_metadata.get("origin_metrics", {}) if extra_metadata else {}

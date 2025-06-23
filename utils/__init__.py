@@ -15,6 +15,7 @@ from .code import (
     parse_function_signature,
 )
 from .ast_tools import parse_code, get_functions_complexity
+from .code_sniffer import scan
 
 __all__ = [
     "clean_text",
@@ -32,4 +33,5 @@ __all__ = [
     "parse_function_signature",
     "parse_code",
     "get_functions_complexity",
+    "scan",
 ]
