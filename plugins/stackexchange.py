@@ -26,7 +26,9 @@ class StackExchangePlugin(Plugin):
             Config.STACKEXCHANGE_MIN_SCORE if min_score is None else min_score
         )
 
-    def fetch_items(self, lang: str, category: str) -> List[Dict]:
+    def fetch_items(
+        self, lang: str, category: str, since: str | None = None
+    ) -> List[Dict]:
         params = {
             "site": self.site,
             "tagged": category,
@@ -37,6 +39,14 @@ class StackExchangePlugin(Plugin):
         }
         if self.api_key:
             params["key"] = self.api_key
+        if since:
+            try:
+                from datetime import datetime
+
+                ts = int(datetime.fromisoformat(since).timestamp())
+                params["fromdate"] = ts
+            except Exception:
+                pass
         resp = requests.get(
             f"{self.endpoint}/questions", params=params, timeout=Config.TIMEOUT
         )
