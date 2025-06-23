@@ -34,6 +34,7 @@ from bs4 import BeautifulSoup
 import requests
 import aiohttp
 from training.formats import save_qa_dataset, save_text_corpus
+from training.postprocessing import filter_by_complexity
 from urllib.parse import urlparse, urljoin
 import html2text
 import ast
@@ -407,11 +408,14 @@ def log_failed_url(url: str) -> None:
 
 
 class CacheBackend(Protocol):
-    def get(self, key: str): ...
+    def get(self, key: str):
+        ...
 
-    def set(self, key: str, data, ttl: Optional[int] = None): ...
+    def set(self, key: str, data, ttl: Optional[int] = None):
+        ...
 
-    def stats(self) -> dict: ...
+    def stats(self) -> dict:
+        ...
 
 
 class FileCache(CacheBackend):
@@ -1701,9 +1705,9 @@ class DatasetBuilder:
             images = extract_images(getattr(page, "_html", ""))
             qa_data["images"] = images
             if self.include_revisions:
-                qa_data.setdefault("metadata", {})["revisions"] = (
-                    wiki.get_revision_history(page_info["title"], self.rev_limit)
-                )
+                qa_data.setdefault("metadata", {})[
+                    "revisions"
+                ] = wiki.get_revision_history(page_info["title"], self.rev_limit)
             metrics.scrape_success.inc()
             metrics.pages_scraped_total.inc()
             return qa_data
@@ -2114,7 +2118,6 @@ class DatasetBuilder:
             ) as th_executor, ProcessPoolExecutor(
                 max_workers=Config.MAX_PROCESSES
             ) as pr_executor:
-
                 page_futures = {
                     th_executor.submit(self.process_page, page, pr_executor): page
                     for page in pages
@@ -2234,6 +2237,11 @@ class DatasetBuilder:
         # Adiciona clusters ao dataset
         for i, item in enumerate(self.dataset):
             item["cluster"] = int(clusters[i])
+
+        # Opcionalmente filtra registros pelo nível de complexidade
+        self.dataset = filter_by_complexity(
+            self.dataset, self.min_complexity, self.max_complexity
+        )
 
     def save_dataset(self, format: str = "all", output_dir: str = Config.OUTPUT_DIR):
         os.makedirs(output_dir, exist_ok=True)

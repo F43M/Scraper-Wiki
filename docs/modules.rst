@@ -15,3 +15,6 @@ API Reference
 
 .. automodule:: training.pipeline
    :members:
+
+.. automodule:: training.postprocessing
+   :members:
