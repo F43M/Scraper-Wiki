@@ -81,3 +81,27 @@ def balance_quality(records: List[Dict]) -> List[Dict]:
     for q in ["high", "medium", "low"]:
         balanced.extend(groups.get(q, [])[:min_count])
     return balanced
+
+
+def generate_challenge_prompt(problems: List[str]) -> str:
+    """Generate a Portuguese prompt challenging the user to fix the code.
+
+    Parameters
+    ----------
+    problems: List[str]
+        List of problems detected in the code.
+
+    Returns
+    -------
+    str
+        A short text in Portuguese describing the issues.
+    """
+
+    if not problems:
+        return ""
+
+    if len(problems) == 1:
+        return f"Este código tem um bug: {problems[0]}. Corrija-o."
+
+    joined = "; ".join(problems)
+    return f"Este código tem alguns bugs: {joined}. Corrija-os."
