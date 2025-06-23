@@ -9,6 +9,7 @@ from .base import Plugin
 AVAILABLE_PLUGINS = {
     "wikipedia": "wikipedia",
     "wikidata": "wikidata",
+    "stackexchange": "stackexchange",
     "stackoverflow": "stackoverflow",
     "infobox_parser": "infobox_parser",
     "table_parser": "table_parser",
