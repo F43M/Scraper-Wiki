@@ -208,3 +208,32 @@ def test_wikidata_plugin(monkeypatch):
         "wikidata_id": "Q1",
         "image_url": "https://commons.wikimedia.org/wiki/Special:FilePath/Pic.jpg",
     }
+
+
+def test_competitions_plugin(monkeypatch):
+    class DummyResp:
+        def __init__(self, data):
+            self._data = data
+
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return self._data
+
+    def fake_get(url, timeout=None):
+        if "leetcode" in url:
+            return DummyResp({"content": "LC problem", "solution": "LC solution"})
+        return DummyResp({"description": "CW problem", "solutions": ["CW solution"]})
+
+    import requests
+
+    monkeypatch.setattr(requests, "get", fake_get)
+    mod = importlib.reload(importlib.import_module("plugins.competitions"))
+    plugin = mod.Plugin()
+    items = plugin.fetch_items("en", "two-sum")
+    assert items[0]["slug"] == "two-sum"
+    parsed = plugin.parse_item(items[0])
+    assert parsed == {"problem": "LC problem", "solution": "LC solution"}
+    parsed2 = plugin.parse_item(items[1])
+    assert parsed2 == {"problem": "CW problem", "solution": "CW solution"}
