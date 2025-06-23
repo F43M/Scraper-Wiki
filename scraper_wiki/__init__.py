@@ -62,6 +62,7 @@ from utils.quality import (
     classify_github_repo,
     classify_stackoverflow_answer,
     balance_quality,
+    generate_challenge_prompt,
 )
 from utils.cleaner import clean_wiki_text, split_sentences
 from utils.code import (
@@ -1819,7 +1820,8 @@ class DatasetBuilder:
             "origin_metrics": (
                 extra_metadata.get("origin_metrics", {}) if extra_metadata else {}
             ),
-            "challenge": extra_metadata.get("challenge", "") if extra_metadata else "",
+            "challenge": (extra_metadata.get("challenge") if extra_metadata else None)
+            or generate_challenge_prompt(problems),
             "content_embedding": content_embedding.tolist(),
             "summary_embedding": summary_embedding.tolist(),
             "quality_score": (
