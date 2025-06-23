@@ -12,6 +12,7 @@ from .code import (
     remove_comments,
     detect_programming_language,
 )
+from .ast_tools import parse_code, get_functions_complexity
 
 __all__ = [
     "clean_text",
@@ -25,4 +26,6 @@ __all__ = [
     "normalize_indentation",
     "remove_comments",
     "detect_programming_language",
+    "parse_code",
+    "get_functions_complexity",
 ]
