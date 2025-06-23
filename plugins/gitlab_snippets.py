@@ -46,12 +46,20 @@ class GitLabSnippets(Plugin):  # type: ignore[misc]
             headers=self._headers(),
         )
         resp.raise_for_status()
-        return {
+        record = {
             "title": item.get("title", ""),
             "language": item.get("lang", "en"),
             "category": item.get("category", ""),
             "code": resp.text,
         }
+        record.setdefault("raw_code", "")
+        record.setdefault("context", "")
+        record.setdefault("problems", [])
+        record.setdefault("fixed_version", "")
+        record.setdefault("lessons", "")
+        record.setdefault("origin_metrics", {})
+        record.setdefault("challenge", "")
+        return record
 
 
 Plugin = GitLabSnippets

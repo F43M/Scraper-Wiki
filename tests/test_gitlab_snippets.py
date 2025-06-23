@@ -47,9 +47,17 @@ def test_gitlab_snippets(monkeypatch):
     items = scraper.fetch_items("en", "example")
     assert called[0].endswith("/snippets")
     record = scraper.parse_item(items[0])
-    assert record == {
-        "title": "t",
-        "language": "en",
-        "category": "example",
-        "code": "code1",
-    }
+    assert record["title"] == "t"
+    assert record["language"] == "en"
+    assert record["category"] == "example"
+    assert record["code"] == "code1"
+    for field in [
+        "raw_code",
+        "context",
+        "problems",
+        "fixed_version",
+        "lessons",
+        "origin_metrics",
+        "challenge",
+    ]:
+        assert field in record

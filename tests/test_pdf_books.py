@@ -33,6 +33,16 @@ def test_pdf_books_single(monkeypatch, tmp_path):
     parsed = plugin.parse_item(items[0])
     assert "Hello World" in parsed["content"]
     assert parsed["language"] == "en"
+    for field in [
+        "raw_code",
+        "context",
+        "problems",
+        "fixed_version",
+        "lessons",
+        "origin_metrics",
+        "challenge",
+    ]:
+        assert field in parsed
 
 
 def test_pdf_books_directory(monkeypatch, tmp_path):
@@ -55,3 +65,13 @@ def test_pdf_books_directory(monkeypatch, tmp_path):
     assert [it["path"] for it in items] == paths
     parsed = plugin.parse_item(items[0])
     assert "A" in parsed["content"]
+    for field in [
+        "raw_code",
+        "context",
+        "problems",
+        "fixed_version",
+        "lessons",
+        "origin_metrics",
+        "challenge",
+    ]:
+        assert field in parsed

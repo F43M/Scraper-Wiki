@@ -1735,6 +1735,7 @@ class DatasetBuilder:
         category: str,
         extra_metadata: dict | None = None,
     ) -> dict:
+        raw_code = content
         code_lang = detect_programming_language(content)
         complexities = {}
         docstring = ""
@@ -1803,8 +1804,18 @@ class DatasetBuilder:
             "keywords": keywords,
             "tags": tags,
             "content": content,
+            "raw_code": raw_code if code_lang != "unknown" else "",
             "summary": summary,
             "context": summary,
+            "problems": extra_metadata.get("problems", []) if extra_metadata else [],
+            "fixed_version": (
+                extra_metadata.get("fixed_version", "") if extra_metadata else ""
+            ),
+            "lessons": extra_metadata.get("lessons", "") if extra_metadata else "",
+            "origin_metrics": (
+                extra_metadata.get("origin_metrics", {}) if extra_metadata else {}
+            ),
+            "challenge": extra_metadata.get("challenge", "") if extra_metadata else "",
             "content_embedding": content_embedding.tolist(),
             "summary_embedding": summary_embedding.tolist(),
             "quality_score": (

@@ -42,15 +42,31 @@ class CompetitionsPlugin(Plugin):  # type: ignore[misc]
         slug = item.get("slug")
         if source == "leetcode":
             data = self._fetch_leetcode(slug)
-            return {
+            record = {
                 "problem": data.get("content", ""),
                 "solution": data.get("solution", ""),
             }
+            record.setdefault("raw_code", "")
+            record.setdefault("context", "")
+            record.setdefault("problems", [])
+            record.setdefault("fixed_version", "")
+            record.setdefault("lessons", "")
+            record.setdefault("origin_metrics", {})
+            record.setdefault("challenge", "")
+            return record
         if source == "codewars":
             data = self._fetch_codewars(slug)
             solutions = data.get("solutions", [])
             solution = solutions[0] if solutions else ""
-            return {"problem": data.get("description", ""), "solution": solution}
+            record = {"problem": data.get("description", ""), "solution": solution}
+            record.setdefault("raw_code", "")
+            record.setdefault("context", "")
+            record.setdefault("problems", [])
+            record.setdefault("fixed_version", "")
+            record.setdefault("lessons", "")
+            record.setdefault("origin_metrics", {})
+            record.setdefault("challenge", "")
+            return record
         return {}
 
 

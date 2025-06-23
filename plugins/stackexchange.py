@@ -65,7 +65,7 @@ class StackExchangePlugin(Plugin):
         clean = advanced_clean_text(text, item.get("lang", "en"))
         tags = item.get("tags", [])
         tag_data = [{"tag": t, "link": item.get("link", "")} for t in tags]
-        return {
+        record = {
             "title": item.get("title", ""),
             "language": item.get("lang", "en"),
             "category": item.get("category", ""),
@@ -78,6 +78,13 @@ class StackExchangePlugin(Plugin):
             "docstring": "",
             "quality_score": item.get("score", 0),
         }
+        record.setdefault("raw_code", "")
+        record.setdefault("problems", [])
+        record.setdefault("fixed_version", "")
+        record.setdefault("lessons", "")
+        record.setdefault("origin_metrics", {})
+        record.setdefault("challenge", "")
+        return record
 
 
 # Backwards compatible alias

@@ -60,4 +60,15 @@ def test_gist_scraper(monkeypatch):
     items = scraper.fetch_items("user")
     assert called[0].endswith("/users/user/gists")
     record = scraper.parse_item(items[0])
-    assert record == {"description": "d", "files": {"f1.txt": "content1"}}
+    assert record["description"] == "d"
+    assert record["files"] == {"f1.txt": "content1"}
+    for field in [
+        "raw_code",
+        "context",
+        "problems",
+        "fixed_version",
+        "lessons",
+        "origin_metrics",
+        "challenge",
+    ]:
+        assert field in record

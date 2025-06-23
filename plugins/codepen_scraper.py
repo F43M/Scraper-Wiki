@@ -63,13 +63,21 @@ class CodePenScraper(Plugin):
             if js_match:
                 js = js_match.group(1)
 
-        return {
+        record = {
             "url": item.get("url", ""),
             "language": item.get("lang", "en"),
             "html": html,
             "css": css,
             "js": js,
         }
+        record.setdefault("raw_code", "")
+        record.setdefault("context", "")
+        record.setdefault("problems", [])
+        record.setdefault("fixed_version", "")
+        record.setdefault("lessons", "")
+        record.setdefault("origin_metrics", {})
+        record.setdefault("challenge", "")
+        return record
 
 
 Plugin = CodePenScraper

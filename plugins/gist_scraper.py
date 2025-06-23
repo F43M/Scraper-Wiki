@@ -37,7 +37,15 @@ class GistScraper:
             resp = requests.get(raw_url, headers=self._headers())
             resp.raise_for_status()
             files[info.get("filename", "file")] = resp.text
-        return {"description": item.get("description", ""), "files": files}
+        record = {"description": item.get("description", ""), "files": files}
+        record.setdefault("raw_code", "")
+        record.setdefault("context", "")
+        record.setdefault("problems", [])
+        record.setdefault("fixed_version", "")
+        record.setdefault("lessons", "")
+        record.setdefault("origin_metrics", {})
+        record.setdefault("challenge", "")
+        return record
 
 
 # Registry alias

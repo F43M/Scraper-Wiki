@@ -104,11 +104,20 @@ def test_generate_qa_pairs_processes_code(monkeypatch):
     )
     code = "def foo():\n    pass  # comment"
     result = builder.generate_qa_pairs("T", code, "S", "en", "c")
+    assert result["raw_code"] == "def foo():\n    pass  # comment"
     assert result["content"] == "def foo():\n    pass"
     assert result["metadata"].get("code_language") == "python"
     assert result["context"] == "S"
     assert result["tests"] == []
     assert result["quality_score"] == 0.0
+    for field in [
+        "problems",
+        "fixed_version",
+        "lessons",
+        "origin_metrics",
+        "challenge",
+    ]:
+        assert field in result
 
 
 def test_generate_qa_pairs_extracts_docstring_and_signature(monkeypatch):

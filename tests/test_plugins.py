@@ -99,7 +99,19 @@ def test_infobox_parser(monkeypatch):
     items = plugin.fetch_items("en", "Prog")
     assert items == [{"title": "Page", "lang": "en", "category": "Prog"}]
     parsed = plugin.parse_item(items[0])
-    assert parsed == {"title": "Page", "language": "en", "infobox": {"Name": "Python"}}
+    assert parsed["title"] == "Page"
+    assert parsed["language"] == "en"
+    assert parsed["infobox"] == {"Name": "Python"}
+    for field in [
+        "raw_code",
+        "context",
+        "problems",
+        "fixed_version",
+        "lessons",
+        "origin_metrics",
+        "challenge",
+    ]:
+        assert field in parsed
 
 
 def test_table_parser(monkeypatch):
@@ -111,11 +123,19 @@ def test_table_parser(monkeypatch):
     items = plugin.fetch_items("en", "Prog")
     assert items[0]["title"] == "Page"
     parsed = plugin.parse_item(items[0])
-    assert parsed == {
-        "title": "Page",
-        "language": "en",
-        "tables": [[["A", "B"], ["1", "2"]]],
-    }
+    assert parsed["title"] == "Page"
+    assert parsed["language"] == "en"
+    assert parsed["tables"] == [[["A", "B"], ["1", "2"]]]
+    for field in [
+        "raw_code",
+        "context",
+        "problems",
+        "fixed_version",
+        "lessons",
+        "origin_metrics",
+        "challenge",
+    ]:
+        assert field in parsed
 
 
 def test_stackexchange_plugin(monkeypatch):
@@ -166,6 +186,16 @@ def test_stackexchange_plugin(monkeypatch):
     assert parsed["score"] == 5
     assert parsed["link"] == "url"
     assert parsed["tags"] == [{"tag": "python", "link": "url"}]
+    for field in [
+        "raw_code",
+        "context",
+        "problems",
+        "fixed_version",
+        "lessons",
+        "origin_metrics",
+        "challenge",
+    ]:
+        assert field in parsed
 
 
 def test_wikidata_plugin(monkeypatch):
@@ -203,14 +233,25 @@ def test_wikidata_plugin(monkeypatch):
     items = plugin.fetch_items("en", "python")
     assert items[0]["category"] == "python"
     parsed = plugin.parse_item(items[0])
-    assert parsed == {
-        "title": "Item",
-        "language": "en",
-        "category": "python",
-        "description": "Desc",
-        "wikidata_id": "Q1",
-        "image_url": "https://commons.wikimedia.org/wiki/Special:FilePath/Pic.jpg",
-    }
+    assert parsed["title"] == "Item"
+    assert parsed["language"] == "en"
+    assert parsed["category"] == "python"
+    assert parsed["description"] == "Desc"
+    assert parsed["wikidata_id"] == "Q1"
+    assert (
+        parsed["image_url"]
+        == "https://commons.wikimedia.org/wiki/Special:FilePath/Pic.jpg"
+    )
+    for field in [
+        "raw_code",
+        "context",
+        "problems",
+        "fixed_version",
+        "lessons",
+        "origin_metrics",
+        "challenge",
+    ]:
+        assert field in parsed
 
 
 def test_competitions_plugin(monkeypatch):
@@ -237,6 +278,28 @@ def test_competitions_plugin(monkeypatch):
     items = plugin.fetch_items("en", "two-sum")
     assert items[0]["slug"] == "two-sum"
     parsed = plugin.parse_item(items[0])
-    assert parsed == {"problem": "LC problem", "solution": "LC solution"}
+    assert parsed["problem"] == "LC problem"
+    assert parsed["solution"] == "LC solution"
+    for field in [
+        "raw_code",
+        "context",
+        "problems",
+        "fixed_version",
+        "lessons",
+        "origin_metrics",
+        "challenge",
+    ]:
+        assert field in parsed
     parsed2 = plugin.parse_item(items[1])
-    assert parsed2 == {"problem": "CW problem", "solution": "CW solution"}
+    assert parsed2["problem"] == "CW problem"
+    assert parsed2["solution"] == "CW solution"
+    for field in [
+        "raw_code",
+        "context",
+        "problems",
+        "fixed_version",
+        "lessons",
+        "origin_metrics",
+        "challenge",
+    ]:
+        assert field in parsed2
