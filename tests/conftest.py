@@ -29,9 +29,44 @@ pyarrow_stub.Table = object
 pyarrow_stub.parquet = SimpleNamespace(write_table=lambda *a, **k: None)
 pyarrow_stub.ipc = SimpleNamespace()
 pyarrow_stub.csv = SimpleNamespace(read_csv=lambda *a, **k: None)
+pyarrow_stub.dataset = SimpleNamespace(write_dataset=lambda *a, **k: None)
 sys.modules.setdefault("pyarrow", pyarrow_stub)
 sys.modules.setdefault("pyarrow.parquet", pyarrow_stub.parquet)
 sys.modules.setdefault("pyarrow.ipc", pyarrow_stub.ipc)
 sys.modules.setdefault("pyarrow.csv", pyarrow_stub.csv)
+sys.modules.setdefault("pyarrow.dataset", pyarrow_stub.dataset)
+
+
+class _DummySession:
+    def run(self, *a, **k):
+        pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        pass
+
+
+class _DummyDriver:
+    def session(self):
+        return _DummySession()
+
+
+neo4j_stub = SimpleNamespace(
+    GraphDatabase=SimpleNamespace(driver=lambda *a, **k: _DummyDriver())
+)
+sys.modules.setdefault("neo4j", neo4j_stub)
+
+pymilvus_stub = SimpleNamespace(
+    connections=SimpleNamespace(connect=lambda *a, **k: None),
+    Collection=lambda *a, **k: SimpleNamespace(insert=lambda *a1, **k1: None),
+)
+sys.modules.setdefault("pymilvus", pymilvus_stub)
+
+weaviate_stub = SimpleNamespace(
+    Client=lambda *a, **k: SimpleNamespace(insert=lambda *a1, **k1: None)
+)
+sys.modules.setdefault("weaviate", weaviate_stub)
 
 sys.modules.setdefault("yaml", SimpleNamespace(safe_load=lambda *a, **k: {}))

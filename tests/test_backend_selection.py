@@ -112,3 +112,21 @@ def test_offload_to_s3(monkeypatch, tmp_path):
     backend = storage_mod.get_backend("mongodb", str(tmp_path))
     backend.save_dataset([{"a": 1}])
     assert uploaded["Bucket"] == "bucket"
+
+
+def test_get_backend_neo4j(monkeypatch, tmp_path):
+    storage_mod = _reload(monkeypatch, {})
+    backend = storage_mod.get_backend("neo4j", str(tmp_path))
+    assert isinstance(backend, storage_mod.GraphStorage)
+
+
+def test_get_backend_iceberg(monkeypatch, tmp_path):
+    storage_mod = _reload(monkeypatch, {})
+    backend = storage_mod.get_backend("iceberg", str(tmp_path))
+    assert isinstance(backend, storage_mod.DatalakeStorage)
+
+
+def test_get_backend_milvus(monkeypatch, tmp_path):
+    storage_mod = _reload(monkeypatch, {})
+    backend = storage_mod.get_backend("milvus", str(tmp_path))
+    assert isinstance(backend, storage_mod.VectorStorage)

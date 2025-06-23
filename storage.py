@@ -228,6 +228,22 @@ class PostgreSQLStorage(StorageBackend):
         _maybe_upload_large(data, "postgres_dataset.json")
 
 
+try:  # pragma: no cover - optional backends
+    from storage_datalake import DatalakeStorage
+except Exception:  # pragma: no cover - missing deps
+    DatalakeStorage = None
+
+try:  # pragma: no cover - optional backends
+    from storage_graph import GraphStorage
+except Exception:
+    GraphStorage = None
+
+try:  # pragma: no cover - optional backends
+    from storage_vector import VectorStorage
+except Exception:
+    VectorStorage = None
+
+
 def get_backend(name: str, output_dir: str):
     name = (name or "local").lower()
     if name in ["s3", "minio"]:
@@ -239,6 +255,9 @@ def get_backend(name: str, output_dir: str):
             else os.environ.get("MINIO_ENDPOINT")
         )
         return S3Storage(bucket, prefix=prefix, endpoint_url=endpoint)
+    if name in ["iceberg", "delta", "datalake"]:
+        path = os.environ.get("DATALAKE_PATH", output_dir)
+        return DatalakeStorage(path)
     if name == "mongodb":
         uri = os.environ.get("MONGODB_URI", "mongodb://localhost:27017")
         db = os.environ.get("MONGODB_DB", "scraper")
@@ -248,4 +267,29 @@ def get_backend(name: str, output_dir: str):
         dsn = os.environ.get("POSTGRES_DSN", "dbname=scraper user=postgres")
         table = os.environ.get("POSTGRES_TABLE", "dataset")
         return PostgreSQLStorage(dsn, table)
+    if name == "neo4j":
+        uri = os.environ.get("NEO4J_URI", "bolt://localhost:7687")
+        user = os.environ.get("NEO4J_USER", "neo4j")
+        pwd = os.environ.get("NEO4J_PASSWORD", "test")
+        return GraphStorage(uri, user, pwd)
+    if name in ["milvus", "weaviate"]:
+        if name == "milvus":
+            try:
+                from pymilvus import connections, Collection
+            except Exception as e:
+                raise ImportError("pymilvus is required for Milvus backend") from e
+            uri = os.environ.get("MILVUS_URI", "http://localhost:19530")
+            col = os.environ.get("MILVUS_COLLECTION", "embeddings")
+            connections.connect(uri=uri)
+            client = Collection(col)
+        else:
+            try:
+                import weaviate
+            except Exception as e:
+                raise ImportError(
+                    "weaviate-client is required for Weaviate backend"
+                ) from e
+            uri = os.environ.get("WEAVIATE_URI", "http://localhost:8080")
+            client = weaviate.Client(uri)
+        return VectorStorage(client)
     return LocalStorage(output_dir)

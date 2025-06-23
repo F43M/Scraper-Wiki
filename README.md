@@ -135,9 +135,10 @@ em `Config.USER_AGENTS` para alternar automaticamente o cabeçalho
 ### Armazenamento
 
 Escolha onde salvar os datasets com `--storage-backend` ou variável `STORAGE_BACKEND`.
-Os valores suportados são `local` (padrão), `s3`/`minio`, `mongodb` e `postgres`.
+Os valores suportados são `local` (padrão), `s3`/`minio`, `mongodb`, `postgres`, `iceberg`, `neo4j` e `milvus`/`weaviate`.
 Para S3/MinIO defina `S3_BUCKET` e `S3_ENDPOINT` (ou `MINIO_ENDPOINT`).
 Para MongoDB use `MONGODB_URI`. Para PostgreSQL defina `POSTGRES_DSN`.
+Para Apache Iceberg/Delta Lake defina `DATALAKE_PATH`. Para Neo4j utilize `NEO4J_URI`, `NEO4J_USER` e `NEO4J_PASSWORD`. Para bancos vetoriais use `MILVUS_URI` e `MILVUS_COLLECTION` ou `WEAVIATE_URI`.
 
 O backend também pode ser escolhido definindo `STORAGE_BACKEND=<opção>`
 no ambiente (por exemplo `STORAGE_BACKEND=postgres`). Cada backend possui
