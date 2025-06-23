@@ -415,6 +415,26 @@ G = relations_to_graph(data['relations'])
 nx.write_graphml(G, 'relations.graphml')
 ```
 
+### Fine-tuning de Modelos de Código
+
+O plugin `github_scraper` permite coletar READMEs e arquivos de projetos no
+GitHub. Esses textos podem ser usados para treinar modelos de geração de
+código, como os baseados em Transformers. Um fluxo simples é:
+
+```python
+from plugins import load_plugin, run_plugin
+from datasets import Dataset
+
+plugin = load_plugin("github_scraper")
+records = run_plugin(plugin, ["en"], ["machine-learning"])
+ds = Dataset.from_list(records)
+ds.save_to_disk("github_code")
+```
+
+O diretório salvo pode ser carregado por `datasets` e utilizado em
+`examples/code_fine_tuning.ipynb`, que demonstra o fine-tuning do modelo
+`codegen-350M-multi` utilizando o `Trainer` da biblioteca Transformers.
+
 ## Docker
 
 Para executar a API e o worker em contêineres, primeiro construa a imagem base:

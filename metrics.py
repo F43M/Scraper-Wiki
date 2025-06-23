@@ -1,3 +1,5 @@
+"""Prometheus metrics used to monitor scraping performance."""
+
 from prometheus_client import Counter, Histogram, Gauge, start_http_server
 
 scrape_success = Counter(
