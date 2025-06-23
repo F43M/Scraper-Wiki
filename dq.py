@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import difflib
 import hashlib
-from typing import List, Dict, Tuple
+import re
+from typing import Dict, List, Tuple
 
 import numpy as np
 from simhash import Simhash
@@ -182,3 +184,32 @@ def complete_missing_fields(records: List[Dict], extra: List[Dict]) -> List[Dict
             elif k not in rec or rec[k] in (None, "", []):
                 rec[k] = v
     return records
+
+
+def strip_credentials(code: str) -> str:
+    """Return ``code`` with tokens and credentials redacted."""
+    patterns = [
+        r"ghp_[A-Za-z0-9]{36}",
+        r"github_pat_[A-Za-z0-9_]{80,}",
+        r"sk-[A-Za-z0-9]{16,}",
+        r"(?i)(?:api|secret|token|key)[^\n]{0,20}[\'\"]?[A-Za-z0-9_-]{16,}[\'\"]?",
+    ]
+    text = code
+    for pat in patterns:
+        text = re.sub(pat, "<REDACTED>", text)
+    return text
+
+
+def detect_code_plagiarism(records: List[Dict], threshold: float = 0.95) -> List[Dict]:
+    """Return records whose ``content`` is very similar to others."""
+    plagiarized: List[Dict] = []
+    for i, rec in enumerate(records):
+        code_i = rec.get("content", "")
+        for other in records[i + 1 :]:
+            code_j = other.get("content", "")
+            if not code_i or not code_j:
+                continue
+            sim = difflib.SequenceMatcher(None, code_i, code_j).ratio()
+            if sim >= threshold:
+                plagiarized.append(other)
+    return plagiarized

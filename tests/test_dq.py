@@ -50,3 +50,19 @@ def test_detect_leaks_by_embedding_identifies_similar():
     ]
     leaks = dq.detect_leaks_by_embedding(recs, ref, threshold=0.98)
     assert len(leaks) == 1
+
+
+def test_strip_credentials_replaces_tokens():
+    code = "token = 'ghp_0123456789abcdef0123456789abcdef0123'"
+    sanitized = dq.strip_credentials(code)
+    assert "<REDACTED>" in sanitized
+
+
+def test_detect_code_plagiarism_flags_duplicates():
+    recs = [
+        {"content": "print('hi')"},
+        {"content": "print('hi')"},
+        {"content": "print('bye')"},
+    ]
+    plag = dq.detect_code_plagiarism(recs, threshold=0.9)
+    assert len(plag) == 1

@@ -2242,12 +2242,25 @@ class DatasetBuilder:
             logger.warning("Nenhum dado para salvar")
             return
 
+        for rec in self.dataset:
+            if "content" in rec:
+                rec["content"] = dq.strip_credentials(rec["content"])
+
         # Remove near-duplicates based on Simhash
         try:
             self.dataset, rem_sim = dq.deduplicate_by_simhash(self.dataset)
             self.duplicates_removed += rem_sim
         except Exception as e:  # pragma: no cover - library issues
             logger.error(f"Erro na deduplicação Simhash: {e}")
+
+        try:
+            plag = dq.detect_code_plagiarism(self.dataset)
+            if plag:
+                logger.warning(f"Registros plagiados removidos: {len(plag)}")
+                self.dataset = [r for r in self.dataset if r not in plag]
+                self.invalid_records += len(plag)
+        except Exception as e:  # pragma: no cover - library issues
+            logger.error(f"Erro na verificação de plágio: {e}")
 
         # Validação dos registros antes de salvar
         validated_data = []
