@@ -28,3 +28,5 @@ simhash>=2.1.2
 tensorflow>=2.16.0  # optional
 transformers>=4.40.0
 googletrans==4.0.0rc1
+PyPDF2>=3.0.1
+fpdf>=1.7.2
