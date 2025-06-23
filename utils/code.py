@@ -1,5 +1,7 @@
 import re
 import textwrap
+import inspect
+import ast
 
 
 def normalize_indentation(code: str) -> str:
@@ -47,3 +49,71 @@ def detect_programming_language(code: str) -> str:
         if any(k.lower() in lowered for k in keys):
             return lang
     return "unknown"
+
+
+def docstring_to_google(docstring: str) -> str:
+    """Convert ``docstring`` written in reST style to Google style."""
+    lines = textwrap.dedent(docstring).strip().splitlines()
+    params: list[tuple[str, str, str | None]] = []
+    types: dict[str, str] = {}
+    returns = ""
+    rtype = ""
+    other = []
+    for line in lines:
+        m = re.match(r":param\s+(\w+)\s*:\s*(.*)", line)
+        if m:
+            params.append((m.group(1), m.group(2), None))
+            continue
+        m = re.match(r":type\s+(\w+)\s*:\s*(.*)", line)
+        if m:
+            types[m.group(1)] = m.group(2)
+            continue
+        m = re.match(r":returns?\s*:\s*(.*)", line)
+        if m:
+            returns = m.group(1)
+            continue
+        m = re.match(r":rtype\s*:\s*(.*)", line)
+        if m:
+            rtype = m.group(1)
+            continue
+        other.append(line)
+
+    params = [(n, d, types.get(n)) for n, d, _ in params]
+
+    out_lines = [l for l in other if l.strip()]
+    if params:
+        out_lines += ["", "Args:"]
+        for name, desc, typ in params:
+            t = f" ({typ})" if typ else ""
+            out_lines.append(f"    {name}{t}: {desc}".rstrip())
+    if returns:
+        out_lines += ["", "Returns:"]
+        t = f" ({rtype})" if rtype else ""
+        out_lines.append(f"    {returns}{t}".rstrip())
+    return "\n".join(out_lines).strip()
+
+
+def parse_function_signature(obj: object | str) -> str:
+    """Return the function signature from ``obj``."""
+    if callable(obj):
+        try:
+            sig = inspect.signature(obj)
+            return f"{obj.__name__}{sig}"
+        except Exception:
+            return ""
+    if isinstance(obj, str):
+        try:
+            tree = ast.parse(obj)
+        except Exception:
+            return ""
+        for node in tree.body:
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                args = [a.arg for a in node.args.args]
+                if node.args.vararg:
+                    args.append("*" + node.args.vararg.arg)
+                if node.args.kwonlyargs:
+                    args.extend(a.arg for a in node.args.kwonlyargs)
+                if node.args.kwarg:
+                    args.append("**" + node.args.kwarg.arg)
+                return f"{node.name}({', '.join(args)})"
+    return ""

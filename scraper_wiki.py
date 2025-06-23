@@ -36,6 +36,7 @@ import aiohttp
 from training.formats import save_qa_dataset, save_text_corpus
 from urllib.parse import urlparse, urljoin
 import html2text
+import ast
 from typing import List, Dict, Tuple, Optional, Set, Protocol
 from datetime import datetime
 import multiprocessing
@@ -61,6 +62,8 @@ from utils.code import (
     normalize_indentation,
     remove_comments,
     detect_programming_language,
+    docstring_to_google,
+    parse_function_signature,
 )
 from utils.ast_tools import get_functions_complexity
 
@@ -1715,7 +1718,26 @@ class DatasetBuilder:
     ) -> dict:
         code_lang = detect_programming_language(content)
         complexities = {}
+        docstring = ""
+        signature = ""
         if code_lang != "unknown":
+            signature = parse_function_signature(content)
+            try:
+                tree = ast.parse(content)
+                func = next(
+                    (
+                        n
+                        for n in tree.body
+                        if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+                    ),
+                    None,
+                )
+                if func:
+                    ds = ast.get_docstring(func)
+                    if ds:
+                        docstring = docstring_to_google(ds)
+            except Exception:
+                pass
             content = normalize_indentation(remove_comments(content, code_lang))
             complexities = get_functions_complexity(content, code_lang)
             if self.min_complexity is not None and complexities:
@@ -1776,6 +1798,10 @@ class DatasetBuilder:
             record["metadata"]["code_language"] = code_lang
             if complexities:
                 record["metadata"]["complexities"] = complexities
+            if docstring:
+                record["docstring"] = docstring
+            if signature:
+                record["signature"] = signature
         if extra_metadata:
             if "wikidata_id" in extra_metadata:
                 record["wikidata_id"] = extra_metadata["wikidata_id"]
