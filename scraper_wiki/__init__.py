@@ -22,6 +22,7 @@ import csv
 import random
 import logging
 import asyncio
+import inspect
 from tqdm import tqdm
 from unidecode import unidecode
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
@@ -77,6 +78,7 @@ from utils.code import (
 from utils.ast_tools import get_functions_complexity
 from utils.code_sniffer import scan as scan_code
 from utils.contextualizer import search_discussions
+from processing.pipeline import get_pipeline
 
 
 # ============================
@@ -2146,6 +2148,7 @@ class DatasetBuilder:
         progress_desc: str = "Processando páginas",
         use_queue: bool = False,
         client=None,
+        pipeline_name: str | None = None,
     ) -> List[dict]:
         """Process pages locally or enfileira tarefas para processamento."""
         if self.pending_pages:
@@ -2168,6 +2171,9 @@ class DatasetBuilder:
                 if result:
                     self.dataset.append(result)
                 self._update_progress()
+            if pipeline_name:
+                pipe = get_pipeline(pipeline_name)
+                self.dataset = pipe(self.dataset)
             return self.dataset
 
         if not use_queue:
@@ -2213,6 +2219,9 @@ class DatasetBuilder:
                         self.dataset.append(result)
                     self._update_progress()
 
+            if pipeline_name:
+                pipe = get_pipeline(pipeline_name)
+                self.dataset = pipe(self.dataset)
             return self.dataset
 
         # Queue based processing
@@ -2240,10 +2249,16 @@ class DatasetBuilder:
             if processed == total:
                 break
 
+        if pipeline_name:
+            pipe = get_pipeline(pipeline_name)
+            self.dataset = pipe(self.dataset)
         return self.dataset
 
     async def build_from_pages_async(
-        self, pages: List[dict], progress_desc: str = "Processando páginas"
+        self,
+        pages: List[dict],
+        progress_desc: str = "Processando páginas",
+        pipeline_name: str | None = None,
     ) -> List[dict]:
         """Asynchronous version of :meth:`build_from_pages`."""
         if self.pending_pages:
@@ -2283,6 +2298,9 @@ class DatasetBuilder:
                     self.dataset.append(result)
                 self._update_progress()
 
+        if pipeline_name:
+            pipe = get_pipeline(pipeline_name)
+            self.dataset = pipe(self.dataset)
         return self.dataset
 
     def enhance_with_clustering(self):
@@ -2503,7 +2521,16 @@ def main(
 
     logger.info(f"📚 Total de páginas coletadas: {len(all_pages)}")
 
-    builder.build_from_pages(all_pages, "Construindo dataset", client=client)
+    sig = inspect.signature(builder.build_from_pages)
+    if "pipeline_name" in sig.parameters:
+        builder.build_from_pages(
+            all_pages,
+            "Construindo dataset",
+            client=client,
+            pipeline_name="default",
+        )
+    else:
+        builder.build_from_pages(all_pages, "Construindo dataset", client=client)
 
     logger.info("🧠 Aplicando técnicas avançadas de NLP...")
     builder.enhance_with_clustering()
@@ -2617,7 +2644,13 @@ async def main_async(
 
     logger.info(f"📚 Total de páginas coletadas: {len(all_pages)}")
 
-    await builder.build_from_pages_async(all_pages, "Construindo dataset")
+    sig = inspect.signature(builder.build_from_pages_async)
+    if "pipeline_name" in sig.parameters:
+        await builder.build_from_pages_async(
+            all_pages, "Construindo dataset", pipeline_name="default"
+        )
+    else:
+        await builder.build_from_pages_async(all_pages, "Construindo dataset")
 
     logger.info("🧠 Aplicando técnicas avançadas de NLP...")
     builder.enhance_with_clustering()

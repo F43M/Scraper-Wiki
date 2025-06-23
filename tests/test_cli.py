@@ -397,3 +397,20 @@ def test_stop_crawler_cli(monkeypatch):
     result = runner.invoke(cli.app, ["stop-crawler"])
     assert result.exit_code == 0
     assert called.get("ok")
+
+
+def test_process_pipeline_command(tmp_path, monkeypatch):
+    data_file = tmp_path / "data.json"
+    data_file.write_text("[]")
+
+    pp_mod = ModuleType("processing.pipeline")
+    pp_mod.get_pipeline = lambda name="default": (lambda data: [{"done": True}])
+    sys.modules["processing.pipeline"] = pp_mod
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli.app, ["process", str(data_file), "--pipeline", "default"]
+    )
+    assert result.exit_code == 0
+    output = json.loads(data_file.read_text(encoding="utf-8"))
+    assert output == [{"done": True}]
