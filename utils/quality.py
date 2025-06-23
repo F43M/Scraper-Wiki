@@ -3,6 +3,31 @@
 from __future__ import annotations
 
 from typing import Dict, List, Tuple
+import re
+from statistics import mean
+
+POSITIVE_WORDS = {
+    "good",
+    "great",
+    "excellent",
+    "awesome",
+    "nice",
+    "love",
+    "like",
+    "well",
+    "cool",
+}
+
+NEGATIVE_WORDS = {
+    "bad",
+    "terrible",
+    "awful",
+    "hate",
+    "bug",
+    "poor",
+    "worse",
+    "worst",
+}
 
 
 def classify_github_repo(repo: Dict) -> Tuple[str, str]:
@@ -23,6 +48,14 @@ def classify_github_repo(repo: Dict) -> Tuple[str, str]:
     score = repo.get("quality_score")
     if score is None:
         score = stars / (issues + 1)
+
+    commit_freq = repo.get("commit_frequency", 0.0)
+    closure_rate = repo.get("issue_closure_rate", 0.0)
+    maintenance = commit_freq * closure_rate
+
+    popularity = compute_popularity_metrics(repo) / 100.0
+    score += maintenance + popularity
+
     has_tests = repo.get("has_tests") or repo.get("tests")
 
     if score >= 5:
@@ -34,6 +67,14 @@ def classify_github_repo(repo: Dict) -> Tuple[str, str]:
     else:
         quality = "low"
         reason = "low star to issue ratio"
+
+    if maintenance > 1:
+        reason += " and active maintenance"
+    elif maintenance > 0:
+        reason += " and limited maintenance"
+
+    if popularity > 1:
+        reason += " popular project"
 
     if has_tests:
         reason += " with tests"
@@ -61,6 +102,38 @@ def classify_stackoverflow_answer(answer: Dict) -> Tuple[str, str]:
     if score >= 2:
         return "medium", "community upvoted"
     return "low", "low score"
+
+
+def comment_sentiment_score(comment: str) -> float:
+    """Return a simple sentiment polarity score for ``comment``."""
+
+    tokens = re.findall(r"\w+", comment.lower())
+    pos = sum(1 for t in tokens if t in POSITIVE_WORDS)
+    neg = sum(1 for t in tokens if t in NEGATIVE_WORDS)
+    if pos + neg == 0:
+        return 0.0
+    return (pos - neg) / (pos + neg)
+
+
+def analyze_comment_sentiment(comments: List[str]) -> str:
+    """Classify average sentiment of a list of comments."""
+
+    scores = [comment_sentiment_score(c) for c in comments if c]
+    avg = mean(scores) if scores else 0.0
+    if avg > 0.1:
+        return "positive"
+    if avg < -0.1:
+        return "negative"
+    return "neutral"
+
+
+def compute_popularity_metrics(repo: Dict) -> float:
+    """Return a popularity score using stars, forks and watchers."""
+
+    stars = repo.get("stars") or repo.get("stargazers_count", 0)
+    forks = repo.get("forks", 0)
+    watchers = repo.get("watchers", 0)
+    return stars + 0.5 * forks + 0.2 * watchers
 
 
 def balance_quality(records: List[Dict]) -> List[Dict]:

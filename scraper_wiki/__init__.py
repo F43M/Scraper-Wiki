@@ -1840,6 +1840,8 @@ class DatasetBuilder:
             ),
             "quality": None,
             "reason": "",
+            "quality_level": None,
+            "quality_reason": "",
             "questions": questions,
             "answers": answers,
             "relations": relations,
@@ -1860,18 +1862,23 @@ class DatasetBuilder:
             ):
                 q, r = classify_github_repo(extra_metadata)
                 record["quality"], record["reason"] = q, r
+                record["quality_level"], record["quality_reason"] = q, r
             elif "score" in extra_metadata:
                 q, r = classify_stackoverflow_answer(extra_metadata)
                 record["quality"], record["reason"] = q, r
+                record["quality_level"], record["quality_reason"] = q, r
         if record["quality"] is None:
             score = record.get("quality_score", 0.0)
             if score >= 5:
-                record["quality"] = "high"
+                q = "high"
             elif score >= 2:
-                record["quality"] = "medium"
+                q = "medium"
             else:
-                record["quality"] = "low"
+                q = "low"
+            record["quality"] = q
+            record["quality_level"] = q
             record["reason"] = "quality score"
+            record["quality_reason"] = "quality score"
         if code_lang != "unknown":
             record["metadata"]["code_language"] = code_lang
             if complexities:

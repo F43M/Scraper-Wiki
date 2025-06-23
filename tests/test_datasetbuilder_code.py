@@ -121,6 +121,8 @@ def test_generate_qa_pairs_processes_code(monkeypatch):
     ]:
         assert field in result
     assert result["discussion_links"] == ["d1"]
+    assert result["quality_level"] == "low"
+    assert result["quality_reason"] == "quality score"
 
 
 def test_generate_qa_pairs_extracts_docstring_and_signature(monkeypatch):
@@ -142,3 +144,5 @@ def foo(x):
     result = builder.generate_qa_pairs("T", code, "S", "en", "c")
     assert result["docstring"] == "Return x."
     assert result["signature"] == "foo(x)"
+    assert result["quality_level"] == "low"
+    assert result["quality_reason"] == "quality score"
