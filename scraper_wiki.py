@@ -156,6 +156,16 @@ class Config:
     STACKOVERFLOW_API_ENDPOINT = os.environ.get(
         "STACKOVERFLOW_API_ENDPOINT", "https://api.stackexchange.com/2.3"
     )
+
+    # Generic Stack Exchange configuration
+    STACKEXCHANGE_API_KEY = os.environ.get(
+        "STACKEXCHANGE_API_KEY", STACKOVERFLOW_API_KEY
+    )
+    STACKEXCHANGE_API_ENDPOINT = os.environ.get(
+        "STACKEXCHANGE_API_ENDPOINT", STACKOVERFLOW_API_ENDPOINT
+    )
+    STACKEXCHANGE_SITE = os.environ.get("STACKEXCHANGE_SITE", "stackoverflow")
+    STACKEXCHANGE_MIN_SCORE = int(os.environ.get("STACKEXCHANGE_MIN_SCORE", "0"))
     WIKIDATA_API_ENDPOINT = os.environ.get(
         "WIKIDATA_API_ENDPOINT", "https://www.wikidata.org/w/api.php"
     )
