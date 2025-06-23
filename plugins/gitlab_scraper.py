@@ -72,12 +72,19 @@ class GitLabScraper:
             "test" in Path(p).name.lower() or "test" in Path(p).parts[0].lower()
             for p in file_paths
         )
+        stars = repo.get("star_count", 0)
+        issues = repo.get("open_issues_count", 0)
+        quality_score = stars / (issues + 1)
         return {
             "repository": repo.get("path_with_namespace"),
-            "stars": repo.get("star_count", 0),
-            "open_issues": repo.get("open_issues_count", 0),
+            "stars": stars,
+            "open_issues": issues,
             "has_tests": has_tests,
             "files": file_paths,
+            "context": repo.get("description", ""),
+            "tests": has_tests,
+            "docstring": "",
+            "quality_score": quality_score,
         }
 
 

@@ -63,6 +63,10 @@ class StackExchangePlugin(Plugin):
             "link": item.get("link", ""),
             "content": clean,
             "tags": tag_data,
+            "context": item.get("title", ""),
+            "tests": [],
+            "docstring": "",
+            "quality_score": item.get("score", 0),
         }
 
 

@@ -1785,11 +1785,17 @@ class DatasetBuilder:
             "tags": tags,
             "content": content,
             "summary": summary,
+            "context": summary,
             "content_embedding": content_embedding.tolist(),
             "summary_embedding": summary_embedding.tolist(),
+            "quality_score": (
+                extra_metadata.get("quality_score", 0.0) if extra_metadata else 0.0
+            ),
             "questions": questions,
             "answers": answers,
             "relations": relations,
+            "tests": extra_metadata.get("tests", []) if extra_metadata else [],
+            "docstring": docstring,
             "created_at": datetime.utcnow().isoformat(),
             "metadata": {
                 "length": len(content),

@@ -415,6 +415,34 @@ G = relations_to_graph(data['relations'])
 nx.write_graphml(G, 'relations.graphml')
 ```
 
+#### Exemplo de registro
+
+```json
+{
+  "id": "123abc",
+  "title": "Title",
+  "language": "en",
+  "category": "History",
+  "topic": "computing",
+  "subtopic": "pioneers",
+  "keywords": ["Ada"],
+  "tags": [],
+  "content": "Ada worked at IBM.",
+  "summary": "Ada summary",
+  "context": "Ada summary",
+  "content_embedding": [0.0],
+  "summary_embedding": [0.0],
+  "quality_score": 0.0,
+  "tests": [],
+  "questions": [{"text": "Who was Ada?"}],
+  "answers": [{"text": "Ada worked at IBM."}],
+  "relations": [],
+  "docstring": "",
+  "created_at": "2024-01-01T00:00:00",
+  "metadata": {"source": "wikipedia", "length": 17}
+}
+```
+
 ### Fine-tuning de Modelos de Código
 
 O plugin `github_scraper` permite coletar READMEs e arquivos de projetos no

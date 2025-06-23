@@ -80,12 +80,19 @@ class CodeExtractor:
             "test" in Path(p).parts[0].lower() or "test" in Path(p).name.lower()
             for p in file_paths
         )
+        stars = repo.get("stargazers_count", 0)
+        issues = repo.get("open_issues_count", 0)
+        quality_score = stars / (issues + 1)
         return {
             "repository": full_name,
-            "stars": repo.get("stargazers_count", 0),
-            "open_issues": repo.get("open_issues_count", 0),
+            "stars": stars,
+            "open_issues": issues,
             "has_tests": has_tests,
             "files": file_paths,
+            "context": repo.get("description", ""),
+            "tests": has_tests,
+            "docstring": "",
+            "quality_score": quality_score,
         }
 
 
