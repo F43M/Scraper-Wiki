@@ -122,6 +122,8 @@ def foo():
     result = builder.generate_qa_pairs("T", code, "S", "en", "c")
     assert result["metadata"]["code_language"] == "python"
     assert result["context"] == "Doc."
+    for f in ["diagram_path", "theory_links", "explanations"]:
+        assert f in result
 
 
 def test_parsers_javascript(monkeypatch):
@@ -130,6 +132,8 @@ def test_parsers_javascript(monkeypatch):
     result = builder.generate_qa_pairs("T", code, "S", "en", "c")
     assert result["metadata"]["code_language"] == "javascript"
     assert result["context"] == "comment"
+    for f in ["diagram_path", "theory_links", "explanations"]:
+        assert f in result
 
 
 def test_parsers_java(monkeypatch):
@@ -138,6 +142,8 @@ def test_parsers_java(monkeypatch):
     result = builder.generate_qa_pairs("T", code, "S", "en", "c")
     assert result["metadata"]["code_language"] == "java"
     assert result["context"] == "hi"
+    for f in ["diagram_path", "theory_links", "explanations"]:
+        assert f in result
 
 
 def test_gitlab_scraper_search(monkeypatch):

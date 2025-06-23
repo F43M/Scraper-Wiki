@@ -118,6 +118,9 @@ def test_generate_qa_pairs_processes_code(monkeypatch):
         "origin_metrics",
         "challenge",
         "discussion_links",
+        "diagram_path",
+        "theory_links",
+        "explanations",
     ]:
         assert field in result
     assert result["discussion_links"] == ["d1"]
@@ -144,5 +147,7 @@ def foo(x):
     result = builder.generate_qa_pairs("T", code, "S", "en", "c")
     assert result["docstring"] == "Return x."
     assert result["signature"] == "foo(x)"
+    for field in ["diagram_path", "theory_links", "explanations"]:
+        assert field in result
     assert result["quality_level"] == "low"
     assert result["quality_reason"] == "quality score"
