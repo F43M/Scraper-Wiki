@@ -8,6 +8,16 @@ sys.path.insert(0, str(ROOT))
 sw = importlib.import_module("scraper_wiki")
 
 
+class DummyEmbed:
+    def encode(self, *a, **k):
+        import numpy as np
+
+        return np.array([0.0])
+
+
+sw.NLPProcessor.get_embedding_model = classmethod(lambda cls: DummyEmbed())
+
+
 def _setup_builder(monkeypatch, **kwargs):
     builder = sw.DatasetBuilder(**kwargs)
     monkeypatch.setattr(builder, "_generate_questions", lambda *a, **k: [])

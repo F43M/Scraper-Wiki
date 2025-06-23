@@ -11,6 +11,8 @@ from .code import (
     normalize_indentation,
     remove_comments,
     detect_programming_language,
+    docstring_to_google,
+    parse_function_signature,
 )
 from .ast_tools import parse_code, get_functions_complexity
 
@@ -26,6 +28,8 @@ __all__ = [
     "normalize_indentation",
     "remove_comments",
     "detect_programming_language",
+    "docstring_to_google",
+    "parse_function_signature",
     "parse_code",
     "get_functions_complexity",
 ]
