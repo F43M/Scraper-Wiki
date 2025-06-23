@@ -31,3 +31,4 @@ googletrans==4.0.0rc1
 PyPDF2>=3.0.1
 fpdf>=1.7.2
 pdfminer.six>=2024.0.0
+antlr4-python3-runtime>=4.13

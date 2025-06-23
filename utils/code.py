@@ -3,6 +3,8 @@ import textwrap
 import inspect
 import ast
 
+from parsers import get_parser
+
 
 def normalize_indentation(code: str) -> str:
     """Return ``code`` with common indentation removed."""
@@ -117,3 +119,28 @@ def parse_function_signature(obj: object | str) -> str:
                     args.append("**" + node.args.kwarg.arg)
                 return f"{node.name}({', '.join(args)})"
     return ""
+
+
+def parse_with_language(code: str, language: str) -> bool:
+    """Parse ``code`` using the parser for ``language``."""
+    parser = get_parser(language)
+    if parser:
+        return parser.parse(code)
+    return False
+
+
+def extract_context_from_code(code: str, language: str) -> str:
+    """Return context extracted from ``code`` using ``language`` parser."""
+    parser = get_parser(language)
+    if parser:
+        return parser.extract_context(code)
+    return ""
+
+
+def parse_with_detected_language(code: str) -> tuple[str, bool]:
+    """Detect language of ``code`` and parse it.
+
+    Returns the detected language and whether parsing succeeded.
+    """
+    lang = detect_programming_language(code)
+    return lang, parse_with_language(code, lang)

@@ -71,6 +71,8 @@ from utils.code import (
     detect_programming_language,
     docstring_to_google,
     parse_function_signature,
+    parse_with_language,
+    extract_context_from_code,
 )
 from utils.ast_tools import get_functions_complexity
 from utils.code_sniffer import scan as scan_code
@@ -1744,7 +1746,13 @@ class DatasetBuilder:
         signature = ""
         problems: list[str] = []
         fixed_version = content
+        parse_ok = True
+        context_from_code = ""
         if code_lang != "unknown":
+            parse_ok = parse_with_language(content, code_lang)
+            context_from_code = extract_context_from_code(content, code_lang)
+            if not parse_ok:
+                return {}
             signature = parse_function_signature(content)
             try:
                 tree = ast.parse(content)
@@ -1813,7 +1821,7 @@ class DatasetBuilder:
             "content": content,
             "raw_code": raw_code if code_lang != "unknown" else "",
             "summary": summary,
-            "context": summary,
+            "context": context_from_code or summary,
             "problems": problems,
             "fixed_version": fixed_version,
             "lessons": extra_metadata.get("lessons", "") if extra_metadata else "",

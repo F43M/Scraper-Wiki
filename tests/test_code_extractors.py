@@ -96,6 +96,50 @@ def test_collect_repository_data(monkeypatch):
         assert field in data
 
 
+def _setup_builder(monkeypatch):
+    import tests.test_datasetbuilder_code as tdc  # reuse stubs
+
+    sw = importlib.import_module("scraper_wiki")
+    builder = sw.DatasetBuilder()
+    monkeypatch.setattr(builder, "_generate_questions", lambda *a, **k: [])
+    monkeypatch.setattr(builder, "_generate_answers", lambda *a, **k: [])
+    monkeypatch.setattr(sw, "extract_relations", lambda *a, **k: [])
+    import numpy as np
+
+    monkeypatch.setattr(
+        builder.embedding_model, "encode", lambda *a, **k: np.array([0.0])
+    )
+    return builder
+
+
+def test_parsers_python(monkeypatch):
+    builder = _setup_builder(monkeypatch)
+    code = """\
+def foo():
+    \"\"\"Doc.\"\"\"
+    return 1
+"""
+    result = builder.generate_qa_pairs("T", code, "S", "en", "c")
+    assert result["metadata"]["code_language"] == "python"
+    assert result["context"] == "Doc."
+
+
+def test_parsers_javascript(monkeypatch):
+    builder = _setup_builder(monkeypatch)
+    code = "/* comment */\nfunction foo() { return 1; }"
+    result = builder.generate_qa_pairs("T", code, "S", "en", "c")
+    assert result["metadata"]["code_language"] == "javascript"
+    assert result["context"] == "comment"
+
+
+def test_parsers_java(monkeypatch):
+    builder = _setup_builder(monkeypatch)
+    code = "/* hi */ public class Foo { public static void main(String[] a) {} }"
+    result = builder.generate_qa_pairs("T", code, "S", "en", "c")
+    assert result["metadata"]["code_language"] == "java"
+    assert result["context"] == "hi"
+
+
 def test_gitlab_scraper_search(monkeypatch):
     import requests
 
