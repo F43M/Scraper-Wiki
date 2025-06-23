@@ -1,3 +1,5 @@
+"""Streamlit dashboard to visualize scraping statistics."""
+
 import json
 import os
 from pathlib import Path
@@ -71,7 +73,9 @@ def load_metrics():
         )
         resp.raise_for_status()
         count_data = resp.json()
-        if sum_data.get("data", {}).get("result") and count_data.get("data", {}).get("result"):
+        if sum_data.get("data", {}).get("result") and count_data.get("data", {}).get(
+            "result"
+        ):
             total = float(sum_data["data"]["result"][0]["value"][1])
             count = float(count_data["data"]["result"][0]["value"][1])
             if count:
@@ -92,7 +96,9 @@ def load_metrics():
         )
         resp.raise_for_status()
         sess_count = resp.json()
-        if sess_sum.get("data", {}).get("result") and sess_count.get("data", {}).get("result"):
+        if sess_sum.get("data", {}).get("result") and sess_count.get("data", {}).get(
+            "result"
+        ):
             total = float(sess_sum["data"]["result"][0]["value"][1])
             count = float(sess_count["data"]["result"][0]["value"][1])
             if count:
