@@ -24,6 +24,7 @@ AVAILABLE_PLUGINS = {
     "api_docs": "api_docs",
     "competitions": "competitions",
     "codepen_scraper": "codepen_scraper",
+    "legacy_forums": "legacy_forums",
 }
 
 
