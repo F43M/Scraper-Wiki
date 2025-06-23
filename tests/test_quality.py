@@ -50,3 +50,25 @@ def test_balance_quality_truncates_groups():
         for q in ["high", "medium", "low"]
     }
     assert counts == {"high": 1, "medium": 1, "low": 1}
+
+
+def test_analyze_comment_sentiment_positive():
+    comments = ["Great job", "I love it"]
+    assert quality.analyze_comment_sentiment(comments) == "positive"
+
+
+def test_analyze_comment_sentiment_negative():
+    comments = ["terrible bug", "bad"]
+    assert quality.analyze_comment_sentiment(comments) == "negative"
+
+
+def test_classify_github_repo_with_maintenance():
+    repo = {
+        "stars": 2,
+        "open_issues": 1,
+        "commit_frequency": 5,
+        "issue_closure_rate": 0.9,
+    }
+    q, reason = quality.classify_github_repo(repo)
+    assert q == "high"
+    assert "maintenance" in reason
