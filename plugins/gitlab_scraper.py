@@ -25,7 +25,11 @@ class GitLabScraper:
         return headers
 
     def search_repositories(
-        self, language: str, min_stars: int, per_page: int = 20
+        self,
+        language: str,
+        min_stars: int,
+        per_page: int = 20,
+        since: str | None = None,
     ) -> List[Dict]:
         """Return GitLab projects filtered by language and star count."""
         params = {
@@ -35,6 +39,8 @@ class GitLabScraper:
             "per_page": per_page,
             "simple": True,
         }
+        if since:
+            params["last_activity_after"] = since
         resp = requests.get(
             f"{self.api_url}/projects",
             headers=self._headers(),

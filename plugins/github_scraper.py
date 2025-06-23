@@ -43,20 +43,21 @@ class GitHubScraper:
         resp.raise_for_status()
         return resp.json()
 
-    def get_commits(self, repo_url: str) -> List[Dict]:
+    def get_commits(self, repo_url: str, since: str | None = None) -> List[Dict]:
         """Return commit metadata for the repository."""
         owner, repo = self._parse_repo(repo_url)
         url = f"{self.api_url}/repos/{owner}/{repo}/commits"
-        resp = requests.get(url, headers=self._headers())
+        params = {"since": since} if since else None
+        resp = requests.get(url, headers=self._headers(), params=params)
         resp.raise_for_status()
         return resp.json()
 
     def get_issue_commit_pairs(
-        self, repo_url: str, state: str = "closed"
+        self, repo_url: str, state: str = "closed", since: str | None = None
     ) -> List[Tuple[Dict, Dict]]:
         """Return pairs of issues and commits that reference them."""
         issues = self.get_issues(repo_url, state=state)
-        commits = self.get_commits(repo_url)
+        commits = self.get_commits(repo_url, since=since)
         pairs: List[Tuple[Dict, Dict]] = []
         for issue in issues:
             number = issue.get("number")
@@ -70,10 +71,12 @@ class GitHubScraper:
                     break
         return pairs
 
-    def build_problem_solution_records(self, repo_url: str) -> List[Dict]:
+    def build_problem_solution_records(
+        self, repo_url: str, since: str | None = None
+    ) -> List[Dict]:
         """Return dataset records combining issues and closing commits."""
         records = []
-        for issue, commit in self.get_issue_commit_pairs(repo_url):
+        for issue, commit in self.get_issue_commit_pairs(repo_url, since=since):
             problem = f"{issue.get('title', '')}\n\n{issue.get('body', '')}"
             solution = commit.get("commit", {}).get("message", "")
             records.append({"problem": problem, "solution": solution})

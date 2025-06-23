@@ -113,6 +113,9 @@ def scrape(
     train: bool = typer.Option(
         False, "--train", help="Executa conversões para treinamento"
     ),
+    incremental: bool = typer.Option(
+        False, "--incremental", help="Busca apenas novos itens", is_flag=True
+    ),
 ):
     """Executa o scraper imediatamente."""
     lang = lang or None
@@ -167,7 +170,7 @@ def scrape(
         plg = load_plugin(plugin)
         languages = lang or scraper_wiki.Config.LANGUAGES
         categories = cats or list(scraper_wiki.Config.CATEGORIES)
-        run_plugin(plg, languages, categories, fmt)
+        run_plugin(plg, languages, categories, fmt, incremental=incremental)
 
 
 @app.command()
