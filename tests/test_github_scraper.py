@@ -77,8 +77,18 @@ def test_issue_commit_pairs(monkeypatch):
         if url.endswith("/issues"):
             return DummyResp(
                 data=[
-                    {"number": 1, "title": "Bug", "body": "Fix bug"},
-                    {"number": 2, "title": "Feature", "body": "Add feature"},
+                    {
+                        "number": 1,
+                        "title": "Bug",
+                        "body": "Fix bug",
+                        "html_url": "https://gh/1",
+                    },
+                    {
+                        "number": 2,
+                        "title": "Feature",
+                        "body": "Add feature",
+                        "html_url": "https://gh/2",
+                    },
                 ]
             )
         if url.endswith("/commits"):
@@ -97,6 +107,14 @@ def test_issue_commit_pairs(monkeypatch):
     assert len(pairs) == 2
     records = scraper.build_problem_solution_records("https://github.com/user/repo")
     assert records == [
-        {"problem": "Bug\n\nFix bug", "solution": "Fix bug\n\nCloses #1"},
-        {"problem": "Feature\n\nAdd feature", "solution": "Add feature #2"},
+        {
+            "problem": "Bug\n\nFix bug",
+            "solution": "Fix bug\n\nCloses #1",
+            "discussion_links": ["https://gh/1"],
+        },
+        {
+            "problem": "Feature\n\nAdd feature",
+            "solution": "Add feature #2",
+            "discussion_links": ["https://gh/2"],
+        },
     ]

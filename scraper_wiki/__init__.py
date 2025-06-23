@@ -76,6 +76,7 @@ from utils.code import (
 )
 from utils.ast_tools import get_functions_complexity
 from utils.code_sniffer import scan as scan_code
+from utils.contextualizer import search_discussions
 
 
 # ============================
@@ -1882,6 +1883,15 @@ class DatasetBuilder:
                 record["wikidata_id"] = extra_metadata["wikidata_id"]
             if "image_url" in extra_metadata:
                 record["image_url"] = extra_metadata["image_url"]
+            if "discussion_links" in extra_metadata:
+                record["discussion_links"] = extra_metadata["discussion_links"]
+
+        if "discussion_links" not in record:
+            try:
+                links = search_discussions(record["id"])
+            except Exception:
+                links = []
+            record["discussion_links"] = links
         try:
             storage_sqlite.save_to_db(
                 {"id": record["id"], "metadata": record.get("metadata", {})}
