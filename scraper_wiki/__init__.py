@@ -58,6 +58,11 @@ import metrics
 import storage_sqlite
 from utils.text import clean_text, extract_entities
 from utils.relation import extract_relations, extract_relations_regex
+from utils.quality import (
+    classify_github_repo,
+    classify_stackoverflow_answer,
+    balance_quality,
+)
 from utils.cleaner import clean_wiki_text, split_sentences
 from utils.code import (
     normalize_indentation,
@@ -408,14 +413,11 @@ def log_failed_url(url: str) -> None:
 
 
 class CacheBackend(Protocol):
-    def get(self, key: str):
-        ...
+    def get(self, key: str): ...
 
-    def set(self, key: str, data, ttl: Optional[int] = None):
-        ...
+    def set(self, key: str, data, ttl: Optional[int] = None): ...
 
-    def stats(self) -> dict:
-        ...
+    def stats(self) -> dict: ...
 
 
 class FileCache(CacheBackend):
@@ -1705,9 +1707,9 @@ class DatasetBuilder:
             images = extract_images(getattr(page, "_html", ""))
             qa_data["images"] = images
             if self.include_revisions:
-                qa_data.setdefault("metadata", {})[
-                    "revisions"
-                ] = wiki.get_revision_history(page_info["title"], self.rev_limit)
+                qa_data.setdefault("metadata", {})["revisions"] = (
+                    wiki.get_revision_history(page_info["title"], self.rev_limit)
+                )
             metrics.scrape_success.inc()
             metrics.pages_scraped_total.inc()
             return qa_data
@@ -1808,6 +1810,8 @@ class DatasetBuilder:
             "quality_score": (
                 extra_metadata.get("quality_score", 0.0) if extra_metadata else 0.0
             ),
+            "quality": None,
+            "reason": "",
             "questions": questions,
             "answers": answers,
             "relations": relations,
@@ -1820,6 +1824,26 @@ class DatasetBuilder:
                 "source_url": f"{get_base_url(lang)}/wiki/{title.replace(' ', '_')}",
             },
         }
+
+        # Determine quality classification when possible
+        if extra_metadata:
+            if any(
+                k in extra_metadata for k in ["stars", "stargazers_count", "repository"]
+            ):
+                q, r = classify_github_repo(extra_metadata)
+                record["quality"], record["reason"] = q, r
+            elif "score" in extra_metadata:
+                q, r = classify_stackoverflow_answer(extra_metadata)
+                record["quality"], record["reason"] = q, r
+        if record["quality"] is None:
+            score = record.get("quality_score", 0.0)
+            if score >= 5:
+                record["quality"] = "high"
+            elif score >= 2:
+                record["quality"] = "medium"
+            else:
+                record["quality"] = "low"
+            record["reason"] = "quality score"
         if code_lang != "unknown":
             record["metadata"]["code_language"] = code_lang
             if complexities:
@@ -2249,6 +2273,12 @@ class DatasetBuilder:
         if not self.dataset:
             logger.warning("Nenhum dado para salvar")
             return
+
+        # Balance records by quality before further processing
+        try:
+            self.dataset = balance_quality(self.dataset)
+        except Exception:
+            pass
 
         for rec in self.dataset:
             if "content" in rec:
