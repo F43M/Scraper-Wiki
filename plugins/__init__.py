@@ -26,6 +26,7 @@ AVAILABLE_PLUGINS = {
     "codepen_scraper": "codepen_scraper",
     "legacy_forums": "legacy_forums",
     "pdf_books": "pdf_books",
+    "bug_history_scraper": "bug_history_scraper",
 }
 
 
