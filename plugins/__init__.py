@@ -27,6 +27,15 @@ AVAILABLE_PLUGINS = {
     "legacy_forums": "legacy_forums",
     "pdf_books": "pdf_books",
     "bug_history_scraper": "bug_history_scraper",
+    "mdn_docs": "mdn_docs",
+    "devdocs": "devdocs",
+    "university_courses": "university_courses",
+    "rfc_scraper": "rfc_scraper",
+    "npm_packages": "npm_packages",
+    "pip_packages": "pip_packages",
+    "cran_packages": "cran_packages",
+    "jira_scraper": "jira_scraper",
+    "bugzilla_scraper": "bugzilla_scraper",
 }
 
 
