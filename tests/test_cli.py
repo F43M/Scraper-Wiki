@@ -414,3 +414,37 @@ def test_process_pipeline_command(tmp_path, monkeypatch):
     assert result.exit_code == 0
     output = json.loads(data_file.read_text(encoding="utf-8"))
     assert output == [{"done": True}]
+
+
+def test_auto_scrape_command(monkeypatch):
+    records = []
+
+    class DummyScraper:
+        def __init__(self, base_url, driver_path=None, headless=True):
+            self.base_url = base_url
+            self.driver = SimpleNamespace(page_source="")
+
+        def fetch_page(self, url):
+            records.append(url)
+            return {"url": url}
+
+        def close(self):
+            pass
+
+    auto_mod = ModuleType("crawling.auto_learner")
+    auto_mod.AutoLearnerScraper = DummyScraper
+    sys.modules["crawling.auto_learner"] = auto_mod
+    import importlib
+
+    core = importlib.import_module("core")
+
+    monkeypatch.setattr(core, "AutoLearnerScraper", DummyScraper)
+    runner = CliRunner()
+    result = runner.invoke(
+        cli.app,
+        ["auto-scrape", "http://example.com/page", "--depth", "0", "--threads", "2"],
+    )
+
+    assert result.exit_code == 0
+    assert records == ["http://example.com/page"]
+    assert json.loads(result.output) == [{"url": "http://example.com/page"}]

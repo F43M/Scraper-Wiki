@@ -248,6 +248,70 @@ def search_cli(query: str):
     typer.echo(json.dumps(results, ensure_ascii=False))
 
 
+@app.command("auto-scrape")
+def auto_scrape(
+    start_url: List[str] = typer.Argument(..., help="URL inicial para coleta"),
+    depth: int = typer.Option(1, "--depth", help="Profundidade de navegação"),
+    threads: int = typer.Option(
+        scraper_wiki.Config.MAX_THREADS,
+        "--threads",
+        help="Número de threads",
+    ),
+):
+    """Rastreia páginas dinâmicas usando ``AutoLearnerScraper``."""
+    from concurrent.futures import ThreadPoolExecutor
+    from urllib.parse import urlparse
+
+    from core import AutoLearnerScraper
+
+    scraper_wiki.Config.MAX_THREADS = threads
+
+    scrapers: dict[str, AutoLearnerScraper] = {}
+
+    def get_scraper(url: str) -> AutoLearnerScraper:
+        parsed = urlparse(url)
+        base = f"{parsed.scheme}://{parsed.netloc}"
+        sc = scrapers.get(base)
+        if sc is None:
+            sc = AutoLearnerScraper(base)
+            scrapers[base] = sc
+        return sc
+
+    def process(url_depth: tuple[str, int]):
+        url, cur_depth = url_depth
+        sc = get_scraper(url)
+        record = sc.fetch_page(url)
+        links = []
+        if cur_depth < depth:
+            html = sc.driver.page_source
+            links = scraper_wiki.extract_links(html, sc.base_url)
+        return record, links, cur_depth
+
+    results = []
+    queue: list[tuple[str, int]] = [(u, 0) for u in start_url]
+    visited: set[str] = set()
+
+    with ThreadPoolExecutor(max_workers=threads) as executor:
+        while queue:
+            batch = []
+            while queue and len(batch) < threads:
+                batch.append(queue.pop(0))
+            futures = [executor.submit(process, item) for item in batch]
+            for fut in futures:
+                record, links, cur_depth = fut.result()
+                results.append(record)
+                visited.add(record["url"])
+                if cur_depth < depth:
+                    for link in links:
+                        if link not in visited:
+                            queue.append((link, cur_depth + 1))
+
+    for sc in scrapers.values():
+        sc.close()
+
+    typer.echo(json.dumps(results, ensure_ascii=False))
+
+
 @app.command("process")
 def process_pipeline(
     dataset: str = typer.Argument(..., help="Caminho do dataset"),
