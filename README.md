@@ -12,12 +12,12 @@ pdoc -o docs -d google integrations core plugins utils api
 
 ## Instalação
 
-Use o arquivo `requirements.txt` para instalar as dependências:
+Instale as dependências com `poetry`:
 
 O projeto requer **Python 3.11** ou superior.
 
 ```bash
-pip install -r requirements.txt
+poetry install
 ```
 
 ## Uso via linha de comando
@@ -575,11 +575,10 @@ As imagens podem ser publicadas em um registro e implantadas em plataformas como
 ## Notebooks de Exemplo
 
 Os notebooks ficam em `examples/` e demonstram como utilizar os dados
-para treinamento de modelos. Para executá-los, instale as dependências e
+para treinamento de modelos. Para executá-los, instale as dependências com `poetry` e
 abra o Jupyter:
 
 ```bash
-pip install -r requirements.txt jupyter
 jupyter notebook examples/ner_training.ipynb
 ```
 
