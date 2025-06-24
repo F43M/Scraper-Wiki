@@ -2355,6 +2355,11 @@ class DatasetBuilder:
             self.dataset = pipe(self.dataset)
         return self.dataset
 
+    def add_io_pairs(self, pairs: List[dict]) -> None:
+        """Append input/output ``pairs`` to :attr:`qa_pairs`."""
+
+        self.qa_pairs.extend(pairs)
+
     def enhance_with_clustering(self):
         if not self.dataset:
             return
