@@ -1,6 +1,6 @@
 import json
 import sqlite3
-from storage_sqlite import (
+from integrations.storage_sqlite import (
     save_to_db,
     get_last_processed,
     set_last_processed,

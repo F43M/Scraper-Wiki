@@ -252,17 +252,17 @@ class PostgreSQLStorage(StorageBackend):
 
 
 try:  # pragma: no cover - optional backends
-    from storage_datalake import DatalakeStorage
+    from integrations.storage_datalake import DatalakeStorage
 except Exception:  # pragma: no cover - missing deps
     DatalakeStorage = None
 
 try:  # pragma: no cover - optional backends
-    from storage_graph import GraphStorage
+    from integrations.storage_graph import GraphStorage
 except Exception:
     GraphStorage = None
 
 try:  # pragma: no cover - optional backends
-    from storage_vector import VectorStorage
+    from integrations.storage_vector import VectorStorage
 except Exception:
     VectorStorage = None
 

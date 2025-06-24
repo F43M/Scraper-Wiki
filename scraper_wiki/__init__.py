@@ -66,10 +66,10 @@ from sumy.parsers.plaintext import PlaintextParser
 from sumy.nlp.tokenizers import Tokenizer
 from sumy.summarizers.lsa import LsaSummarizer
 import sqlite3
-import storage
+from integrations import storage
 import dq
 import metrics
-import storage_sqlite
+from integrations import storage_sqlite
 from utils.text import clean_text, extract_entities
 from utils.relation import extract_relations, extract_relations_regex
 from utils.quality import (

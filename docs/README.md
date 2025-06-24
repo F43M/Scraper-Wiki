@@ -11,5 +11,5 @@ The HTML files will be created under `docs/_build`. Open `index.html` in your br
 To generate the simplified HTML documentation using `pdoc` run:
 
 ```bash
-pdoc -o docs -d google scraper_wiki
+pdoc -o docs -d google integrations core plugins utils api
 ```

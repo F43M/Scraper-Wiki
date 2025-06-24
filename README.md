@@ -6,7 +6,7 @@ A documentação da API está disponível em [docs/_build/index.html](docs/_buil
 Para gerar a documentação HTML utilize:
 
 ```bash
-pdoc -o docs -d google scraper_wiki crawling/auto_learner.py
+pdoc -o docs -d google integrations core plugins utils api
 ```
 
 
@@ -292,7 +292,7 @@ first["entities"] = extract_entities(clean_text(first["content"]))
 Inicie a API executando:
 
 ```bash
-uvicorn api_app:app --reload
+uvicorn api.api_app:app --reload
 ```
 
 Envie uma requisição `POST /scrape` com um JSON contendo `lang`, `category` e `format` para gerar o dataset.
