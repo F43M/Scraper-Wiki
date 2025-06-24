@@ -422,6 +422,17 @@ informações básicas sobre o conjunto criado:
 - `collection_date`: data da coleta no formato `AAAA-MM-DD`;
 - `license`: licença aplicável, padrão `"CC BY-SA 4.0"`.
 
+### Publicação no Hugging Face
+
+Utilize a função `publish_hf_dataset` em `training.formats` para enviar o
+dataset diretamente para o Hub. Basta informar o repositório de destino e um
+token válido:
+
+```python
+from training.formats import publish_hf_dataset
+publish_hf_dataset(records, "usuario/meu-dataset", token="hf_xxx")
+```
+
 ## Integração com frameworks de ML
 
 Os arquivos gerados em `training/` permitem treinar modelos de NLP de forma simples. A seguir alguns exemplos.
@@ -577,4 +588,6 @@ um treinamento rápido de NER com Transformers. Outros notebooks disponíveis
 incluem `qa_training.ipynb`, que mostra como filtrar por tópico e idioma para
 fazer fine-tuning de um modelo de Perguntas e Respostas, e `filtering.ipynb`,
 que demonstra como selecionar artigos por categoria ou linguagem e exportar
-subconjuntos do dataset.
+subconjuntos do dataset. Novos notebooks `jax_fine_tuning.ipynb` e
+`lightning_fine_tuning.ipynb` apresentam exemplos de treino usando JAX/Flax e
+PyTorch Lightning.
