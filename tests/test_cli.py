@@ -19,6 +19,29 @@ sys.modules.setdefault("spacy", SimpleNamespace(load=lambda *a, **k: None))
 sys.modules.setdefault("unidecode", SimpleNamespace(unidecode=lambda x: x))
 sys.modules.setdefault("tqdm", SimpleNamespace(tqdm=lambda x, **k: x))
 sys.modules.setdefault("html2text", SimpleNamespace())
+ua_mod = ModuleType("fake_useragent")
+
+
+class _DummyUA:
+    def __init__(self, *a, **k):
+        self.random = "test-agent"
+
+
+ua_mod.UserAgent = _DummyUA
+sys.modules.setdefault("fake_useragent", ua_mod)
+
+selenium_stub = ModuleType("selenium")
+webdriver_stub = ModuleType("selenium.webdriver")
+webdriver_stub.Chrome = object
+webdriver_stub.ChromeOptions = object
+by_stub = ModuleType("selenium.webdriver.common.by")
+by_stub.By = SimpleNamespace(ID="id", CSS_SELECTOR="css")
+sys.modules.setdefault("selenium", selenium_stub)
+sys.modules.setdefault("selenium.webdriver", webdriver_stub)
+sys.modules.setdefault(
+    "selenium.webdriver.common", ModuleType("selenium.webdriver.common")
+)
+sys.modules.setdefault("selenium.webdriver.common.by", by_stub)
 wiki_mod = ModuleType("wikipediaapi")
 wiki_mod.WikipediaException = Exception
 wiki_mod.Namespace = SimpleNamespace(MAIN=0, CATEGORY=14)
