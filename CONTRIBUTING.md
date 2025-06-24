@@ -39,7 +39,7 @@ black .
 HTML API documentation is generated with **pdoc**. After changing modules or docstrings, run:
 
 ```bash
-pdoc -o docs -d google scraper_wiki
+pdoc -o docs -d google integrations core plugins utils api
 ```
 
 The output will appear inside the `docs/` directory.

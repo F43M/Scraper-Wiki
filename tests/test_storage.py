@@ -25,7 +25,7 @@ sys.modules["tensorflow"] = SimpleNamespace(
     io=SimpleNamespace(TFRecordWriter=DummyWriter)
 )
 
-from storage import LocalStorage
+from integrations.storage import LocalStorage
 
 
 def test_save_tfrecord(tmp_path):
@@ -56,7 +56,7 @@ def test_s3_save_tfrecord(monkeypatch):
     )
     import importlib
 
-    storage_mod = importlib.reload(importlib.import_module("storage"))
+    storage_mod = importlib.reload(importlib.import_module("integrations.storage"))
     s3 = storage_mod.S3Storage("bucket", prefix="pre", client=dummy)
     data = [{"x": 1}]
     s3.save_dataset(data, fmt="tfrecord", version="2.0.0")

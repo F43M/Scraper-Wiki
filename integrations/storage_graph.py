@@ -1,5 +1,5 @@
 from typing import List
-from storage import StorageBackend
+from integrations.storage import StorageBackend
 
 
 class GraphStorage(StorageBackend):

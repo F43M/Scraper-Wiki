@@ -12,7 +12,7 @@ def _reload(monkeypatch, modules=None):
     if modules:
         for name, mod in modules.items():
             monkeypatch.setitem(sys.modules, name, mod)
-    return importlib.reload(importlib.import_module("storage"))
+    return importlib.reload(importlib.import_module("integrations.storage"))
 
 
 def test_get_backend_postgres(monkeypatch, tmp_path):

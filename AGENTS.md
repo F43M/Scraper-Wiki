@@ -38,7 +38,7 @@ Code should follow **PEP8** and be formatted with **black** (88 characters per l
 Generate HTML documentation using `pdoc`:
 
 ```bash
-pdoc -o docs -d google scraper_wiki
+pdoc -o docs -d google integrations core plugins utils api
 ```
 
 The output will be placed in the `docs/` directory.
@@ -46,7 +46,7 @@ The output will be placed in the `docs/` directory.
 ## Repository Structure
 
 - `cli.py`, `click_cli.py` – command line interfaces.
-- `api_app.py` – FastAPI server exposing the scraping API.
+- `api/api_app.py` – FastAPI server exposing the scraping API.
 - `plugins/` – optional extensions such as `wikidata` and `stackoverflow` parsers.
 - `utils/` – text cleaning and helper modules.
 - `training/` – utilities for training machine learning models.

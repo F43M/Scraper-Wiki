@@ -6,7 +6,7 @@ from datetime import datetime
 
 from core.builder import DatasetBuilder
 from .base import Plugin
-import storage_sqlite
+from integrations import storage_sqlite
 
 # Mapping of available plugin names to module paths
 AVAILABLE_PLUGINS = {
