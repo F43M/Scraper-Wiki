@@ -97,6 +97,7 @@ from enrichment.generator import (
     generate_explanations,
     link_theory,
 )
+from utils.sonarqube import analyze_code
 
 
 # ============================
@@ -1933,6 +1934,10 @@ class DatasetBuilder:
                 "source_url": f"{get_base_url(lang)}/wiki/{title.replace(' ', '_')}",
             },
         }
+
+        metrics_sq = analyze_code(content)
+        if metrics_sq:
+            record.setdefault("origin_metrics", {})["sonarqube"] = metrics_sq
 
         try:
             from provenance.tracker import record_provenance

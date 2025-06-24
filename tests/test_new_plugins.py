@@ -205,3 +205,51 @@ def test_notebooks_plugin(monkeypatch):
     parsed = plugin.parse_item(items[0])
     assert parsed["notebook"] == '{"nb":1}'
     _check_defaults(parsed)
+
+
+def test_tutorials_scraper(monkeypatch):
+    import requests
+
+    core_stub = ModuleType("core")
+    core_stub.builder = SimpleNamespace(DatasetBuilder=object)
+    monkeypatch.setitem(sys.modules, "core", core_stub)
+    monkeypatch.setitem(sys.modules, "core.builder", core_stub.builder)
+
+    monkeypatch.setattr(
+        requests,
+        "get",
+        lambda *a, **k: DummyResp(text="<html><title>T</title><p>A</p></html>"),
+    )
+    mod = importlib.import_module("plugins.tutorials_scraper")
+    plugin = mod.Plugin()
+    items = plugin.fetch_items("en", "https://example.com")
+    parsed = plugin.parse_item(items[0])
+    assert parsed["title"] == "T"
+    _check_defaults(parsed)
+
+
+def test_code_review_scraper(monkeypatch):
+    import requests
+
+    core_stub = ModuleType("core")
+    core_stub.builder = SimpleNamespace(DatasetBuilder=object)
+    monkeypatch.setitem(sys.modules, "core", core_stub)
+    monkeypatch.setitem(sys.modules, "core.builder", core_stub.builder)
+
+    def fake_get(url, headers=None, params=None, timeout=None):
+        if url.endswith("/pulls"):
+            return DummyResp(data=[{"number": 1, "title": "PR", "html_url": "u"}])
+        if url.endswith("/pulls/1"):
+            return DummyResp(text="diff")
+        if url.endswith("/issues/1/comments"):
+            return DummyResp(data=[{"body": "c"}])
+        return DummyResp()
+
+    monkeypatch.setattr(requests, "get", fake_get)
+    mod = importlib.import_module("plugins.code_review_scraper")
+    plugin = mod.Plugin()
+    items = plugin.fetch_items("en", "https://github.com/u/r")
+    parsed = plugin.parse_item(items[0])
+    assert parsed["diff"] == "diff"
+    assert parsed["comments"] == ["c"]
+    _check_defaults(parsed)
