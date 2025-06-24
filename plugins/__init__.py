@@ -36,6 +36,13 @@ AVAILABLE_PLUGINS = {
     "cran_packages": "cran_packages",
     "jira_scraper": "jira_scraper",
     "bugzilla_scraper": "bugzilla_scraper",
+    "leetcode": "leetcode",
+    "hackerrank": "hackerrank",
+    "codeforces": "codeforces",
+    "kaggle": "kaggle",
+    "bitbucket_scraper": "bitbucket_scraper",
+    "sourceforge_scraper": "sourceforge_scraper",
+    "notebooks": "notebooks",
 }
 
 
