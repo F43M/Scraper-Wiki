@@ -19,5 +19,11 @@ jobs:
           grep -vE '^(tensorflow|sentence-transformers|transformers|spacy|torch|tensorflow-gpu|apache-airflow|mlflow|optuna|selenium)' requirements.txt > req.txt
           pip install -r req.txt
           pip install pytest
+          pip install 'dvc[s3]'
+      - name: Pull DVC data
+        run: dvc pull
       - name: Run tests
         run: pytest
+      - name: Push DVC data
+        if: always()
+        run: dvc push
