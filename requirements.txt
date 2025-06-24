@@ -35,3 +35,7 @@ antlr4-python3-runtime>=4.13
 graphviz>=0.21
 fake-useragent>=1.5.3
 selenium>=4.20.0  # optional
+# Machine learning workflow and experiment tracking
+mlflow>=2.12.1  # optional
+optuna>=3.6.1  # optional
+apache-airflow>=2.9.1  # optional
