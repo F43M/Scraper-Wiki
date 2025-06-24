@@ -26,7 +26,16 @@ import inspect
 from tqdm import tqdm
 from unidecode import unidecode
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
-from datasets import Dataset, concatenate_datasets
+
+try:  # optional heavy dependency
+    from datasets import Dataset, concatenate_datasets
+except Exception:  # pragma: no cover - missing deps
+    Dataset = object
+
+    def concatenate_datasets(*args, **kwargs):
+        return None
+
+
 from pathlib import Path
 import hashlib
 import pickle
@@ -46,7 +55,11 @@ import signal
 import backoff
 import numpy as np
 import spacy
-from sentence_transformers import SentenceTransformer
+
+try:  # optional heavy dependency
+    from sentence_transformers import SentenceTransformer
+except Exception:  # pragma: no cover - missing deps
+    SentenceTransformer = object
 from sklearn.cluster import KMeans
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sumy.parsers.plaintext import PlaintextParser
@@ -1875,6 +1888,14 @@ class DatasetBuilder:
             },
         }
 
+        try:
+            from provenance.tracker import record_provenance
+
+            prov = record_provenance(record["metadata"]["source_url"], content)
+            record["metadata"].update(prov)
+        except Exception:
+            pass
+
         # Determine quality classification when possible
         if extra_metadata:
             if any(
@@ -2448,7 +2469,28 @@ class DatasetBuilder:
         sorted_data = sorted(validated_data, key=lambda x: (x["language"], x["topic"]))
 
         backend = storage.get_backend(Config.STORAGE_BACKEND, output_dir)
-        backend.save_dataset(sorted_data, format)
+
+        def _bump(ver: str) -> str:
+            try:
+                major, minor, patch = [int(x) for x in ver.split(".")]
+            except Exception:
+                return "1.0.0"
+            patch += 1
+            return f"{major}.{minor}.{patch}"
+
+        info_path = os.path.join(output_dir, "dataset_info.json")
+        old_info = {}
+        if os.path.exists(info_path):
+            try:
+                with open(info_path, "r", encoding="utf-8") as f:
+                    old_info = json.load(f)
+            except Exception:
+                old_info = {}
+        old_version = old_info.get("version", "0.0.0")
+        old_size = old_info.get("size", 0)
+        new_version = _bump(old_version)
+
+        backend.save_dataset(sorted_data, format, version=new_version)
         logger.info(f"Dataset salvo usando backend {Config.STORAGE_BACKEND}")
 
         if format == "qa":
@@ -2476,11 +2518,24 @@ class DatasetBuilder:
                 "source": list(sources)[0] if len(sources) == 1 else sorted(sources),
                 "collection_date": datetime.utcnow().date().isoformat(),
                 "license": "CC BY-SA 4.0",
+                "version": new_version,
+                "size": len(sorted_data),
             }
             with open(
                 os.path.join(output_dir, "dataset_info.json"), "w", encoding="utf-8"
             ) as f:
                 json.dump(info, f, ensure_ascii=False, indent=2)
+
+            diff_ratio = (
+                abs(len(sorted_data) - old_size) / max(old_size, 1) if old_info else 1.0
+            )
+            if diff_ratio > 0.1:
+                with open(
+                    os.path.join(output_dir, "CHANGELOG.txt"), "a", encoding="utf-8"
+                ) as cf:
+                    cf.write(
+                        f"{datetime.utcnow().isoformat()} - v{new_version} size changed {old_size}->{len(sorted_data)}\n"
+                    )
         except Exception as e:  # pragma: no cover - unexpected I/O errors
             logger.error(f"Erro ao salvar dataset_info.json: {e}")
 

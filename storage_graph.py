@@ -12,7 +12,9 @@ class GraphStorage(StorageBackend):
             raise ImportError("neo4j is required for GraphStorage") from e
         self.driver = GraphDatabase.driver(uri, auth=(user, password))
 
-    def save_dataset(self, data: List[dict], fmt: str = "all") -> None:
+    def save_dataset(
+        self, data: List[dict], fmt: str = "all", version: str | None = None
+    ) -> None:
         if not data:
             return
         with self.driver.session() as session:

@@ -3,7 +3,8 @@
 import asyncio
 import logging
 from task_queue import consume, publish
-from scraper_wiki import DatasetBuilder, Config
+from scraper_wiki import DatasetBuilder, Config, get_base_url
+from provenance.tracker import should_fetch
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -13,7 +14,13 @@ def main_sync() -> None:
     """Run worker in synchronous mode."""
     builder = DatasetBuilder()
     for task in consume("scrape_tasks"):
-        logger.info("Processing %s", task.get("title"))
+        url = task.get("url")
+        if not url and {"title", "lang"} <= task.keys():
+            url = f"{get_base_url(task['lang'])}/wiki/{task['title'].replace(' ', '_')}"
+        if url and not should_fetch(url):
+            logger.info("Skipping %s", url)
+            continue
+        logger.info("Processing %s", task.get("title") or url)
         result = builder.process_page(task)
         if result:
             publish("scrape_results", result)
@@ -23,7 +30,13 @@ async def _handle_task(
     task: dict, builder: DatasetBuilder, sem: asyncio.Semaphore
 ) -> None:
     async with sem:
-        logger.info("Processing %s", task.get("title"))
+        url = task.get("url")
+        if not url and {"title", "lang"} <= task.keys():
+            url = f"{get_base_url(task['lang'])}/wiki/{task['title'].replace(' ', '_')}"
+        if url and not should_fetch(url):
+            logger.info("Skipping %s", url)
+            return
+        logger.info("Processing %s", task.get("title") or url)
         result = await builder.process_page_async(task)
         if result:
             await asyncio.to_thread(publish, "scrape_results", result)
