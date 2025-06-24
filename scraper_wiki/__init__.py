@@ -992,6 +992,8 @@ async def fetch_with_retry(
 
     if proxy is None and Config.PROXIES:
         proxy = get_next_proxy()
+    if headers is None:
+        headers = {"User-Agent": Config.get_random_user_agent()}
 
     for attempt in range(1, retries + 1):
         try:
@@ -1013,8 +1015,9 @@ async def fetch_with_retry(
                     async with session.get(
                         url, params=params, headers=headers, proxy=proxy
                     ) as resp:
-                        if resp.status == 429:
+                        if resp.status in (429, 403):
                             metrics.scrape_block.inc()
+                            raise aiohttp.ClientResponseError(resp.status)
                         if 500 <= resp.status < 600:
                             raise aiohttp.ClientResponseError(
                                 resp.request_info,
@@ -1032,9 +1035,13 @@ async def fetch_with_retry(
                 else:
                     fetch_semaphore.release()
         except aiohttp.ClientResponseError as e:
-            if getattr(e, "status", None) == 429:
-                logger.warning(f"HTTP 429 for {url}, backing off")
+            status = getattr(e, "status", None)
+            if status in (429, 403):
+                logger.warning(f"HTTP {status} for {url}, rotating proxy/UA")
                 rate_limiter.record_error()
+                if Config.PROXIES:
+                    proxy = get_next_proxy()
+                headers["User-Agent"] = Config.get_random_user_agent()
             else:
                 logger.warning(f"Attempt {attempt} failed for {url}: {e}")
             exc = e
