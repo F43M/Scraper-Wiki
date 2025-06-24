@@ -953,6 +953,33 @@ def extract_images(html: str) -> List[Dict[str, str]]:
         return []
 
 
+def extract_videos(html: str) -> List[str]:
+    """Return video URLs from ``html`` content."""
+    try:
+        soup = BeautifulSoup(html, "html.parser")
+        videos: List[str] = []
+        for vid in soup.find_all("video"):
+            src = vid.get("src") or ""
+            if not src:
+                source = vid.find("source")
+                if source and source.get("src"):
+                    src = source["src"]
+            if src:
+                if src.startswith("//"):
+                    src = "https:" + src
+                videos.append(src)
+        for iframe in soup.find_all("iframe"):
+            src = iframe.get("src") or ""
+            if any(domain in src for domain in ["youtube.com", "vimeo.com"]):
+                if src.startswith("//"):
+                    src = "https:" + src
+                videos.append(src)
+        return videos
+    except Exception as e:
+        logger.error(f"Erro ao extrair videos: {e}")
+        return []
+
+
 async def fetch_with_retry(
     url: str,
     *,
@@ -1567,6 +1594,7 @@ def cpu_process_page(
     lang: str,
     category: str,
     images: List[Dict[str, str]] | None = None,
+    videos: List[str] | None = None,
     revisions: List[dict] | None = None,
     rev_limit: int = 5,
 ) -> dict:
@@ -1583,6 +1611,8 @@ def cpu_process_page(
     record["entities"] = extract_entities(content)
     if images is not None:
         record["images"] = images
+    if videos:
+        record["videos"] = videos
     if revisions is not None:
         record.setdefault("metadata", {})["revisions"] = revisions
     return record
@@ -1705,6 +1735,7 @@ class DatasetBuilder:
 
             if proc_executor:
                 images = extract_images(getattr(page, "_html", ""))
+                videos = extract_videos(getattr(page, "_html", ""))
                 revisions = None
                 if self.include_revisions:
                     revisions = wiki.get_revision_history(
@@ -1717,6 +1748,7 @@ class DatasetBuilder:
                     page_info["lang"],
                     page_info.get("category", ""),
                     images,
+                    videos,
                     revisions,
                     self.rev_limit,
                 )
@@ -1734,7 +1766,10 @@ class DatasetBuilder:
             )
             qa_data["entities"] = extract_entities(clean_content)
             images = extract_images(getattr(page, "_html", ""))
+            videos = extract_videos(getattr(page, "_html", ""))
             qa_data["images"] = images
+            if videos:
+                qa_data["videos"] = videos
             if self.include_revisions:
                 qa_data.setdefault("metadata", {})["revisions"] = (
                     wiki.get_revision_history(page_info["title"], self.rev_limit)
