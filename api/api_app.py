@@ -1,5 +1,5 @@
 from typing import List, Optional
-from fastapi import FastAPI, Query, Request
+from fastapi import FastAPI, Query as FastQuery, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 import scraper_wiki as sw
@@ -105,8 +105,8 @@ async def scrape(params: ScrapeParams):
 
 @app.get("/records")
 async def get_records(
-    lang: Optional[List[str]] | Optional[str] = Query(None),
-    category: Optional[List[str]] | Optional[str] = Query(None),
+    lang: List[str] | None = FastQuery(None),
+    category: List[str] | None = FastQuery(None),
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
 ):

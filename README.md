@@ -433,6 +433,25 @@ from training.formats import publish_hf_dataset
 publish_hf_dataset(records, "usuario/meu-dataset", token="hf_xxx")
 ```
 
+## Versionamento de Dados com DVC
+
+Os datasets gerados em `datasets_wikipedia_pro/` são versionados com
+[DVC](https://dvc.org). Após clonar o repositório execute:
+
+```bash
+dvc pull
+```
+
+Esse comando baixa a última versão disponível no armazenamento remoto
+configurado. Para publicar novas versões após gerar dados, utilize:
+
+```bash
+dvc add datasets_wikipedia_pro
+git add datasets_wikipedia_pro.dvc .gitignore
+git commit -m "Atualiza dados"
+dvc push
+```
+
 ## Integração com frameworks de ML
 
 Os arquivos gerados em `training/` permitem treinar modelos de NLP de forma simples. A seguir alguns exemplos.
