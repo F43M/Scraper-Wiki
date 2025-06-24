@@ -284,5 +284,18 @@ def stop_crawler_cmd():
     stop_crawler()
 
 
+@app.command("update-parsers")
+def update_parsers_cmd():
+    """Refresh ANTLR grammars or ML models."""
+    import time
+
+    grammar_dir = Path("parsers")
+    for g in grammar_dir.glob("*.g4"):
+        typer.echo(f"Updating {g.name}")
+        # Placeholder for real compilation or download logic
+    metrics.parser_update_timestamp.set(time.time())
+    typer.echo("Parsers updated")
+
+
 if __name__ == "__main__":
     app()

@@ -38,6 +38,11 @@ def load_metrics():
         "avg_time": 0,
         "retries": 0,
         "avg_session": 0,
+        "completeness": 0,
+        "diversity": 0,
+        "lang_cov": 0,
+        "domain_cov": 0,
+        "bias": 0,
     }
     try:
         for name, key in {
@@ -47,6 +52,11 @@ def load_metrics():
             "pages": "pages_scraped_total",
             "failures": "requests_failed_total",
             "retries": "request_retries_total",
+            "completeness": "dataset_completeness_ratio",
+            "diversity": "dataset_topic_diversity",
+            "lang_cov": "dataset_language_coverage",
+            "domain_cov": "dataset_domain_coverage",
+            "bias": "dataset_bias_detected",
         }.items():
             resp = requests.get(
                 f"{PROM_URL}/api/v1/query",
@@ -108,6 +118,38 @@ def load_metrics():
     return metrics
 
 
+def language_coverage(langs: list[str]) -> float:
+    """Return ratio of languages to configured ones."""
+    try:
+        from scraper_wiki import Config
+
+        return len(set(langs)) / len(Config.LANGUAGES) if Config.LANGUAGES else 0.0
+    except Exception:
+        return 0.0
+
+
+def domain_coverage(categories: list[str]) -> float:
+    """Return ratio of categories present to configured categories."""
+    try:
+        from scraper_wiki import Config
+
+        return (
+            len(set(categories)) / len(Config.CATEGORIES) if Config.CATEGORIES else 0.0
+        )
+    except Exception:
+        return 0.0
+
+
+def detect_bias(langs: list[str], categories: list[str]) -> list[str]:
+    """Return list of bias alert messages."""
+    alerts: list[str] = []
+    if language_coverage(langs) <= 0.5:
+        alerts.append("Low language coverage")
+    if domain_coverage(categories) <= 0.5:
+        alerts.append("Low domain coverage")
+    return alerts
+
+
 def main():
     st.title("Scraper Progress Dashboard")
 
@@ -117,6 +159,11 @@ def main():
     clusters = progress.get("clusters", [])
     topics = progress.get("topics", [])
     languages = progress.get("languages", [])
+    categories = progress.get("categories", [])
+
+    lang_cov = language_coverage(languages)
+    dom_cov = domain_coverage(categories)
+    bias_alerts = detect_bias(languages, categories)
 
     st.metric("Pages processed", pages_processed)
     cpu = psutil.cpu_percent(interval=1)
@@ -130,6 +177,13 @@ def main():
     st.metric("Scrape errors", metrics["error"])
     st.metric("Scrape blocks", metrics["block"])
     st.metric("Request retries", metrics["retries"])
+    st.metric("Dataset completeness", round(metrics["completeness"], 2))
+    st.metric("Topic diversity", round(metrics["diversity"], 2))
+    st.metric("Language coverage", round(lang_cov, 2))
+    st.metric("Domain coverage", round(dom_cov, 2))
+    st.metric("Bias detected", metrics["bias"])
+    st.metric("Duplicates removed", progress.get("duplicates_removed", 0))
+    st.metric("Invalid records", progress.get("invalid_records", 0))
 
     st.subheader("Clusters")
     st.write(clusters)
@@ -139,6 +193,8 @@ def main():
 
     st.subheader("Languages")
     st.write(languages)
+    if bias_alerts:
+        st.warning(" | ".join(bias_alerts))
 
 
 if __name__ == "__main__":
