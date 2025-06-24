@@ -1316,6 +1316,7 @@ def test_fetch_with_retry_failure_increments_counter(monkeypatch):
 
     monkeypatch.setattr(sw.aiohttp, "ClientSession", lambda *a, **k: DummySession())
     monkeypatch.setattr(sw.aiohttp, "ClientTimeout", lambda *a, **k: None)
+    monkeypatch.setattr(sw.tenacity.nap, "sleep", lambda t: None)
     monkeypatch.setattr(sw, "log_failed_url", lambda url: None)
     monkeypatch.setattr(
         sw,
@@ -1384,6 +1385,7 @@ def test_fetch_with_retry_counts_retries(monkeypatch):
 
     monkeypatch.setattr(sw.aiohttp, "ClientSession", lambda *a, **k: DummySession())
     monkeypatch.setattr(sw.aiohttp, "ClientTimeout", lambda *a, **k: None)
+    monkeypatch.setattr(sw.tenacity.nap, "sleep", lambda t: None)
     monkeypatch.setattr(sw, "log_failed_url", lambda url: None)
     monkeypatch.setattr(
         sw,
@@ -1399,6 +1401,86 @@ def test_fetch_with_retry_counts_retries(monkeypatch):
 
     assert status == 200
     assert recorded["r"] == 1
+
+
+def test_get_next_proxy_provider(monkeypatch):
+    calls = {"n": 0}
+
+    def fake_fetch():
+        calls["n"] += 1
+        return "http://premium"
+
+    monkeypatch.setattr(sw.Config, "PROXY_PROVIDER_URL", "x")
+    monkeypatch.setattr(sw.Config, "PROXIES", [])
+    monkeypatch.setattr(sw, "_fetch_premium_proxy", lambda: fake_fetch())
+
+    proxy = sw.get_next_proxy()
+
+    assert proxy == "http://premium"
+    assert calls["n"] == 1
+
+
+def test_fetch_with_retry_captcha_retry(monkeypatch):
+    import asyncio
+
+    class DummyResp:
+        status = 200
+        request_info = history = headers = None
+        reason = "OK"
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            pass
+
+        async def text(self):
+            if calls["count"] == 0:
+                return "captcha"
+            return "ok"
+
+        def raise_for_status(self):
+            pass
+
+    calls = {"count": 0}
+
+    class DummySession:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            pass
+
+        def get(self, *a, **k):
+            calls["count"] += 1
+            return DummyResp()
+
+    proxy_order = []
+
+    def fake_get_next_proxy():
+        proxy = f"http://p{len(proxy_order)+1}"
+        proxy_order.append(proxy)
+        return proxy
+
+    monkeypatch.setattr(sw.aiohttp, "ClientSession", lambda *a, **k: DummySession())
+    monkeypatch.setattr(sw.aiohttp, "ClientTimeout", lambda *a, **k: None)
+    monkeypatch.setattr(sw.tenacity.nap, "sleep", lambda t: None)
+    monkeypatch.setattr(sw, "log_failed_url", lambda url: None)
+    monkeypatch.setattr(sw, "is_captcha_page", lambda t: "captcha" in t)
+    monkeypatch.setattr(sw, "get_next_proxy", fake_get_next_proxy)
+    monkeypatch.setattr(
+        sw,
+        "metrics",
+        SimpleNamespace(
+            scrape_block=SimpleNamespace(inc=lambda: None),
+            requests_failed_total=SimpleNamespace(inc=lambda: None),
+        ),
+    )
+
+    status, text = asyncio.run(sw.fetch_with_retry("http://x", retries=2))
+
+    assert status == 200
+    assert text == "ok"
 
 
 def test_rate_limiter_reset_after_success():
@@ -1510,6 +1592,7 @@ def test_fetch_with_retry_uses_proxy(monkeypatch):
 
     monkeypatch.setattr(sw.aiohttp, "ClientSession", lambda *a, **k: session_inst)
     monkeypatch.setattr(sw.aiohttp, "ClientTimeout", lambda *a, **k: None)
+    monkeypatch.setattr(sw.tenacity.nap, "sleep", lambda t: None)
     monkeypatch.setattr(sw.random, "choice", lambda seq: seq[0])
     monkeypatch.setattr(sw.Config, "PROXIES", ["http://p1"])
     monkeypatch.setattr(sw, "log_failed_url", lambda url: None)

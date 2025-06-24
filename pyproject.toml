@@ -16,6 +16,7 @@ requests = ">=2.32.4"
 aiohttp = ">=3.9"
 html2text = ">=2025.4.15"
 backoff = ">=2.2.1"
+tenacity = ">=8.2.2"
 numpy = ">=1.23.5,<2.2"
 spacy = {version = ">=3.8.7", optional = true}
 sentence-transformers = ">=4.1.0"
