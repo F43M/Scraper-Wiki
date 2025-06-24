@@ -71,6 +71,31 @@ sys.modules.setdefault("weaviate", weaviate_stub)
 
 sys.modules.setdefault("yaml", SimpleNamespace(safe_load=lambda *a, **k: {}))
 
+# Stub optional browser dependencies
+ua_mod = ModuleType("fake_useragent")
+
+
+class _DummyUA:
+    def __init__(self, *a, **k):
+        self.random = "test-agent"
+
+
+ua_mod.UserAgent = _DummyUA
+sys.modules.setdefault("fake_useragent", ua_mod)
+
+selenium_stub = ModuleType("selenium")
+webdriver_stub = ModuleType("selenium.webdriver")
+webdriver_stub.Chrome = object
+webdriver_stub.ChromeOptions = object
+by_stub = ModuleType("selenium.webdriver.common.by")
+by_stub.By = SimpleNamespace(ID="id", CSS_SELECTOR="css")
+sys.modules.setdefault("selenium", selenium_stub)
+sys.modules.setdefault("selenium.webdriver", webdriver_stub)
+sys.modules.setdefault(
+    "selenium.webdriver.common", ModuleType("selenium.webdriver.common")
+)
+sys.modules.setdefault("selenium.webdriver.common.by", by_stub)
+
 # Stub Selenium-based scraper to avoid heavy dependencies
 auto_stub = ModuleType("crawling.auto_learner")
 
