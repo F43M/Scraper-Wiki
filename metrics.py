@@ -40,6 +40,29 @@ dataset_topic_diversity = Gauge(
     "Unique topics divided by total valid records",
 )
 
+# Cobertura de idiomas e categorias/domínios
+dataset_language_coverage = Gauge(
+    "dataset_language_coverage",
+    "Ratio of scraped languages to configured languages",
+)
+
+dataset_domain_coverage = Gauge(
+    "dataset_domain_coverage",
+    "Ratio of scraped categories to configured categories",
+)
+
+# Flag de viés detectado no dataset
+dataset_bias_detected = Gauge(
+    "dataset_bias_detected",
+    "1 when dataset exhibits potential bias, 0 otherwise",
+)
+
+# Timestamp da última atualização dos parsers
+parser_update_timestamp = Gauge(
+    "scraper_parser_update_timestamp",
+    "Unix timestamp of the last parser update",
+)
+
 
 def start_metrics_server(port: int = 8001) -> None:
     """Inicia o servidor de métricas para Prometheus."""

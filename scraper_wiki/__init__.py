@@ -1652,12 +1652,16 @@ class DatasetBuilder:
             languages = sorted(
                 {item.get("language") for item in self.dataset if item.get("language")}
             )
+            categories = sorted(
+                {item.get("category") for item in self.dataset if item.get("category")}
+            )
 
             progress = {
                 "pages_processed": len(self.dataset),
                 "clusters": clusters,
                 "topics": topics,
                 "languages": languages,
+                "categories": categories,
                 "duplicates_removed": self.duplicates_removed,
                 "invalid_records": self.invalid_records,
             }
@@ -2458,6 +2462,16 @@ class DatasetBuilder:
             metrics.dataset_topic_diversity.set(
                 len(topics) / len(validated_data) if validated_data else 0.0
             )
+            langs = {i.get("language") for i in validated_data if i.get("language")}
+            cats = {i.get("category") for i in validated_data if i.get("category")}
+            metrics.dataset_language_coverage.set(
+                len(langs) / len(Config.LANGUAGES) if Config.LANGUAGES else 0.0
+            )
+            metrics.dataset_domain_coverage.set(
+                len(cats) / len(Config.CATEGORIES) if Config.CATEGORIES else 0.0
+            )
+            bias = 1.0 if len(langs) < len(Config.LANGUAGES) / 2 else 0.0
+            metrics.dataset_bias_detected.set(bias)
         except Exception:  # pragma: no cover - metrics failures
             pass
 

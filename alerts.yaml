@@ -18,3 +18,23 @@
   annotations:
     summary: "Scraping sem sucesso"
     description: "Nenhuma página foi raspada com sucesso nas últimas 15 minutos"
+
+# Alerta se a cobertura de idiomas estiver baixa
+- alert: MissingLanguages
+  expr: dataset_language_coverage < 0.5
+  for: 5m
+  labels:
+    severity: warning
+  annotations:
+    summary: "Cobertura de idiomas baixa"
+    description: "Menos de 50% dos idiomas definidos estão presentes no dataset"
+
+# Alerta se os parsers não forem atualizados há mais de 7 dias
+- alert: OutdatedParsers
+  expr: time() - scraper_parser_update_timestamp > 7 * 24 * 3600
+  for: 10m
+  labels:
+    severity: critical
+  annotations:
+    summary: "Parsers desatualizados"
+    description: "Faz mais de 7 dias desde a última atualização dos parsers"
