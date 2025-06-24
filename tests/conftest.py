@@ -70,3 +70,28 @@ weaviate_stub = SimpleNamespace(
 sys.modules.setdefault("weaviate", weaviate_stub)
 
 sys.modules.setdefault("yaml", SimpleNamespace(safe_load=lambda *a, **k: {}))
+
+# Stub Selenium-based scraper to avoid heavy dependencies
+auto_stub = ModuleType("crawling.auto_learner")
+
+
+class _DummyAutoScraper:
+    def __init__(self, base_url, driver_path=None, headless=True):
+        self.base_url = base_url
+        self.driver = SimpleNamespace(page_source="")
+
+    def fetch_page(self, url):
+        return {"url": url}
+
+    def search(self, query):
+        return []
+
+    def build_dataset(self, queries, max_pages=5):
+        return []
+
+    def close(self):
+        pass
+
+
+auto_stub.AutoLearnerScraper = _DummyAutoScraper
+sys.modules.setdefault("crawling.auto_learner", auto_stub)
