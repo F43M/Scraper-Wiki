@@ -184,6 +184,18 @@ plugins disponíveis são `api_docs`, `code_extractor`, `gist_scraper`,
 `stackexchange` (acessível como `stackoverflow`). Use `--plugin` ou o
 campo `plugin` na API para escolher qual utilizar.
 
+O módulo `crawling.auto_learner` inclui ainda o `AutoLearnerScraper`, um
+gerador de datasets que utiliza Selenium e `fake-useragent` para navegar por
+páginas dinâmicas. Ele pode ser executado de forma independente:
+
+```python
+from core import AutoLearnerScraper
+
+scraper = AutoLearnerScraper("https://exemplo.com")
+records = scraper.build_dataset(["python"])
+scraper.close()
+```
+
 Exemplo executando o plugin do StackOverflow:
 
 ```python
