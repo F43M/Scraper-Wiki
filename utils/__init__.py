@@ -17,6 +17,7 @@ from .code import (
 from .ast_tools import parse_code, get_functions_complexity
 from .code_sniffer import scan
 from .contextualizer import search_discussions
+from .web import normalize_url, decide_navigation_action
 
 __all__ = [
     "clean_text",
@@ -36,4 +37,6 @@ __all__ = [
     "get_functions_complexity",
     "scan",
     "search_discussions",
+    "normalize_url",
+    "decide_navigation_action",
 ]
