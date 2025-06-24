@@ -1926,3 +1926,33 @@ def test_save_dataset_strips_credentials(tmp_path, monkeypatch):
 
     data = json.loads((tmp_path / "wikipedia_qa.json").read_text(encoding="utf-8"))
     assert "<REDACTED>" in data[0]["content"]
+
+
+def test_save_dataset_removes_pii(tmp_path, monkeypatch):
+    builder = sw.DatasetBuilder()
+    monkeypatch.setattr(sw.Config, "MIN_TEXT_LENGTH", 5)
+    builder.dataset = [
+        {
+            "id": "1",
+            "title": "t",
+            "language": "en",
+            "category": "c",
+            "topic": "ai",
+            "subtopic": "nlp",
+            "keywords": [],
+            "content": "Contact me at user@example.com",
+            "summary": "s" * 20,
+            "content_embedding": [0.0],
+            "summary_embedding": [0.0],
+            "questions": ["q"],
+            "answers": ["a"],
+            "relations": [],
+            "created_at": "now",
+            "metadata": {},
+        }
+    ]
+
+    builder.save_dataset("json", output_dir=tmp_path)
+
+    data = json.loads((tmp_path / "wikipedia_qa.json").read_text(encoding="utf-8"))
+    assert "<PII>" in data[0]["content"]

@@ -200,6 +200,23 @@ def strip_credentials(code: str) -> str:
     return text
 
 
+_PII_PATTERNS = [
+    r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}",
+    r"\b(?:\d[ -]?){13,16}\b",  # credit card numbers
+    r"\b\d{3}-\d{2}-\d{4}\b",  # SSN format
+    r"\b\+?\d{1,3}[ -]?\(?\d{1,4}\)?[ -]?\d{1,4}[ -]?\d{1,9}\b",  # phone
+]
+
+
+def remove_pii(text: str) -> str:
+    """Return ``text`` with personal data redacted."""
+
+    cleaned = text
+    for pat in _PII_PATTERNS:
+        cleaned = re.sub(pat, "<PII>", cleaned)
+    return cleaned
+
+
 def detect_code_plagiarism(records: List[Dict], threshold: float = 0.95) -> List[Dict]:
     """Return records whose ``content`` is very similar to others."""
     plagiarized: List[Dict] = []
