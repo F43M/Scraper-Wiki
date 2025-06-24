@@ -10,7 +10,9 @@ class DatalakeStorage(StorageBackend):
         self.path = path
         os.makedirs(path, exist_ok=True)
 
-    def save_dataset(self, data: List[dict], fmt: str = "all") -> None:
+    def save_dataset(
+        self, data: List[dict], fmt: str = "all", version: str | None = None
+    ) -> None:
         try:
             import pyarrow as pa
             import pyarrow.dataset as ds

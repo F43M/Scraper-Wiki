@@ -34,7 +34,9 @@ def _maybe_upload_large(data: List[dict], name: str) -> None:
 class StorageBackend:
     """Interface for storage backends."""
 
-    def save_dataset(self, data: List[dict], fmt: str = "all") -> None:
+    def save_dataset(
+        self, data: List[dict], fmt: str = "all", version: str | None = None
+    ) -> None:
         raise NotImplementedError
 
 
@@ -43,7 +45,9 @@ class LocalStorage(StorageBackend):
         self.output_dir = output_dir
         os.makedirs(output_dir, exist_ok=True)
 
-    def save_dataset(self, data: List[dict], fmt: str = "all") -> None:
+    def save_dataset(
+        self, data: List[dict], fmt: str = "all", version: str | None = None
+    ) -> None:
         if fmt in ["all", "json"]:
             json_file = os.path.join(self.output_dir, "wikipedia_qa.json")
             with open(json_file, "w", encoding="utf-8") as f:
@@ -93,6 +97,13 @@ class LocalStorage(StorageBackend):
             except Exception:
                 pass
         _maybe_upload_large(data, "wikipedia_qa.json")
+        if version:
+            with open(
+                os.path.join(self.output_dir, "dataset_version.txt"),
+                "w",
+                encoding="utf-8",
+            ) as vf:
+                vf.write(version)
 
 
 class S3Storage(StorageBackend):
@@ -114,7 +125,9 @@ class S3Storage(StorageBackend):
     def _key(self, name: str) -> str:
         return f"{self.prefix}/{name}" if self.prefix else name
 
-    def save_dataset(self, data: List[dict], fmt: str = "all") -> None:
+    def save_dataset(
+        self, data: List[dict], fmt: str = "all", version: str | None = None
+    ) -> None:
         if fmt in ["all", "json"]:
             body = json.dumps(data, ensure_ascii=False, indent=4).encode("utf-8")
             self.s3.put_object(
@@ -186,6 +199,12 @@ class S3Storage(StorageBackend):
                 )
             except Exception:
                 pass
+        if version:
+            self.s3.put_object(
+                Bucket=self.bucket,
+                Key=self._key("dataset_version.txt"),
+                Body=version.encode("utf-8"),
+            )
 
 
 class MongoDBStorage(StorageBackend):
@@ -197,7 +216,9 @@ class MongoDBStorage(StorageBackend):
         client = MongoClient(uri)
         self.collection = client[db_name][collection]
 
-    def save_dataset(self, data: List[dict], fmt: str = "all") -> None:
+    def save_dataset(
+        self, data: List[dict], fmt: str = "all", version: str | None = None
+    ) -> None:
         if not data:
             return
         self.collection.insert_many(data)
@@ -217,7 +238,9 @@ class PostgreSQLStorage(StorageBackend):
                 f"CREATE TABLE IF NOT EXISTS {self.table} (id SERIAL PRIMARY KEY, data JSONB NOT NULL)"
             )
 
-    def save_dataset(self, data: List[dict], fmt: str = "all") -> None:
+    def save_dataset(
+        self, data: List[dict], fmt: str = "all", version: str | None = None
+    ) -> None:
         import json as _json
 
         with self.conn, self.conn.cursor() as cur:
