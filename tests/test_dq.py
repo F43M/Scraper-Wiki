@@ -58,6 +58,12 @@ def test_strip_credentials_replaces_tokens():
     assert "<REDACTED>" in sanitized
 
 
+def test_remove_pii_redacts_data():
+    text = "Contact me at user@example.com or call 555-123-4567"
+    cleaned = dq.remove_pii(text)
+    assert "<PII>" in cleaned
+
+
 def test_detect_code_plagiarism_flags_duplicates():
     recs = [
         {"content": "print('hi')"},

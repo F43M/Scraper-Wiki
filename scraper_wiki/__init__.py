@@ -1942,6 +1942,14 @@ class DatasetBuilder:
         except Exception:
             pass
 
+        try:
+            from provenance.compliance import check_license
+
+            lic = check_license(record["metadata"]["source_url"])
+            record["metadata"]["license"] = lic
+        except Exception:
+            record["metadata"]["license"] = "unknown"
+
         # Determine quality classification when possible
         if extra_metadata:
             if any(
@@ -2434,7 +2442,9 @@ class DatasetBuilder:
 
         for rec in self.dataset:
             if "content" in rec:
-                rec["content"] = dq.strip_credentials(rec["content"])
+                rec["content"] = dq.remove_pii(dq.strip_credentials(rec["content"]))
+            if "summary" in rec:
+                rec["summary"] = dq.remove_pii(rec["summary"])
 
         # Remove near-duplicates based on Simhash
         try:
@@ -2575,10 +2585,16 @@ class DatasetBuilder:
                 item.get("metadata", {}).get("source", "unknown")
                 for item in sorted_data
             }
+            licenses = {
+                item.get("metadata", {}).get("license", "unknown")
+                for item in sorted_data
+            }
             info = {
                 "source": list(sources)[0] if len(sources) == 1 else sorted(sources),
                 "collection_date": datetime.utcnow().date().isoformat(),
-                "license": "CC BY-SA 4.0",
+                "license": (
+                    list(licenses)[0] if len(licenses) == 1 else sorted(licenses)
+                ),
                 "version": new_version,
                 "size": len(sorted_data),
             }
