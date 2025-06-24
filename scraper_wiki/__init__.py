@@ -53,6 +53,7 @@ from datetime import datetime
 import multiprocessing
 import signal
 import backoff
+import tenacity
 import numpy as np
 import spacy
 
@@ -171,6 +172,12 @@ class Config:
 
     # Proxies e headers
     PROXIES = []  # Lista de proxies rotativos pode ser adicionada
+    PROXY_PROVIDER_URL = os.environ.get("PROXY_PROVIDER_URL")
+    PROXY_PROVIDER_AUTH = os.environ.get("PROXY_PROVIDER_AUTH")
+    CUSTOM_USER_AGENT = os.environ.get("CUSTOM_USER_AGENT")
+    USE_UNDETECTED_CHROMEDRIVER = (
+        os.environ.get("USE_UNDETECTED_CHROMEDRIVER", "0") == "1"
+    )
     USER_AGENTS = [
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
@@ -209,15 +216,37 @@ class Config:
 
     @classmethod
     def get_random_user_agent(cls):
+        if cls.CUSTOM_USER_AGENT:
+            return cls.CUSTOM_USER_AGENT
         return random.choice(cls.USER_AGENTS)
 
 
 _proxy_index = 0
 
 
+def _fetch_premium_proxy() -> str | None:
+    """Retrieve a proxy from a premium provider if configured."""
+    if not Config.PROXY_PROVIDER_URL:
+        return None
+    headers = {}
+    if Config.PROXY_PROVIDER_AUTH:
+        headers["Authorization"] = Config.PROXY_PROVIDER_AUTH
+    try:
+        resp = requests.get(Config.PROXY_PROVIDER_URL, headers=headers, timeout=5)
+        resp.raise_for_status()
+        return resp.text.strip()
+    except Exception as exc:  # pragma: no cover - network issues
+        logger.warning(f"Failed to fetch premium proxy: {exc}")
+        return None
+
+
 def get_next_proxy() -> str | None:
-    """Return the next proxy from ``Config.PROXIES`` cycling sequentially."""
+    """Return the next proxy cycling through ``Config.PROXIES`` or provider."""
     global _proxy_index
+    if Config.PROXY_PROVIDER_URL:
+        proxy = _fetch_premium_proxy()
+        if proxy:
+            return proxy
     if not Config.PROXIES:
         return None
     proxy = Config.PROXIES[_proxy_index % len(Config.PROXIES)]
@@ -982,6 +1011,17 @@ def extract_videos(html: str) -> List[str]:
         return []
 
 
+def is_captcha_page(html: str) -> bool:
+    """Return ``True`` if the page appears to be a CAPTCHA challenge."""
+    lowered = html.lower()
+    patterns = ["captcha", "g-recaptcha", "cloudflare"]
+    return any(p in lowered for p in patterns)
+
+
+class CaptchaDetected(Exception):
+    """Raised when a CAPTCHA page is detected."""
+
+
 async def fetch_with_retry(
     url: str,
     *,
@@ -990,77 +1030,84 @@ async def fetch_with_retry(
     retries: int = Config.RETRIES,
     proxy: str | None = None,
 ) -> tuple[int, str]:
-    """Fetch a URL using ``aiohttp`` with automatic retries and logging."""
+    """Fetch a URL using ``aiohttp`` with tenacity-based retries."""
 
-    if proxy is None and Config.PROXIES:
+    if proxy is None:
         proxy = get_next_proxy()
     if headers is None:
         headers = {"User-Agent": Config.get_random_user_agent()}
 
-    for attempt in range(1, retries + 1):
-        try:
-            timeout = aiohttp.ClientTimeout(total=Config.TIMEOUT)
-            acquired_dummy = False
-            if (
-                hasattr(fetch_semaphore, "active")
-                and hasattr(fetch_semaphore, "limit")
-                and not hasattr(fetch_semaphore, "acquire")
-            ):
-                while fetch_semaphore.active >= fetch_semaphore.limit:
-                    await asyncio.sleep(0)
-                await fetch_semaphore.__aenter__()
-                acquired_dummy = True
-            else:
-                await fetch_semaphore.acquire()
-            try:
-                async with aiohttp.ClientSession(timeout=timeout) as session:
-                    async with session.get(
-                        url, params=params, headers=headers, proxy=proxy
-                    ) as resp:
-                        if resp.status in (429, 403):
-                            metrics.scrape_block.inc()
-                            raise aiohttp.ClientResponseError(resp.status)
-                        if 500 <= resp.status < 600:
-                            raise aiohttp.ClientResponseError(
-                                resp.request_info,
-                                resp.history,
-                                status=resp.status,
-                                message=resp.reason,
-                                headers=resp.headers,
-                            )
-                        resp.raise_for_status()
-                        rate_limiter.record_success()
-                        return resp.status, await resp.text()
-            finally:
-                if acquired_dummy:
-                    await fetch_semaphore.__aexit__(None, None, None)
-                else:
-                    fetch_semaphore.release()
-        except aiohttp.ClientResponseError as e:
-            status = getattr(e, "status", None)
-            if status in (429, 403):
-                logger.warning(f"HTTP {status} for {url}, rotating proxy/UA")
-                rate_limiter.record_error()
-                if Config.PROXIES:
-                    proxy = get_next_proxy()
-                headers["User-Agent"] = Config.get_random_user_agent()
-            else:
-                logger.warning(f"Attempt {attempt} failed for {url}: {e}")
-            exc = e
-        except asyncio.TimeoutError as e:
-            logger.warning(f"Timeout while fetching {url}")
-            rate_limiter.record_error()
-            exc = e
-        except Exception as e:
-            logger.warning(f"Attempt {attempt} failed for {url}: {e}")
-            exc = e
-        if attempt < retries:
-            metrics.request_retries_total.inc()
-            await asyncio.sleep(2)
+    async def _attempt() -> tuple[int, str]:
+        timeout = aiohttp.ClientTimeout(total=Config.TIMEOUT)
+        acquired_dummy = False
+        if (
+            hasattr(fetch_semaphore, "active")
+            and hasattr(fetch_semaphore, "limit")
+            and not hasattr(fetch_semaphore, "acquire")
+        ):
+            while fetch_semaphore.active >= fetch_semaphore.limit:
+                await asyncio.sleep(0)
+            await fetch_semaphore.__aenter__()
+            acquired_dummy = True
         else:
-            log_failed_url(url)
-            metrics.requests_failed_total.inc()
-            raise exc
+            await fetch_semaphore.acquire()
+        try:
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.get(
+                    url, params=params, headers=headers, proxy=proxy
+                ) as resp:
+                    if resp.status in (429, 403):
+                        metrics.scrape_block.inc()
+                        rate_limiter.record_error()
+                        raise CaptchaDetected()
+                    if 500 <= resp.status < 600:
+                        raise aiohttp.ClientResponseError(
+                            resp.request_info,
+                            resp.history,
+                            status=resp.status,
+                            message=resp.reason,
+                            headers=resp.headers,
+                        )
+                    resp.raise_for_status()
+                    text = await resp.text()
+                    if is_captcha_page(text):
+                        rate_limiter.record_error()
+                        raise CaptchaDetected()
+                    rate_limiter.record_success()
+                    return resp.status, text
+        finally:
+            if acquired_dummy:
+                await fetch_semaphore.__aexit__(None, None, None)
+            else:
+                fetch_semaphore.release()
+
+    retryer = tenacity.AsyncRetrying(
+        stop=tenacity.stop_after_attempt(retries),
+        wait=tenacity.wait_random_exponential(max=10),
+        retry=tenacity.retry_if_exception_type(
+            (aiohttp.ClientError, asyncio.TimeoutError, CaptchaDetected)
+        ),
+        reraise=True,
+    )
+    exc: Exception | None = None
+    async for attempt in retryer:
+        with attempt:
+            try:
+                return await _attempt()
+            except CaptchaDetected:
+                proxy = get_next_proxy()
+                headers["User-Agent"] = Config.get_random_user_agent()
+                exc = CaptchaDetected()
+                raise
+            except Exception as e:
+                proxy = get_next_proxy()
+                headers["User-Agent"] = Config.get_random_user_agent()
+                exc = e
+                raise
+
+    log_failed_url(url)
+    metrics.requests_failed_total.inc()
+    raise exc  # type: ignore[misc]
 
 
 def fetch_html_content(title: str, lang: str) -> str:
