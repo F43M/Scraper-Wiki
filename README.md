@@ -591,3 +591,14 @@ que demonstra como selecionar artigos por categoria ou linguagem e exportar
 subconjuntos do dataset. Novos notebooks `jax_fine_tuning.ipynb` e
 `lightning_fine_tuning.ipynb` apresentam exemplos de treino usando JAX/Flax e
 PyTorch Lightning.
+
+## Roadmap
+
+As próximas etapas previstas para o Scraper Wiki incluem:
+
+- Integração de novos backends de armazenamento vetorial;
+- Melhorias na interface web de monitoramento;
+- Plugins adicionais para fontes de dados governamentais;
+- Exportação simplificada para formatos usados em modelagem de linguagem;
+- Otimizações de desempenho para grandes volumes de URLs.
+
