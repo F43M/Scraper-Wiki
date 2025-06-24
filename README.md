@@ -205,6 +205,14 @@ dataset = convert_records_to_dataset(records, "pt", "Programação")
 scraper.close()
 ```
 
+### Otimizando workers assíncronos
+
+Ao rodar o `AutoLearnerScraper` com Selenium é comum abrir diversos drivers em
+paralelo. Utilize o parâmetro `max_workers` de forma conservadora e sempre em
+modo *headless* para manter o consumo de memória baixo. Essa abordagem permite
+que múltiplas páginas sejam processadas sem picos de CPU, mesmo em ambientes com
+recursos limitados.
+
 Exemplo executando o plugin do StackOverflow:
 
 ```python

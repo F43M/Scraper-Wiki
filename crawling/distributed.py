@@ -11,6 +11,7 @@ from urllib.robotparser import RobotFileParser
 import requests
 
 from cluster import get_client, load_config
+from . import rate_limiter
 
 logger = logging.getLogger(__name__)
 
@@ -57,14 +58,18 @@ class DistributedCrawler:
         if not self.can_fetch(url):
             logger.info("Blocked by robots.txt: %s", url)
             return None
-        time.sleep(self.crawl_delay)
+        host = urlparse(url).netloc
+        limiter = rate_limiter.get(host)
+        limiter.wait()
         try:
             resp = requests.get(
                 url, headers={"User-Agent": self.user_agent}, timeout=10
             )
             resp.raise_for_status()
+            limiter.record_success()
             return resp.text
         except Exception as exc:  # pragma: no cover - network errors
+            limiter.record_error()
             logger.error("Failed to fetch %s: %s", url, exc)
             return None
 
@@ -134,6 +139,61 @@ def start_crawler(config_path: str | None = None) -> None:
         max_pages=max_pages,
     )
     crawler.crawl()
+
+
+def benchmark_crawler(
+    start_urls: Iterable[str],
+    total_pages: int = 1000000,
+    client=None,
+    crawl_delay: float = 0.0,
+    user_agent: str = "ScraperWikiBot",
+) -> float:
+    """Benchmark crawling a large number of pages.
+
+    Args:
+        start_urls: Initial URLs used as seeds.
+        total_pages: Total number of pages to collect.
+        client: Optional distributed client.
+        crawl_delay: Base delay between requests.
+        user_agent: HTTP user agent string.
+
+    Returns:
+        Total time in seconds to fetch ``total_pages`` pages.
+    """
+    crawler = DistributedCrawler(
+        start_urls,
+        client=client,
+        crawl_delay=crawl_delay,
+        user_agent=user_agent,
+        max_pages=total_pages,
+    )
+    start = time.time()
+    crawler.crawl()
+    elapsed = time.time() - start
+    logger.info(
+        "Benchmark fetched %d pages in %.2fs (%.2f pages/s)",
+        total_pages,
+        elapsed,
+        total_pages / elapsed if elapsed else 0,
+    )
+    return elapsed
+
+
+def run_benchmark(config_path: str | None = None) -> None:
+    """Execute ``benchmark_crawler`` using ``cluster.yaml`` settings."""
+    cfg = load_config(config_path)
+    crawler_cfg = cfg.get("crawler", {})
+    client = get_client(cfg)
+    start_urls = crawler_cfg.get("start_urls", [])
+    pages = int(crawler_cfg.get("benchmark_pages", 1000000))
+    delay = float(crawler_cfg.get("crawl_delay", 0.0))
+    benchmark_crawler(
+        start_urls,
+        total_pages=pages,
+        client=client,
+        crawl_delay=delay,
+        user_agent=crawler_cfg.get("user_agent", "ScraperWikiBot"),
+    )
 
 
 def stop_crawler() -> None:
