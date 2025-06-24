@@ -3,7 +3,9 @@ from pathlib import Path
 from typing import List, Dict
 
 from .formats import (
+    save_arrow_dataset,
     save_arrow_table,
+    save_delta_table,
     save_hf_dataset,
     save_tfrecord_dataset,
 )
@@ -69,3 +71,5 @@ def run_pipeline(dataset_path: str | Path) -> None:
     save_hf_dataset(records, base.with_name(base.name + "_hf"))
     save_tfrecord_dataset(records, base.with_suffix(".tfrecord"))
     save_arrow_table(records, base.with_suffix(".arrow"))
+    save_arrow_dataset(records, base.with_name(base.name + "_arrow_dataset"))
+    save_delta_table(records, base.with_name(base.name + "_delta"))
