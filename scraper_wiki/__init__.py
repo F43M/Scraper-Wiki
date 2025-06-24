@@ -184,6 +184,7 @@ class Config:
     SQLITE_PATH = os.path.join(CACHE_DIR, "cache.sqlite")
     CACHE_TTL: Optional[int] = int(os.environ.get("CACHE_TTL", "0")) or None
     STORAGE_BACKEND = os.environ.get("STORAGE_BACKEND", "local")
+    SCRAPER_BACKEND = os.environ.get("SCRAPER_BACKEND", "selenium")
     LOG_SERVICE_URL = os.environ.get("LOG_SERVICE_URL")
     LOG_SERVICE_TYPE = os.environ.get("LOG_SERVICE_TYPE", "loki")
 
