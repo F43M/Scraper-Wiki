@@ -1,9 +1,12 @@
-"""Airflow pipeline orchestrating data collection and model fine-tuning."""
+"""Airflow DAGs to automate dataset creation and publishing."""
 
 from __future__ import annotations
 
+import json
+import os
 from datetime import datetime
-from typing import Any
+from typing import Any, List
+
 
 try:  # pragma: no cover - optional dependency
     from airflow import DAG
@@ -13,56 +16,116 @@ except Exception:  # pragma: no cover - optional dependency
     PythonOperator = None  # type: ignore
 
 
-def collect_data() -> None:
-    """Placeholder task to collect raw data."""
-    print("Collecting data...")
+def _output_path(name: str) -> str:
+    from scraper_wiki import Config
+
+    return os.path.join(Config.OUTPUT_DIR, name)
 
 
-def clean_data() -> None:
-    """Placeholder task to clean and preprocess the data."""
-    print("Cleaning data...")
+def _parse_env_list(name: str, default: List[str]) -> List[str]:
+    value = os.environ.get(name)
+    if not value:
+        return default
+    return [v.strip() for v in value.split(",") if v.strip()]
 
 
-def fine_tune_model() -> None:
-    """Run a sample hyperparameter search and log results with MLflow."""
-    try:  # pragma: no cover - optional deps
-        import mlflow
-        import optuna
-    except Exception:
-        print("MLflow or Optuna not available")
-        return
+def scrape_data() -> str:
+    """Collect pages using :class:`DatasetBuilder`.``
 
-    def objective(trial: optuna.Trial) -> float:
-        x = trial.suggest_float("x", 0.0, 1.0)
-        loss = (x - 0.5) ** 2
-        mlflow.log_params({"x": x})
-        mlflow.log_metric("loss", loss)
-        return loss
+    Returns
+    -------
+    str
+        Path to the raw dataset file saved on disk.
+    """
+    from scraper_wiki import Config, DatasetBuilder, normalize_category
 
-    with mlflow.start_run():
-        study = optuna.create_study(direction="minimize")
-        study.optimize(objective, n_trials=1)
+    langs = _parse_env_list("LANGUAGES", Config.LANGUAGES)
+    categories = _parse_env_list("CATEGORIES", list(Config.CATEGORIES))
+    builder = DatasetBuilder()
+    pages: List[dict] = []
+    for lang in langs:
+        wiki = DatasetBuilder.get_wikipedia_scraper(lang)
+        for cat in categories:
+            cat = normalize_category(cat) or cat
+            pages.extend(
+                wiki.get_category_members(cat)[: Config.MAX_PAGES_PER_CATEGORY]
+            )
+    builder.build_from_pages(pages, "Coletando paginas")
+    os.makedirs(Config.OUTPUT_DIR, exist_ok=True)
+    raw_path = _output_path("wikipedia_raw.json")
+    with open(raw_path, "w", encoding="utf-8") as f:
+        json.dump(builder.dataset, f, ensure_ascii=False, indent=2)
+    return raw_path
+
+
+def postprocess_dataset(ti) -> str:  # pragma: no cover - executed by Airflow
+    """Deduplicate and clean the dataset."""
+    path = ti.xcom_pull(task_ids="scrape_data")
+    if not path or not os.path.exists(path):
+        raise FileNotFoundError(path)
+    from dq import (
+        deduplicate_by_hash,
+        deduplicate_by_embedding,
+        remove_pii,
+        strip_credentials,
+    )
+    from training.postprocessing import filter_by_complexity
+
+    with open(path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    data, _ = deduplicate_by_hash(data)
+    data, _ = deduplicate_by_embedding(data)
+    cleaned = []
+    for rec in data:
+        if "content" in rec:
+            rec["content"] = remove_pii(strip_credentials(rec["content"]))
+        cleaned.append(rec)
+    cleaned = filter_by_complexity(cleaned)
+    processed_path = _output_path("wikipedia_processed.json")
+    with open(processed_path, "w", encoding="utf-8") as f:
+        json.dump(cleaned, f, ensure_ascii=False, indent=2)
+    return processed_path
+
+
+def publish_dataset(ti) -> None:  # pragma: no cover - executed by Airflow
+    """Publish the processed dataset using configured storage backends."""
+    path = ti.xcom_pull(task_ids="postprocess_dataset")
+    if not path or not os.path.exists(path):
+        raise FileNotFoundError(path)
+    with open(path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    from scraper_wiki import DatasetBuilder
+
+    builder = DatasetBuilder()
+    builder.dataset = data
+    builder.save_dataset(format=os.environ.get("DATASET_FORMAT", "hf"))
 
 
 def create_dag() -> Any:
-    """Create and return the Airflow DAG for the training pipeline."""
+    """Create the Airflow DAG for dataset creation."""
     if DAG is None or PythonOperator is None:
         raise RuntimeError("Airflow is not installed")
 
+    schedule = os.environ.get("AIRFLOW_SCHEDULE")
     with DAG(
-        dag_id="training_pipeline",
+        dag_id="dataset_pipeline",
         start_date=datetime(2024, 1, 1),
-        schedule_interval=None,
+        schedule_interval=schedule,
         catchup=False,
     ) as dag:
-        collect = PythonOperator(task_id="collect_data", python_callable=collect_data)
-        clean = PythonOperator(task_id="clean_data", python_callable=clean_data)
-        tune = PythonOperator(
-            task_id="fine_tune_model", python_callable=fine_tune_model
+        scrape = PythonOperator(
+            task_id="scrape_data",
+            python_callable=scrape_data,
         )
-
-        collect >> clean >> tune
-
+        postprocess = PythonOperator(
+            task_id="postprocess_dataset",
+            python_callable=postprocess_dataset,
+        )
+        publish = PythonOperator(
+            task_id="publish_dataset",
+            python_callable=publish_dataset,
+        )
+        scrape >> postprocess >> publish
     return dag
 
 

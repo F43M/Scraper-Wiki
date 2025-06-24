@@ -25,7 +25,7 @@ def test_create_dag():
     else:
         dag = pipe.create_dag()
         assert {
-            "collect_data",
-            "clean_data",
-            "fine_tune_model",
+            "scrape_data",
+            "postprocess_dataset",
+            "publish_dataset",
         }.issubset(dag.task_dict)
