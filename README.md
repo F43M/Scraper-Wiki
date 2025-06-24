@@ -197,9 +197,11 @@ páginas dinâmicas. Ele pode ser executado de forma independente:
 
 ```python
 from core import AutoLearnerScraper
+from crawling.auto_dataset import convert_records_to_dataset
 
 scraper = AutoLearnerScraper("https://exemplo.com")
 records = scraper.build_dataset(["python"])
+dataset = convert_records_to_dataset(records, "pt", "Programação")
 scraper.close()
 ```
 
