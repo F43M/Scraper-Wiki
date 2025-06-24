@@ -28,6 +28,24 @@ Run the command from the repository root. New features should include appropriat
 - Format all modified files with **black** (line length 88).
 - Write docstrings using the **Google** style.
 
+## Pre-commit hooks
+
+This project uses [pre-commit](https://pre-commit.com/) to run **black**,
+**flake8**, **isort** and **mypy** automatically. Install the hooks once after
+cloning the repository:
+
+```bash
+pip install pre-commit
+pre-commit install
+```
+
+After installation the checks will run on each commit. You can trigger them
+manually for all files with:
+
+```bash
+pre-commit run --all-files
+```
+
 You can format the entire repository by running:
 
 ```bash
