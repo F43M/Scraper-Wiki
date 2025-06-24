@@ -192,8 +192,8 @@ plugins disponíveis são `api_docs`, `code_extractor`, `gist_scraper`,
 campo `plugin` na API para escolher qual utilizar.
 
 O módulo `crawling.auto_learner` inclui ainda o `AutoLearnerScraper`, um
-gerador de datasets que utiliza Selenium e `fake-useragent` para navegar por
-páginas dinâmicas. Ele pode ser executado de forma independente:
+gerador de datasets que utiliza Selenium ou Playwright, além de `fake-useragent`,
+para navegar por páginas dinâmicas. Ele pode ser executado de forma independente:
 
 ```python
 from core import AutoLearnerScraper
@@ -204,6 +204,10 @@ records = scraper.build_dataset(["python"])
 dataset = convert_records_to_dataset(records, "pt", "Programação")
 scraper.close()
 ```
+
+Defina `--scraper-backend playwright` ou a variável `SCRAPER_BACKEND=playwright`
+para usar Playwright. Após instalar o pacote com `pip install playwright`,
+execute `playwright install` para baixar os navegadores necessários.
 
 ### Otimizando workers assíncronos
 

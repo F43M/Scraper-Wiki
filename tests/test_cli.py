@@ -443,7 +443,9 @@ def test_auto_scrape_command(monkeypatch):
     records = []
 
     class DummyScraper:
-        def __init__(self, base_url, driver_path=None, headless=True):
+        def __init__(
+            self, base_url, driver_path=None, headless=True, backend="selenium"
+        ):
             self.base_url = base_url
             self.driver = SimpleNamespace(page_source="")
 
@@ -471,3 +473,45 @@ def test_auto_scrape_command(monkeypatch):
     assert result.exit_code == 0
     assert records == ["http://example.com/page"]
     assert json.loads(result.output) == [{"url": "http://example.com/page"}]
+
+
+def test_auto_scrape_backend_option(monkeypatch):
+    called = {}
+
+    class DummyScraper:
+        def __init__(
+            self, base_url, driver_path=None, headless=True, backend="selenium"
+        ):
+            called["backend"] = backend
+            self.base_url = base_url
+            self.driver = SimpleNamespace(page_source="")
+
+        def fetch_page(self, url):
+            return {"url": url}
+
+        def close(self):
+            pass
+
+    auto_mod = ModuleType("crawling.auto_learner")
+    auto_mod.AutoLearnerScraper = DummyScraper
+    sys.modules["crawling.auto_learner"] = auto_mod
+    import importlib
+
+    core = importlib.import_module("core")
+
+    monkeypatch.setattr(core, "AutoLearnerScraper", DummyScraper)
+    runner = CliRunner()
+    result = runner.invoke(
+        cli.app,
+        [
+            "--scraper-backend",
+            "playwright",
+            "auto-scrape",
+            "http://example.com/page",
+            "--depth",
+            "0",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert called["backend"] == "playwright"

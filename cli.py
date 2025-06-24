@@ -42,6 +42,12 @@ def main(
     storage_backend: str = typer.Option(
         None, "--storage-backend", help="Backend de armazenamento", show_default=False
     ),
+    scraper_backend: str = typer.Option(
+        None,
+        "--scraper-backend",
+        help="Backend do AutoLearnerScraper (selenium ou playwright)",
+        show_default=False,
+    ),
 ):
     if cache_backend is not None:
         scraper_wiki.Config.CACHE_BACKEND = cache_backend
@@ -64,6 +70,8 @@ def main(
         scraper_wiki.Config.MAX_PROCESSES = max_processes
     if storage_backend is not None:
         scraper_wiki.Config.STORAGE_BACKEND = storage_backend
+    if scraper_backend is not None:
+        scraper_wiki.Config.SCRAPER_BACKEND = scraper_backend
 
 
 QUEUE_FILE = Path("jobs_queue.jsonl")
@@ -273,7 +281,7 @@ def auto_scrape(
         base = f"{parsed.scheme}://{parsed.netloc}"
         sc = scrapers.get(base)
         if sc is None:
-            sc = AutoLearnerScraper(base)
+            sc = AutoLearnerScraper(base, backend=scraper_wiki.Config.SCRAPER_BACKEND)
             scrapers[base] = sc
         return sc
 

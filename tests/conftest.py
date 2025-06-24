@@ -95,6 +95,43 @@ sys.modules.setdefault(
     "selenium.webdriver.common", ModuleType("selenium.webdriver.common")
 )
 sys.modules.setdefault("selenium.webdriver.common.by", by_stub)
+# Stub Playwright API
+playwright_sync_mod = ModuleType("playwright.sync_api")
+
+
+class _DummyPage:
+    def goto(self, url):
+        pass
+
+    def content(self):
+        return ""
+
+
+class _DummyBrowser:
+    def new_page(self):
+        return _DummyPage()
+
+
+class _DummyPlaywright:
+    def __init__(self):
+        self.chromium = SimpleNamespace(launch=lambda headless=True: _DummyBrowser())
+
+    def start(self):
+        return self
+
+    def stop(self):
+        pass
+
+
+def sync_playwright():
+    return _DummyPlaywright()
+
+
+playwright_sync_mod.sync_playwright = sync_playwright
+playwright_mod = ModuleType("playwright")
+playwright_mod.sync_api = playwright_sync_mod
+sys.modules.setdefault("playwright", playwright_mod)
+sys.modules.setdefault("playwright.sync_api", playwright_sync_mod)
 
 # Stub Selenium-based scraper to avoid heavy dependencies
 auto_stub = ModuleType("crawling.auto_learner")
