@@ -1,0 +1,53 @@
+# Contributing to Scraper Wiki
+
+Thank you for your interest in improving Scraper Wiki! This project follows a few simple rules to keep the code base consistent and maintainable.
+
+## Setting up the environment
+
+Install the main dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+Heavy optional packages such as TensorFlow and transformers are not required for running the tests. Skip them if you only need a minimal environment.
+
+## Running the test suite
+
+All contributions must pass the pytest suite before being committed:
+
+```bash
+pytest
+```
+
+Run the command from the repository root. New features should include appropriate tests whenever possible.
+
+## Code style
+
+- Follow **PEP8** conventions.
+- Format all modified files with **black** (line length 88).
+- Write docstrings using the **Google** style.
+
+You can format the entire repository by running:
+
+```bash
+black .
+```
+
+## Generating documentation
+
+HTML API documentation is generated with **pdoc**. After changing modules or docstrings, run:
+
+```bash
+pdoc -o docs -d google scraper_wiki
+```
+
+The output will appear inside the `docs/` directory.
+
+## Workflow
+
+1. Update docstrings and documentation when modifying code.
+2. Ensure `pytest` passes without failures.
+3. Commit your changes once the code is formatted and tests succeed.
+
+We welcome pull requests that improve the scraper, documentation or tests. Feel free to open issues if you encounter problems.

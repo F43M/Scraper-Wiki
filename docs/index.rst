@@ -7,6 +7,7 @@ Scraper-Wiki Documentation
    modules
    code_fine_tuning
    postprocessing
+   plugins/index
 
 Record Schema
 -------------
