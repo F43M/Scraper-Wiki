@@ -3,6 +3,13 @@ Scraper para criacao de datasets para fine tuning e treinamento de modelos de in
 
 A documentação da API está disponível em [docs/_build/index.html](docs/_build/index.html).
 
+Para gerar a documentação HTML utilize:
+
+```bash
+pdoc -o docs -d google scraper_wiki crawling/auto_learner.py
+```
+
+
 ## Instalação
 
 Use o arquivo `requirements.txt` para instalar as dependências:
