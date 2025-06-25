@@ -34,6 +34,17 @@ You can format the entire repository by running:
 black .
 ```
 
+## Pre-commit hooks
+
+Run security and formatting checks with [pre-commit](https://pre-commit.com):
+
+```bash
+pre-commit run --all-files
+```
+
+The hooks apply **black**, execute **bandit** and audit dependencies using
+**pip-audit**.
+
 ## Generating documentation
 
 HTML API documentation is generated with **pdoc**. After changing modules or docstrings, run:
