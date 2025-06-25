@@ -557,7 +557,7 @@ def test_process_page_uses_clean_text(monkeypatch):
     builder = sw.DatasetBuilder()
     res = builder.process_page({"title": "T", "lang": "en"})
 
-    assert res == {"entities": [], "images": []}
+    assert res == {"entities": [], "images": [], "image_paths": [], "video_urls": []}
     assert called["clean"] == "raw text"
     assert called["adv"] == ("cleaned", "en", True)
 
@@ -607,7 +607,13 @@ def test_process_page_increments_counter(monkeypatch):
     builder = sw.DatasetBuilder()
     res = builder.process_page({"title": "T", "lang": "en"})
 
-    assert res == {"ok": True, "entities": [], "images": []}
+    assert res == {
+        "ok": True,
+        "entities": [],
+        "images": [],
+        "image_paths": [],
+        "video_urls": [],
+    }
     assert counts["pages"] == 1
 
 
@@ -656,8 +662,65 @@ def test_process_page_records_histogram(monkeypatch):
     builder = sw.DatasetBuilder()
     res = builder.process_page({"title": "T", "lang": "en"})
 
-    assert res == {"ok": True, "entities": [], "images": []}
+    assert res == {
+        "ok": True,
+        "entities": [],
+        "images": [],
+        "image_paths": [],
+        "video_urls": [],
+    }
     assert observed["count"] == 1
+
+
+def test_process_page_downloads_assets(monkeypatch, tmp_path):
+    class DummyPage:
+        text = "t" * 200
+        _html = (
+            "<div class='thumb'><img src='http://x/img.jpg'/></div>"
+            "<video src='http://x/v.mp4'></video>"
+        )
+
+        def exists(self):
+            return True
+
+    class DummyWiki:
+        def __init__(self, lang):
+            pass
+
+        def fetch_page(self, title):
+            return DummyPage()
+
+    monkeypatch.setattr(sw.Config, "MIN_TEXT_LENGTH", 10)
+    monkeypatch.setattr(sw, "WikipediaAdvanced", DummyWiki)
+    monkeypatch.setattr(sw, "clean_text", lambda t: t)
+    monkeypatch.setattr(
+        sw, "advanced_clean_text", lambda t, lang, remove_stopwords=False: t
+    )
+    monkeypatch.setattr(sw, "summarize_text", lambda *a, **k: "")
+    monkeypatch.setattr(
+        sw.DatasetBuilder, "generate_qa_pairs", lambda *a, **k: {"ok": True}
+    )
+    monkeypatch.setattr(sw, "extract_entities", lambda text: [])
+    monkeypatch.setattr(
+        sw.binary_storage, "save", lambda url: str(tmp_path / "img.jpg")
+    )
+    monkeypatch.setattr(
+        sw,
+        "metrics",
+        SimpleNamespace(
+            scrape_success=SimpleNamespace(inc=lambda: None),
+            scrape_error=SimpleNamespace(inc=lambda: None),
+            pages_scraped_total=SimpleNamespace(inc=lambda: None),
+            requests_failed_total=SimpleNamespace(inc=lambda: None),
+            page_processing_seconds=SimpleNamespace(observe=lambda v: None),
+        ),
+    )
+
+    builder = sw.DatasetBuilder()
+    res = builder.process_page({"title": "T", "lang": "en"})
+
+    assert res["image_paths"] == [str(tmp_path / "img.jpg")]
+    assert res["video_urls"] == ["http://x/v.mp4"]
 
 
 def test_save_dataset_json_csv(tmp_path, monkeypatch):
