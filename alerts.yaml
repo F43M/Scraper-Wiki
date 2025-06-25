@@ -38,3 +38,23 @@
   annotations:
     summary: "Parsers desatualizados"
     description: "Faz mais de 7 dias desde a última atualização dos parsers"
+
+# Alerta de uso elevado de CPU
+- alert: HighCPUUsage
+  expr: cpu_usage_percent > 90
+  for: 5m
+  labels:
+    severity: warning
+  annotations:
+    summary: "Uso de CPU elevado"
+    description: "O uso de CPU do worker está acima de 90% por 5 minutos"
+
+# Alerta de uso elevado de memória
+- alert: HighMemoryUsage
+  expr: memory_usage_percent > 90
+  for: 5m
+  labels:
+    severity: warning
+  annotations:
+    summary: "Uso de memória elevado"
+    description: "O uso de memória do worker está acima de 90% por 5 minutos"
