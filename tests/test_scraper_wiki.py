@@ -449,6 +449,9 @@ class DummyExecutor:
     def submit(self, fn, *args, **kwargs):
         return DummyFuture(fn(*args, **kwargs))
 
+    def shutdown(self, wait=True):
+        pass
+
 
 def test_build_from_pages(monkeypatch):
     dummy_data = {
@@ -509,6 +512,28 @@ def test_build_from_pages_async(monkeypatch):
     assert data == [dummy_data]
     assert data[0]["wikidata_id"] == "Q1"
     assert data[0]["image_url"] == "img"
+
+
+def test_build_from_pages_reuses_executors(monkeypatch):
+    monkeypatch.setattr(
+        sw.DatasetBuilder,
+        "process_page",
+        lambda s, p, proc_executor=None: DummyFuture({}),
+    )
+    monkeypatch.setattr(sw, "ThreadPoolExecutor", DummyExecutor)
+    monkeypatch.setattr(sw, "ProcessPoolExecutor", DummyExecutor)
+    monkeypatch.setattr(sw, "as_completed", lambda it: it)
+    monkeypatch.setattr(sw, "tqdm", lambda it, **k: it)
+
+    builder = sw.DatasetBuilder()
+    pages = [{"title": "t", "lang": "en"}]
+    builder.build_from_pages(pages)
+    th1 = builder.thread_executor
+    pr1 = builder.process_executor
+    builder.build_from_pages(pages)
+    assert builder.thread_executor is th1
+    assert builder.process_executor is pr1
+    builder.cleanup()
 
 
 def test_process_page_uses_clean_text(monkeypatch):

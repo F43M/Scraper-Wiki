@@ -1751,8 +1751,23 @@ class DatasetBuilder:
         rev_limit: int = 5,
         min_complexity: int | None = None,
         max_complexity: int | None = None,
+        thread_executor: ThreadPoolExecutor | None = None,
+        process_executor: ProcessPoolExecutor | None = None,
         **_,
     ):
+        """Initialize the builder and optionally reuse executors.
+
+        Args:
+            include_revisions: Whether to include revision history.
+            rev_limit: Maximum number of revisions to fetch.
+            min_complexity: Minimum allowed code complexity.
+            max_complexity: Maximum allowed code complexity.
+            thread_executor: Existing ``ThreadPoolExecutor`` instance for I/O
+                tasks. When ``None`` a new executor is created on demand.
+            process_executor: Existing ``ProcessPoolExecutor`` instance for CPU
+                intensive tasks.
+        """
+
         self.embedding_model = NLPProcessor.get_embedding_model()
         self.dataset = []
         self.qa_pairs = []
@@ -1764,6 +1779,11 @@ class DatasetBuilder:
         self.min_complexity = min_complexity
         self.max_complexity = max_complexity
         self.last_scraped = load_last_scraped()
+
+        self.thread_executor = thread_executor
+        self.process_executor = process_executor
+        self._own_thread_executor = thread_executor is None
+        self._own_process_executor = process_executor is None
 
         # Load checkpoints if available
         pages_path = os.path.join(Config.LOG_DIR, "checkpoint_pages.json")
@@ -2450,46 +2470,52 @@ class DatasetBuilder:
 
         if not use_queue:
             cpu_futures = []
-            with ThreadPoolExecutor(
-                max_workers=Config.MAX_THREADS
-            ) as th_executor, ProcessPoolExecutor(
-                max_workers=Config.MAX_PROCESSES
-            ) as pr_executor:
-                page_futures = {
-                    th_executor.submit(self.process_page, page, pr_executor): page
-                    for page in pages
-                }
+            if self.thread_executor is None:
+                self.thread_executor = ThreadPoolExecutor(
+                    max_workers=Config.MAX_THREADS
+                )
+            if self.process_executor is None:
+                self.process_executor = ProcessPoolExecutor(
+                    max_workers=Config.MAX_PROCESSES
+                )
 
-                processed = 0
-                total = len(page_futures)
-                for future in tqdm(
-                    as_completed(page_futures), total=total, desc=progress_desc
-                ):
-                    cpu_future = future.result()
-                    page = page_futures[future]
-                    processed += 1
-                    if page in self.pending_pages:
-                        self.pending_pages.remove(page)
-                    if processed % 10 == 0 or processed == total:
-                        logger.info(f"Thread progress: {processed}/{total}")
-                    if cpu_future:
-                        cpu_futures.append(cpu_future)
-                    self._update_progress()
+            page_futures = {
+                self.thread_executor.submit(
+                    self.process_page, page, self.process_executor
+                ): page
+                for page in pages
+            }
 
-                processed_cpu = 0
-                total_cpu = len(cpu_futures)
-                for future in tqdm(
-                    as_completed(cpu_futures),
-                    total=total_cpu,
-                    desc="Processando conteúdo",
-                ):
-                    result = future.result()
-                    processed_cpu += 1
-                    if processed_cpu % 10 == 0 or processed_cpu == total_cpu:
-                        logger.info(f"Process progress: {processed_cpu}/{total_cpu}")
-                    if result:
-                        self.dataset.append(result)
-                    self._update_progress()
+            processed = 0
+            total = len(page_futures)
+            for future in tqdm(
+                as_completed(page_futures), total=total, desc=progress_desc
+            ):
+                cpu_future = future.result()
+                page = page_futures[future]
+                processed += 1
+                if page in self.pending_pages:
+                    self.pending_pages.remove(page)
+                if processed % 10 == 0 or processed == total:
+                    logger.info(f"Thread progress: {processed}/{total}")
+                if cpu_future:
+                    cpu_futures.append(cpu_future)
+                self._update_progress()
+
+            processed_cpu = 0
+            total_cpu = len(cpu_futures)
+            for future in tqdm(
+                as_completed(cpu_futures),
+                total=total_cpu,
+                desc="Processando conteúdo",
+            ):
+                result = future.result()
+                processed_cpu += 1
+                if processed_cpu % 10 == 0 or processed_cpu == total_cpu:
+                    logger.info(f"Process progress: {processed_cpu}/{total_cpu}")
+                if result:
+                    self.dataset.append(result)
+                self._update_progress()
 
             if pipeline_name:
                 pipe = get_pipeline(pipeline_name)
@@ -2800,6 +2826,16 @@ class DatasetBuilder:
         except Exception as e:  # pragma: no cover - unexpected I/O errors
             logger.error(f"Erro ao salvar dataset_info.json: {e}")
             send_alert(f"Failed to save dataset info: {e}")
+
+    def cleanup(self) -> None:
+        """Shut down executors owned by this instance."""
+        if self._own_thread_executor and self.thread_executor:
+            self.thread_executor.shutdown()
+            self.thread_executor = None
+        if self._own_process_executor and self.process_executor:
+            self.process_executor.shutdown()
+            self.process_executor = None
+        async_runner.shutdown()
 
 
 # ============================
