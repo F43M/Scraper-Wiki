@@ -42,6 +42,12 @@ def main(
     storage_backend: str = typer.Option(
         None, "--storage-backend", help="Backend de armazenamento", show_default=False
     ),
+    compress: str = typer.Option(
+        None,
+        "--compress",
+        help="Compressão (none, gzip, zstd)",
+        show_default=False,
+    ),
     scraper_backend: str = typer.Option(
         None,
         "--scraper-backend",
@@ -70,6 +76,8 @@ def main(
         scraper_wiki.Config.MAX_PROCESSES = max_processes
     if storage_backend is not None:
         scraper_wiki.Config.STORAGE_BACKEND = storage_backend
+    if compress is not None:
+        scraper_wiki.Config.COMPRESSION = compress
     if scraper_backend is not None:
         scraper_wiki.Config.SCRAPER_BACKEND = scraper_backend
 

@@ -5,7 +5,10 @@ from typing import Optional
 
 
 def save_to_db(
-    data: dict, table: str = "infoboxes", db_path: str = "infoboxes.sqlite"
+    data: dict,
+    table: str = "infoboxes",
+    db_path: str = "infoboxes.sqlite",
+    compression: str = "none",
 ) -> None:
     """Save a dictionary as a JSON blob in the given SQLite table."""
     dir_name = os.path.dirname(db_path)
@@ -13,12 +16,18 @@ def save_to_db(
         os.makedirs(dir_name, exist_ok=True)
     conn = sqlite3.connect(db_path)
     try:
+        dtype = "BLOB" if compression != "none" else "TEXT"
         conn.execute(
-            f"CREATE TABLE IF NOT EXISTS {table} (id INTEGER PRIMARY KEY AUTOINCREMENT, data TEXT)"
+            f"CREATE TABLE IF NOT EXISTS {table} (id INTEGER PRIMARY KEY AUTOINCREMENT, data {dtype})"
         )
+        payload = json.dumps(data, ensure_ascii=False).encode("utf-8")
+        if compression != "none":
+            from utils.compression import compress_bytes
+
+            payload = compress_bytes(payload, compression)
         conn.execute(
             f"INSERT INTO {table} (data) VALUES (?)",
-            (json.dumps(data, ensure_ascii=False),),
+            (payload,),
         )
         conn.commit()
     finally:

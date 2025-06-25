@@ -8,6 +8,7 @@ import json
 from datetime import datetime
 import graphene
 from utils.text import clean_text, extract_entities
+from utils.compression import load_json_file
 import asyncio
 from search import indexer
 
@@ -20,8 +21,7 @@ PROGRESS_FILE = os.path.join(sw.Config.LOG_DIR, "progress.json")
 def load_dataset() -> List[dict]:
     if not os.path.exists(DATA_FILE):
         return []
-    with open(DATA_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
+    return load_json_file(DATA_FILE)
 
 
 def load_progress() -> dict:
