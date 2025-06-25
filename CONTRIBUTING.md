@@ -44,6 +44,17 @@ pdoc -o docs -d google integrations core plugins utils api
 
 The output will appear inside the `docs/` directory.
 
+## Releases and Versioning
+
+Scraper Wiki follows [Semantic Versioning](https://semver.org/) for all
+releases. The current version is defined in `pyproject.toml` and tags are
+created as `vMAJOR.MINOR.PATCH`.
+
+- **MAJOR** version when you make incompatible API or dataset changes.
+- **MINOR** version when you add functionality in a backward compatible manner.
+- **PATCH** version when you make backward compatible bug fixes.
+
+
 ## Workflow
 
 1. Update docstrings and documentation when modifying code.
