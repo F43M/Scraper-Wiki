@@ -3,11 +3,16 @@
 from __future__ import annotations
 
 from typing import Dict, List
+import logging
+import requests
 
 from youtube_transcript_api import YouTubeTranscriptApi
-from scraper_wiki import binary_storage
+from scraper_wiki import binary_storage, log_error
 
 from .base import BasePlugin
+
+
+logger = logging.getLogger(__name__)
 
 
 class YouTubeTranscriptPlugin(BasePlugin):
@@ -36,7 +41,8 @@ class YouTubeTranscriptPlugin(BasePlugin):
         try:
             path = binary_storage.save(thumb_url)
             record["image_paths"] = [path]
-        except Exception:
+        except (requests.RequestException, OSError) as exc:
+            log_error("Failed to download thumbnail", exc)
             record["image_paths"] = []
         record["thumbnail_url"] = thumb_url
         record.setdefault("raw_code", "")

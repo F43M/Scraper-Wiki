@@ -5,10 +5,15 @@ from __future__ import annotations
 import json
 import re
 from typing import Dict, List
+import logging
 
 import requests
+from scraper_wiki import log_error
 
 from .base import Plugin
+
+
+logger = logging.getLogger(__name__)
 
 
 class CodePenScraper(Plugin):
@@ -36,8 +41,11 @@ class CodePenScraper(Plugin):
                 html = files.get("html", {}).get("content", "")
                 css = files.get("css", {}).get("content", "")
                 js = files.get("js", {}).get("content", "")
-            except Exception:
-                pass
+            except json.JSONDecodeError as exc:
+                logger.warning(
+                    "Failed to parse CodePen JSON",
+                    extra={"error_type": type(exc).__name__, "error_message": str(exc)},
+                )
 
         # Fallback for JSFiddle markup
         if not any([html, css, js]):

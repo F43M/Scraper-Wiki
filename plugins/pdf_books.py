@@ -4,10 +4,16 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Dict, List
+import logging
 
 from PyPDF2 import PdfReader
+from PyPDF2.errors import PdfReadError
+from scraper_wiki import log_error
 
 from .base import Plugin
+
+
+logger = logging.getLogger(__name__)
 
 
 class PDFBooksPlugin(Plugin):  # type: ignore[misc]
@@ -30,7 +36,8 @@ class PDFBooksPlugin(Plugin):  # type: ignore[misc]
             return {}
         try:
             reader = PdfReader(file_path)
-        except Exception:
+        except (PdfReadError, FileNotFoundError, OSError) as exc:
+            log_error("Failed to read PDF", exc)
             return {}
         text_parts: List[str] = []
         for page in reader.pages:

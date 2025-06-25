@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import json
 from typing import Any, Dict, List
+import logging
 
+from scraper_wiki import log_error
+
+logger = logging.getLogger(__name__)
 import requests
 
 
@@ -29,7 +33,7 @@ def invoke_lambda(
     """
     try:  # pragma: no cover - optional dependency
         import boto3  # type: ignore
-    except Exception as exc:  # pragma: no cover - dependency missing
+    except ImportError as exc:  # pragma: no cover - dependency missing
         raise RuntimeError("boto3 required for AWS Lambda") from exc
     client = boto3.client("lambda", region_name=region)
     resp = client.invoke(
