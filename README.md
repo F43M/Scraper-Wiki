@@ -73,6 +73,8 @@ python main.py --url "https://en.wikipedia.org/wiki/Python" --output csv
 python main.py --file urls.txt --output parquet
 ```
 
+Use `--compress gzip` ou `--compress zstd` para salvar arquivos compactados, economizando espaço em disco.
+
 ### Normalização de categorias e busca automática
 
 Os nomes de categoria passam por um processo de normalização que remove
@@ -146,6 +148,9 @@ Os valores suportados são `local` (padrão), `s3`/`minio`, `mongodb`, `postgres
 Para S3/MinIO defina `S3_BUCKET` e `S3_ENDPOINT` (ou `MINIO_ENDPOINT`).
 Para MongoDB use `MONGODB_URI`. Para PostgreSQL defina `POSTGRES_DSN`.
 Para Apache Iceberg/Delta Lake defina `DATALAKE_PATH`. Para Neo4j utilize `NEO4J_URI`, `NEO4J_USER` e `NEO4J_PASSWORD`. Para bancos vetoriais use `MILVUS_URI` e `MILVUS_COLLECTION` ou `WEAVIATE_URI`.
+
+Os arquivos podem ser comprimidos com `--compress gzip` ou `--compress zstd` ao salvar.
+Isso reduz o espaço ocupado em até 70% (zstd) com custo mínimo de CPU na escrita e leitura.
 
 O backend também pode ser escolhido definindo `STORAGE_BACKEND=<opção>`
 no ambiente (por exemplo `STORAGE_BACKEND=postgres`). Cada backend possui

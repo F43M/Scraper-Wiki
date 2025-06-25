@@ -18,6 +18,18 @@ def test_save_to_db_creates_table_and_inserts(tmp_path):
     assert json.loads(row[0]) == data
 
 
+def test_save_to_db_compression(tmp_path):
+    db_file = tmp_path / "c.sqlite"
+    data = {"x": 5}
+    save_to_db(data, table="info", db_path=str(db_file), compression="gzip")
+    conn = sqlite3.connect(db_file)
+    row = conn.execute("SELECT data FROM info").fetchone()[0]
+    conn.close()
+    import gzip
+
+    assert json.loads(gzip.decompress(row).decode()) == data
+
+
 def test_metadata_functions(tmp_path):
     db_file = tmp_path / "meta.sqlite"
     assert get_last_processed("repo", db_path=str(db_file)) is None

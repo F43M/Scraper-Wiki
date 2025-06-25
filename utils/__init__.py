@@ -7,6 +7,7 @@ from .text import (
 )
 from .relation import extract_relations
 from .cleaner import clean_wiki_text, split_sentences
+from .compression import compress_bytes, decompress_bytes, load_json_file
 from .code import (
     normalize_indentation,
     remove_comments,
@@ -39,4 +40,7 @@ __all__ = [
     "search_discussions",
     "normalize_url",
     "decide_navigation_action",
+    "compress_bytes",
+    "decompress_bytes",
+    "load_json_file",
 ]

@@ -192,6 +192,7 @@ class Config:
     SQLITE_PATH = os.path.join(CACHE_DIR, "cache.sqlite")
     CACHE_TTL: Optional[int] = int(os.environ.get("CACHE_TTL", "0")) or None
     STORAGE_BACKEND = os.environ.get("STORAGE_BACKEND", "local")
+    COMPRESSION = os.environ.get("COMPRESSION", "none")
     SCRAPER_BACKEND = os.environ.get("SCRAPER_BACKEND", "selenium")
     LOG_SERVICE_URL = os.environ.get("LOG_SERVICE_URL")
     LOG_SERVICE_TYPE = os.environ.get("LOG_SERVICE_TYPE", "loki")
@@ -2651,7 +2652,12 @@ class DatasetBuilder:
         old_size = old_info.get("size", 0)
         new_version = _bump(old_version)
 
-        backend.save_dataset(sorted_data, format, version=new_version)
+        backend.save_dataset(
+            sorted_data,
+            format,
+            version=new_version,
+            compression=Config.COMPRESSION,
+        )
         logger.info(f"Dataset salvo usando backend {Config.STORAGE_BACKEND}")
 
         if format == "qa":

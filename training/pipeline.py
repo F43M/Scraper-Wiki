@@ -12,9 +12,10 @@ from .formats import (
 
 
 def load_dataset(path: str | Path) -> List[Dict]:
-    """Load dataset from JSON file."""
-    with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
+    """Load dataset from JSON file with optional compression."""
+    from utils.compression import load_json_file
+
+    return load_json_file(path)
 
 
 def save_json(data, path: str | Path) -> None:

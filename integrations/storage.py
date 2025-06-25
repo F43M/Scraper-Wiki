@@ -1,6 +1,7 @@
 import os
 import json
 import csv
+from pathlib import Path
 from typing import List
 
 
@@ -35,7 +36,11 @@ class StorageBackend:
     """Interface for storage backends."""
 
     def save_dataset(
-        self, data: List[dict], fmt: str = "all", version: str | None = None
+        self,
+        data: List[dict],
+        fmt: str = "all",
+        version: str | None = None,
+        compression: str = "none",
     ) -> None:
         raise NotImplementedError
 
@@ -46,17 +51,41 @@ class LocalStorage(StorageBackend):
         os.makedirs(output_dir, exist_ok=True)
 
     def save_dataset(
-        self, data: List[dict], fmt: str = "all", version: str | None = None
+        self,
+        data: List[dict],
+        fmt: str = "all",
+        version: str | None = None,
+        compression: str = "none",
     ) -> None:
         if fmt in ["all", "json"]:
             json_file = os.path.join(self.output_dir, "wikipedia_qa.json")
             with open(json_file, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=4)
+            if compression != "none":
+                from utils.compression import compress_bytes
+
+                raw = Path(json_file).read_bytes()
+                comp = compress_bytes(raw, compression)
+                ext = ".zst" if compression == "zstd" else ".gz"
+                comp_path = json_file + ext
+                Path(comp_path).write_bytes(comp)
+                os.remove(json_file)
+                json_file = comp_path
         if fmt in ["all", "jsonl"]:
             jsonl_file = os.path.join(self.output_dir, "wikipedia_qa.jsonl")
             with open(jsonl_file, "w", encoding="utf-8") as f:
                 for row in data:
                     f.write(json.dumps(row, ensure_ascii=False) + "\n")
+            if compression != "none":
+                from utils.compression import compress_bytes
+
+                raw = Path(jsonl_file).read_bytes()
+                comp = compress_bytes(raw, compression)
+                ext = ".zst" if compression == "zstd" else ".gz"
+                comp_path = jsonl_file + ext
+                Path(comp_path).write_bytes(comp)
+                os.remove(jsonl_file)
+                jsonl_file = comp_path
         if fmt in ["all", "csv"]:
             csv_file = os.path.join(self.output_dir, "wikipedia_qa.csv")
             with open(csv_file, "w", newline="", encoding="utf-8") as f:
@@ -74,6 +103,16 @@ class LocalStorage(StorageBackend):
                     }
                     rows.append(converted)
                 writer.writerows(rows)
+            if compression != "none":
+                from utils.compression import compress_bytes
+
+                raw = Path(csv_file).read_bytes()
+                comp = compress_bytes(raw, compression)
+                ext = ".zst" if compression == "zstd" else ".gz"
+                comp_path = csv_file + ext
+                Path(comp_path).write_bytes(comp)
+                os.remove(csv_file)
+                csv_file = comp_path
         if fmt in ["all", "parquet"]:
             try:
                 import pyarrow as pa
@@ -82,6 +121,16 @@ class LocalStorage(StorageBackend):
                 parquet_file = os.path.join(self.output_dir, "wikipedia_qa.parquet")
                 table = pa.Table.from_pylist(data)
                 pq.write_table(table, parquet_file)
+                if compression != "none":
+                    from utils.compression import compress_bytes
+
+                    raw = Path(parquet_file).read_bytes()
+                    comp = compress_bytes(raw, compression)
+                    ext = ".zst" if compression == "zstd" else ".gz"
+                    comp_path = parquet_file + ext
+                    Path(comp_path).write_bytes(comp)
+                    os.remove(parquet_file)
+                    parquet_file = comp_path
             except Exception:
                 pass
         if fmt in ["all", "tfrecord"]:
@@ -94,6 +143,16 @@ class LocalStorage(StorageBackend):
                         writer.write(
                             json.dumps(row, ensure_ascii=False).encode("utf-8")
                         )
+                if compression != "none":
+                    from utils.compression import compress_bytes
+
+                    raw = Path(tf_path).read_bytes()
+                    comp = compress_bytes(raw, compression)
+                    ext = ".zst" if compression == "zstd" else ".gz"
+                    comp_path = tf_path + ext
+                    Path(comp_path).write_bytes(comp)
+                    os.remove(tf_path)
+                    tf_path = comp_path
             except Exception:
                 pass
         _maybe_upload_large(data, "wikipedia_qa.json")
@@ -126,19 +185,39 @@ class S3Storage(StorageBackend):
         return f"{self.prefix}/{name}" if self.prefix else name
 
     def save_dataset(
-        self, data: List[dict], fmt: str = "all", version: str | None = None
+        self,
+        data: List[dict],
+        fmt: str = "all",
+        version: str | None = None,
+        compression: str = "none",
     ) -> None:
         if fmt in ["all", "json"]:
             body = json.dumps(data, ensure_ascii=False, indent=4).encode("utf-8")
+            from utils.compression import compress_bytes
+
+            body = compress_bytes(body, compression)
+            ext = (
+                ".zst"
+                if compression == "zstd"
+                else ".gz" if compression != "none" else ""
+            )
             self.s3.put_object(
-                Bucket=self.bucket, Key=self._key("wikipedia_qa.json"), Body=body
+                Bucket=self.bucket,
+                Key=self._key(f"wikipedia_qa.json{ext}"),
+                Body=body,
             )
         if fmt in ["all", "jsonl"]:
             lines = "\n".join(json.dumps(row, ensure_ascii=False) for row in data)
+            body = compress_bytes(lines.encode("utf-8"), compression)
+            ext = (
+                ".zst"
+                if compression == "zstd"
+                else ".gz" if compression != "none" else ""
+            )
             self.s3.put_object(
                 Bucket=self.bucket,
-                Key=self._key("wikipedia_qa.jsonl"),
-                Body=lines.encode("utf-8"),
+                Key=self._key(f"wikipedia_qa.jsonl{ext}"),
+                Body=body,
             )
         if fmt in ["all", "csv"]:
             import io
@@ -157,10 +236,16 @@ class S3Storage(StorageBackend):
                         for k, v in row.items()
                     }
                 )
+            body = compress_bytes(buffer.getvalue().encode("utf-8"), compression)
+            ext = (
+                ".zst"
+                if compression == "zstd"
+                else ".gz" if compression != "none" else ""
+            )
             self.s3.put_object(
                 Bucket=self.bucket,
-                Key=self._key("wikipedia_qa.csv"),
-                Body=buffer.getvalue().encode("utf-8"),
+                Key=self._key(f"wikipedia_qa.csv{ext}"),
+                Body=body,
             )
         if fmt in ["all", "parquet"]:
             try:
@@ -170,10 +255,16 @@ class S3Storage(StorageBackend):
                 table = pa.Table.from_pylist(data)
                 buf = pa.BufferOutputStream()
                 pq.write_table(table, buf)
+                body = compress_bytes(buf.getvalue().to_pybytes(), compression)
+                ext = (
+                    ".zst"
+                    if compression == "zstd"
+                    else ".gz" if compression != "none" else ""
+                )
                 self.s3.put_object(
                     Bucket=self.bucket,
-                    Key=self._key("wikipedia_qa.parquet"),
-                    Body=buf.getvalue().to_pybytes(),
+                    Key=self._key(f"wikipedia_qa.parquet{ext}"),
+                    Body=body,
                 )
             except Exception:
                 pass
@@ -192,9 +283,17 @@ class S3Storage(StorageBackend):
                     tmp.flush()
                     tmp.seek(0)
                     body = tmp.read()
+                from utils.compression import compress_bytes
+
+                body = compress_bytes(body, compression)
+                ext = (
+                    ".zst"
+                    if compression == "zstd"
+                    else ".gz" if compression != "none" else ""
+                )
                 self.s3.put_object(
                     Bucket=self.bucket,
-                    Key=self._key("wikipedia_qa.tfrecord"),
+                    Key=self._key(f"wikipedia_qa.tfrecord{ext}"),
                     Body=body,
                 )
             except Exception:
