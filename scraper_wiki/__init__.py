@@ -31,7 +31,12 @@ import asyncio
 import inspect
 from tqdm import tqdm
 from unidecode import unidecode
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
+from concurrent.futures import (
+    ThreadPoolExecutor,
+    ProcessPoolExecutor,
+    as_completed,
+    Future,
+)
 
 try:  # optional heavy dependency
     from datasets import Dataset, concatenate_datasets
@@ -704,6 +709,26 @@ def clear_cache() -> None:
 rate_limiter = RateLimiter(Config.RATE_LIMIT_DELAY)
 # Limit the number of concurrent HTTP requests
 fetch_semaphore = asyncio.Semaphore(Config.MAX_CONCURRENT_REQUESTS)
+
+
+class AsyncRunner:
+    """Maintain a shared process pool for async operations."""
+
+    def __init__(self) -> None:
+        self._proc_pool: ProcessPoolExecutor | None = None
+
+    def get_process_pool(self) -> ProcessPoolExecutor:
+        if self._proc_pool is None:
+            self._proc_pool = ProcessPoolExecutor(max_workers=Config.MAX_PROCESSES)
+        return self._proc_pool
+
+    def shutdown(self) -> None:
+        if self._proc_pool:
+            self._proc_pool.shutdown()
+            self._proc_pool = None
+
+
+async_runner = AsyncRunner()
 
 
 # ============================
@@ -2513,37 +2538,40 @@ class DatasetBuilder:
         else:
             self.pending_pages = pages.copy()
 
-        cpu_futures = []
-        with ProcessPoolExecutor(max_workers=Config.MAX_PROCESSES) as pr_executor:
-            tasks = [self.process_page_async(page, pr_executor) for page in pages]
+        cpu_futures: list[Future] = []
+        pr_executor = async_runner.get_process_pool()
+        sem = asyncio.Semaphore(Config.MAX_CONCURRENT_REQUESTS)
 
-            processed = 0
-            total = len(tasks)
-            for coro in tqdm(
-                asyncio.as_completed(tasks), total=total, desc=progress_desc
-            ):
-                cpu_future = await coro
-                processed += 1
-                if self.pending_pages:
-                    self.pending_pages.pop(0)
-                if processed % 10 == 0 or processed == total:
-                    logger.info(f"Async progress: {processed}/{total}")
-                if cpu_future:
-                    cpu_futures.append(cpu_future)
-                self._update_progress()
+        processed = 0
+        total = len(pages)
 
-            processed_cpu = 0
-            total_cpu = len(cpu_futures)
-            for future in tqdm(
-                as_completed(cpu_futures), total=total_cpu, desc="Processando conteúdo"
-            ):
-                result = future.result()
-                processed_cpu += 1
-                if processed_cpu % 10 == 0 or processed_cpu == total_cpu:
-                    logger.info(f"Process progress: {processed_cpu}/{total_cpu}")
-                if result:
-                    self.dataset.append(result)
-                self._update_progress()
+        async def handle(page: dict) -> None:
+            nonlocal processed
+            async with sem:
+                cpu_future = await self.process_page_async(page, pr_executor)
+            processed += 1
+            if page in self.pending_pages:
+                self.pending_pages.remove(page)
+            if processed % 10 == 0 or processed == total:
+                logger.info(f"Async progress: {processed}/{total}")
+            if cpu_future:
+                cpu_futures.append(cpu_future)
+            self._update_progress()
+
+        await asyncio.gather(*(handle(p) for p in pages))
+
+        processed_cpu = 0
+        total_cpu = len(cpu_futures)
+        for future in tqdm(
+            as_completed(cpu_futures), total=total_cpu, desc="Processando conteúdo"
+        ):
+            result = future.result()
+            processed_cpu += 1
+            if processed_cpu % 10 == 0 or processed_cpu == total_cpu:
+                logger.info(f"Process progress: {processed_cpu}/{total_cpu}")
+            if result:
+                self.dataset.append(result)
+            self._update_progress()
 
         if pipeline_name:
             pipe = get_pipeline(pipeline_name)
