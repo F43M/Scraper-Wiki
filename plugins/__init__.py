@@ -6,6 +6,8 @@ from datetime import datetime
 
 from core.builder import DatasetBuilder
 from .base import Plugin
+from scraper_wiki.models import DatasetRecord
+from pydantic import ValidationError
 from integrations import storage_sqlite
 
 # Mapping of available plugin names to module paths
@@ -79,7 +81,8 @@ def run_plugin(
             for item in items:
                 result = plugin.parse_item(item)
                 if result:
-                    builder.dataset.append(result)
+                    record = DatasetRecord.parse_obj(result)
+                    builder.dataset.append(record.dict())
                 ts = (
                     item.get("created_at")
                     or item.get("creation_date")
