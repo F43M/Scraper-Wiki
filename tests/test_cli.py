@@ -515,3 +515,19 @@ def test_auto_scrape_backend_option(monkeypatch):
 
     assert result.exit_code == 0
     assert called["backend"] == "playwright"
+
+
+def test_build_graph_command(tmp_path, monkeypatch):
+    triples = [{"subject": "Ada", "relation": "worked at", "object": "IBM"}]
+    data_file = tmp_path / "triples.json"
+    data_file.write_text(json.dumps(triples))
+
+    monkeypatch.setitem(
+        sys.modules,
+        "integrations.neo4j_backend",
+        SimpleNamespace(save_graph=lambda g: None),
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(cli.app, ["build-graph", str(data_file), "--persist"])
+    assert result.exit_code == 0

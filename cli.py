@@ -344,6 +344,22 @@ def process_pipeline(
     typer.echo(f"Processados {len(result)} registros")
 
 
+@app.command("build-graph")
+def build_graph_cmd(
+    dataset: str = typer.Argument(..., help="Caminho para dataset de relações"),
+    persist: bool = typer.Option(False, "--persist", help="Salva o grafo no Neo4j"),
+):
+    """Converte um dataset de relações em grafo."""
+    from utils.compression import load_json_file
+    from utils.relation import relations_to_graph
+
+    data = load_json_file(dataset)
+    g = relations_to_graph(data, persist=persist)
+    typer.echo(
+        f"Graph construido com {g.number_of_nodes()} nós e {g.number_of_edges()} arestas"
+    )
+
+
 @app.command("start-crawler")
 def start_crawler_cmd(
     config: str = typer.Option(None, "--config", help="Path to cluster config")
