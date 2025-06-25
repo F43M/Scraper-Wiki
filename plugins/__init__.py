@@ -43,6 +43,10 @@ AVAILABLE_PLUGINS = {
     "bitbucket_scraper": "bitbucket_scraper",
     "sourceforge_scraper": "sourceforge_scraper",
     "notebooks": "notebooks",
+    "reddit": "reddit",
+    "twitter": "twitter",
+    "youtube_transcripts": "youtube_transcripts",
+    "python_docs": "python_docs",
 }
 
 
