@@ -34,3 +34,10 @@ services:
       - "3000:3000"
     depends_on:
       - prometheus
+  mlflow:
+    image: mlflow/mlflow:latest
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./mlruns:/mlflow
+    command: mlflow server --backend-store-uri /mlflow --default-artifact-root /mlflow --host 0.0.0.0

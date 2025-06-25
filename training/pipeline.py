@@ -1,6 +1,9 @@
 import json
+import hashlib
 from pathlib import Path
-from typing import List, Dict
+from typing import List, Dict, Optional
+
+import mlflow
 
 from .formats import (
     save_arrow_dataset,
@@ -54,23 +57,45 @@ def convert_to_triples(records: List[Dict]) -> List[Dict]:
     return triples
 
 
-def run_pipeline(dataset_path: str | Path) -> None:
-    """Run full conversion pipeline for training."""
+def _hash_file(path: Path) -> str:
+    """Return MD5 hash of ``path`` for dataset versioning."""
+    h = hashlib.md5()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(8192), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def run_pipeline(
+    dataset_path: str | Path, model_params: Optional[Dict] | None = None
+) -> None:
+    """Run full conversion pipeline for training and log results with MLflow."""
     dataset_path = Path(dataset_path)
     records = load_dataset(dataset_path)
     base = dataset_path.with_suffix("")
 
-    pairs = convert_to_conversation_pairs(records)
-    save_json(pairs, base.with_name(base.name + "_pairs.json"))
+    dataset_version = _hash_file(dataset_path)
 
-    emb = convert_to_embeddings(records)
-    save_json(emb, base.with_name(base.name + "_embeddings.json"))
+    with mlflow.start_run():
+        mlflow.log_param("dataset_path", str(dataset_path))
+        mlflow.log_param("dataset_version", dataset_version)
+        if model_params:
+            mlflow.log_params(model_params)
 
-    triples = convert_to_triples(records)
-    save_json(triples, base.with_name(base.name + "_triples.json"))
+        pairs = convert_to_conversation_pairs(records)
+        mlflow.log_metric("num_pairs", len(pairs))
+        save_json(pairs, base.with_name(base.name + "_pairs.json"))
 
-    save_hf_dataset(records, base.with_name(base.name + "_hf"))
-    save_tfrecord_dataset(records, base.with_suffix(".tfrecord"))
-    save_arrow_table(records, base.with_suffix(".arrow"))
-    save_arrow_dataset(records, base.with_name(base.name + "_arrow_dataset"))
-    save_delta_table(records, base.with_name(base.name + "_delta"))
+        emb = convert_to_embeddings(records)
+        mlflow.log_metric("num_embeddings", len(emb))
+        save_json(emb, base.with_name(base.name + "_embeddings.json"))
+
+        triples = convert_to_triples(records)
+        mlflow.log_metric("num_triples", len(triples))
+        save_json(triples, base.with_name(base.name + "_triples.json"))
+
+        save_hf_dataset(records, base.with_name(base.name + "_hf"))
+        save_tfrecord_dataset(records, base.with_suffix(".tfrecord"))
+        save_arrow_table(records, base.with_suffix(".arrow"))
+        save_arrow_dataset(records, base.with_name(base.name + "_arrow_dataset"))
+        save_delta_table(records, base.with_name(base.name + "_delta"))
