@@ -195,6 +195,18 @@ class Config:
     # Configuração de embeddings
     EMBEDDING_MODEL = "paraphrase-multilingual-MiniLM-L12-v2"
 
+    # GPU
+    _use_gpu_flag = os.environ.get("USE_GPU", "auto").lower()
+    if _use_gpu_flag == "auto":
+        try:
+            import torch  # type: ignore
+
+            USE_GPU: bool = torch.cuda.is_available()
+        except Exception:  # pragma: no cover - optional dependency
+            USE_GPU = False
+    else:
+        USE_GPU = _use_gpu_flag in {"1", "true", "yes"}
+
     # Configuração de sumarização
     SUMMARY_SENTENCES = 3
 
@@ -742,6 +754,11 @@ class NLPProcessor:
         if lang not in cls._instances:
             if lang in Config.NLP_MODELS:
                 try:
+                    if Config.USE_GPU:
+                        try:
+                            spacy.require_gpu()
+                        except Exception as e:  # pragma: no cover - optional
+                            logger.warning(f"GPU não disponível para spaCy: {e}")
                     cls._instances[lang] = spacy.load(Config.NLP_MODELS[lang])
                     logger.info(f"Carregado modelo NLP para {lang}")
                 except OSError:
@@ -766,6 +783,11 @@ class NLPProcessor:
     def get_embedding_model(cls):
         if not hasattr(cls, "_embedding_model"):
             cls._embedding_model = SentenceTransformer(Config.EMBEDDING_MODEL)
+            if Config.USE_GPU:
+                try:
+                    cls._embedding_model = cls._embedding_model.to("cuda")
+                except Exception as e:  # pragma: no cover - optional
+                    logger.warning(f"Não foi possível mover modelo para GPU: {e}")
         return cls._embedding_model
 
 
@@ -2042,12 +2064,10 @@ class DatasetBuilder:
         relations.extend(r for r in relations_regex if r not in relations)
 
         # Cria embeddings para busca semântica
-        content_embedding = self.embedding_model.encode(
-            content, show_progress_bar=False
+        embeddings = self.embedding_model.encode(
+            [content, summary], show_progress_bar=False
         )
-        summary_embedding = self.embedding_model.encode(
-            summary, show_progress_bar=False
-        )
+        content_embedding, summary_embedding = embeddings
 
         # Classificação avançada de tópicos
         topic, subtopic = self._classify_topic(title, content, lang)
