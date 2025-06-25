@@ -73,6 +73,7 @@ from integrations import storage
 import dq
 import metrics
 from integrations import storage_sqlite
+from integrations.binary_storage import BinaryStorage
 from utils.text import clean_text, extract_entities
 from utils.relation import extract_relations, extract_relations_regex
 from utils.quality import (
@@ -114,6 +115,7 @@ class Config:
     OUTPUT_DIR = "datasets_wikipedia_pro"
     CACHE_DIR = ".wiki_cache"
     LOG_DIR = "logs"
+    ASSETS_DIR = os.environ.get("ASSETS_DIR", "assets")
 
     # Categorias avançadas com pesos
     CATEGORIES = {
@@ -225,6 +227,9 @@ class Config:
 
 
 _proxy_index = 0
+
+# Storage for downloaded images and other binary assets
+binary_storage = BinaryStorage(Config.ASSETS_DIR)
 
 
 def _fetch_premium_proxy() -> str | None:
@@ -1706,8 +1711,19 @@ def cpu_process_page(
     record["entities"] = extract_entities(content)
     if images is not None:
         record["images"] = images
+        paths: List[str] = []
+        for img in images:
+            url = img.get("image_url")
+            if not url:
+                continue
+            try:
+                paths.append(binary_storage.save(url))
+            except Exception:
+                continue
+        record["image_paths"] = paths
     if videos:
         record["videos"] = videos
+        record["video_urls"] = videos
     if revisions is not None:
         record.setdefault("metadata", {})["revisions"] = revisions
     return record
@@ -1863,8 +1879,14 @@ class DatasetBuilder:
             images = extract_images(getattr(page, "_html", ""))
             videos = extract_videos(getattr(page, "_html", ""))
             qa_data["images"] = images
+            qa_data["image_paths"] = [
+                binary_storage.save(img["image_url"])
+                for img in images
+                if img.get("image_url")
+            ]
             if videos:
                 qa_data["videos"] = videos
+                qa_data["video_urls"] = videos
             if self.include_revisions:
                 qa_data.setdefault("metadata", {})["revisions"] = (
                     wiki.get_revision_history(page_info["title"], self.rev_limit)

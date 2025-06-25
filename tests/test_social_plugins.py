@@ -22,6 +22,8 @@ def _check_defaults(record):
         "lessons",
         "origin_metrics",
         "challenge",
+        "image_paths",
+        "video_urls",
     ]:
         assert field in record
 
@@ -111,8 +113,11 @@ def test_youtube_transcripts_plugin(monkeypatch):
     mod = importlib.import_module("plugins.youtube_transcripts")
     plugin = mod.Plugin()
     items = plugin.fetch_items("en", "https://youtu.be/abc?v=abc")
+    monkeypatch.setattr(mod.binary_storage, "save", lambda url: "/tmp/thumb.jpg")
     parsed = plugin.parse_item(items[0])
     assert "A" in parsed["content"]
+    assert parsed["image_paths"] == ["/tmp/thumb.jpg"]
+    assert parsed["video_urls"] == ["https://www.youtube.com/watch?v=abc"]
     _check_defaults(parsed)
 
 

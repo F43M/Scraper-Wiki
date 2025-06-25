@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Dict, List
 
 from youtube_transcript_api import YouTubeTranscriptApi
+from scraper_wiki import binary_storage
 
 from .base import BasePlugin
 
@@ -29,7 +30,15 @@ class YouTubeTranscriptPlugin(BasePlugin):
             "language": item.get("lang", "en"),
             "category": item.get("category", ""),
             "content": text,
+            "video_urls": [f"https://www.youtube.com/watch?v={vid}"],
         }
+        thumb_url = f"https://img.youtube.com/vi/{vid}/hqdefault.jpg"
+        try:
+            path = binary_storage.save(thumb_url)
+            record["image_paths"] = [path]
+        except Exception:
+            record["image_paths"] = []
+        record["thumbnail_url"] = thumb_url
         record.setdefault("raw_code", "")
         record.setdefault("context", "")
         record.setdefault("problems", [])
