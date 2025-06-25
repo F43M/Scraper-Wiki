@@ -98,6 +98,9 @@ def create_client(monkeypatch):
     monkeypatch.setattr(api_app.sw, "main", lambda *a, **k: None)
     monkeypatch.setattr(api_app.indexer, "query_index", lambda q: [{"id": 1}])
     monkeypatch.setattr(api_app, "extract_entities", lambda text: [])
+    monkeypatch.setattr(api_app, "load_dataset_info", lambda: {"source": "w"})
+    monkeypatch.setattr(api_app, "publish", lambda q, m: None)
+    monkeypatch.setattr(api_app, "clear_queue", lambda q: None)
     return TestClient(api_app.app)
 
 
@@ -134,3 +137,27 @@ def test_search_endpoint(monkeypatch):
     resp = client.get("/search", params={"q": "py"})
     assert resp.status_code == 200
     assert resp.json() == [{"id": 1}]
+
+
+def test_dataset_summary_endpoint(monkeypatch):
+    client = create_client(monkeypatch)
+    resp = client.get("/dataset/summary")
+    assert resp.status_code == 200
+    assert resp.json() == {"source": "w"}
+
+
+def test_queue_management(monkeypatch):
+    queued = []
+    cleared = []
+
+    monkeypatch.setattr(api_app, "publish", lambda q, m: queued.append((q, m)))
+    monkeypatch.setattr(api_app, "clear_queue", lambda q: cleared.append(q))
+
+    client = create_client(monkeypatch)
+    resp = client.post("/queue/add", json=[{"url": "http://x"}])
+    assert resp.status_code == 200
+    assert queued == [("scrape_tasks", {"url": "http://x"})]
+
+    resp = client.post("/queue/clear")
+    assert resp.status_code == 200
+    assert "scrape_tasks" in cleared

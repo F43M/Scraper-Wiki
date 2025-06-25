@@ -11,6 +11,7 @@ import requests
 PROGRESS_FILE = Path("logs/progress.json")
 API_BASE = os.environ.get("API_BASE", "http://localhost:8000")
 PROM_URL = os.environ.get("PROMETHEUS_URL", "http://localhost:9090")
+LOG_FILE = Path(os.environ.get("LOG_FILE", "logs/scraper.log"))
 
 
 def load_progress():
@@ -26,6 +27,38 @@ def load_progress():
             except json.JSONDecodeError:
                 return {}
     return {}
+
+
+def load_dataset_info():
+    try:
+        resp = requests.get(f"{API_BASE}/dataset/summary", timeout=5)
+        resp.raise_for_status()
+        return resp.json()
+    except Exception:
+        return {}
+
+
+def tail_logs(lines: int = 20) -> str:
+    if LOG_FILE.exists():
+        data = LOG_FILE.read_text(encoding="utf-8").splitlines()
+        return "\n".join(data[-lines:])
+    return ""
+
+
+def enqueue_tasks(tasks: list[dict]) -> bool:
+    try:
+        resp = requests.post(f"{API_BASE}/queue/add", json=tasks, timeout=5)
+        return resp.status_code == 200
+    except Exception:
+        return False
+
+
+def clear_tasks() -> bool:
+    try:
+        resp = requests.post(f"{API_BASE}/queue/clear", timeout=5)
+        return resp.status_code == 200
+    except Exception:
+        return False
 
 
 def load_metrics():
@@ -153,6 +186,28 @@ def detect_bias(langs: list[str], categories: list[str]) -> list[str]:
 def main():
     st.title("Scraper Progress Dashboard")
 
+    st.sidebar.header("Queue Management")
+    task_input = st.sidebar.text_area("URLs or titles", height=100)
+    if st.sidebar.button("Start/Enqueue"):
+        tasks = []
+        for line in task_input.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            if line.startswith("http"):
+                tasks.append({"url": line})
+            else:
+                tasks.append({"title": line, "lang": "en"})
+        if tasks and enqueue_tasks(tasks):
+            st.sidebar.success("Tasks queued")
+        elif tasks:
+            st.sidebar.error("Failed to enqueue tasks")
+    if st.sidebar.button("Stop/Clear Queue"):
+        if clear_tasks():
+            st.sidebar.success("Queue cleared")
+        else:
+            st.sidebar.error("Failed to clear queue")
+
     progress = load_progress()
     metrics = load_metrics()
     pages_processed = progress.get("pages_processed", 0)
@@ -195,6 +250,14 @@ def main():
     st.write(languages)
     if bias_alerts:
         st.warning(" | ".join(bias_alerts))
+
+    info = load_dataset_info()
+    if info:
+        st.subheader("Dataset Summary")
+        st.json(info)
+
+    st.subheader("Recent Logs")
+    st.text(tail_logs(20))
 
 
 if __name__ == "__main__":

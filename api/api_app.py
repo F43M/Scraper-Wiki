@@ -9,6 +9,7 @@ from datetime import datetime
 import graphene
 from utils.text import clean_text, extract_entities
 from utils.compression import load_json_file
+from task_queue import publish, clear as clear_queue
 import asyncio
 from search import indexer
 
@@ -16,12 +17,23 @@ app = FastAPI()
 
 DATA_FILE = os.path.join(sw.Config.OUTPUT_DIR, "wikipedia_qa.json")
 PROGRESS_FILE = os.path.join(sw.Config.LOG_DIR, "progress.json")
+INFO_FILE = os.path.join(sw.Config.OUTPUT_DIR, "dataset_info.json")
 
 
 def load_dataset() -> List[dict]:
     if not os.path.exists(DATA_FILE):
         return []
     return load_json_file(DATA_FILE)
+
+
+def load_dataset_info() -> dict:
+    if not os.path.exists(INFO_FILE):
+        return {}
+    try:
+        with open(INFO_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
 
 
 def load_progress() -> dict:
@@ -75,6 +87,12 @@ class ScrapeParams(BaseModel):
     category: Optional[List[str]] | Optional[str] = None
     format: str = "all"
     plugin: str = "wikipedia"  # e.g. "infobox_parser" or "table_parser"
+
+
+class QueueItem(BaseModel):
+    url: Optional[str] = None
+    title: Optional[str] = None
+    lang: Optional[str] = None
 
 
 @app.post("/scrape")
@@ -132,6 +150,28 @@ async def search_endpoint(q: str):
     """Return records matching ``q`` from Elasticsearch."""
     results = await asyncio.to_thread(indexer.query_index, q)
     return results
+
+
+@app.get("/dataset/summary")
+async def dataset_summary():
+    """Return metadata about the generated dataset."""
+    return load_dataset_info()
+
+
+@app.post("/queue/add")
+async def queue_add(items: List[QueueItem]):
+    """Add scraping tasks to the queue."""
+    for item in items:
+        publish("scrape_tasks", item.model_dump(exclude_none=True))
+    return {"status": "ok", "queued": len(items)}
+
+
+@app.post("/queue/clear")
+async def queue_clear():
+    """Remove all pending scraping tasks and results."""
+    clear_queue("scrape_tasks")
+    clear_queue("scrape_results")
+    return {"status": "cleared"}
 
 
 class RecordType(graphene.ObjectType):
