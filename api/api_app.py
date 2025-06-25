@@ -4,6 +4,7 @@ from typing import List, Optional
 from fastapi import FastAPI, Query as FastQuery, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
+from scraper_wiki.models import DatasetRecord
 import scraper_wiki as sw
 import os
 import json
@@ -131,7 +132,7 @@ async def scrape(params: ScrapeParams):
     return {"status": "ok"}
 
 
-@app.get("/records")
+@app.get("/records", response_model=List[DatasetRecord])
 async def get_records(
     lang: List[str] | None = FastQuery(None),
     category: List[str] | None = FastQuery(None),
@@ -147,7 +148,8 @@ async def get_records(
     processed = await asyncio.gather(
         *(asyncio.to_thread(enrich_record, rec) for rec in filtered)
     )
-    return processed
+    validated = [DatasetRecord.parse_obj(rec).dict() for rec in processed]
+    return validated
 
 
 @app.get("/stats")
