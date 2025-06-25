@@ -18,4 +18,6 @@ Heavy optional dependencies such as `tensorflow` and `transformers` can be skipp
 - `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD`: Neo4j connection.
 - `MILVUS_URI`, `MILVUS_COLLECTION`: Milvus vector store.
 - `WEAVIATE_URI`: Weaviate endpoint.
+- `USE_GPU`: Set to `1` or `true` to force GPU usage, `0` to disable. When unset,
+  GPU availability is detected automatically via `torch.cuda.is_available()`.
 
