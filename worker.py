@@ -2,8 +2,10 @@
 
 import asyncio
 import logging
+import os
 from task_queue import consume, publish
 from scraper_wiki import DatasetBuilder, Config, get_base_url
+from metrics import start_metrics_server, start_system_metrics_loop
 from provenance.tracker import should_fetch
 
 logging.basicConfig(level=logging.INFO)
@@ -12,6 +14,8 @@ logger = logging.getLogger(__name__)
 
 def main_sync() -> None:
     """Run worker in synchronous mode."""
+    start_metrics_server(int(os.environ.get("METRICS_PORT", "8001")))
+    start_system_metrics_loop()
     builder = DatasetBuilder()
     for task in consume("scrape_tasks"):
         url = task.get("url")
@@ -44,6 +48,8 @@ async def _handle_task(
 
 async def main_async() -> None:
     """Run worker using asynchronous scraping."""
+    start_metrics_server(int(os.environ.get("METRICS_PORT", "8001")))
+    start_system_metrics_loop()
     builder = DatasetBuilder()
     sem = asyncio.Semaphore(Config.WORKER_CONCURRENCY)
     iterator = consume("scrape_tasks")

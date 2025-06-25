@@ -21,6 +21,7 @@ import json
 import csv
 import random
 import logging
+import structlog
 import asyncio
 import inspect
 from tqdm import tqdm
@@ -379,14 +380,27 @@ class LokiHandler(logging.Handler):
 
     def emit(self, record: logging.LogRecord) -> None:
         try:
-            line = self.format(record)
+            if isinstance(record.msg, dict):
+                data = record.msg
+            else:
+                data = {"message": record.getMessage()}
+            data.update(
+                {
+                    "timestamp": datetime.utcnow().isoformat() + "Z",
+                    "level": record.levelname,
+                    "name": record.name,
+                    "file": record.filename,
+                    "line": record.lineno,
+                }
+            )
+            line = json.dumps(data, ensure_ascii=False)
             payload = {
                 "streams": [
                     {
                         "labels": '{job="scraper"}',
                         "entries": [
                             {
-                                "ts": datetime.utcnow().isoformat() + "Z",
+                                "ts": data["timestamp"],
                                 "line": line,
                             }
                         ],
@@ -408,14 +422,19 @@ class ElasticsearchHandler(logging.Handler):
 
     def emit(self, record: logging.LogRecord) -> None:
         try:
-            doc = {
-                "timestamp": datetime.utcnow().isoformat(),
-                "level": record.levelname,
-                "name": record.name,
-                "message": record.getMessage(),
-                "file": record.filename,
-                "line": record.lineno,
-            }
+            if isinstance(record.msg, dict):
+                doc = record.msg
+            else:
+                doc = {"message": record.getMessage()}
+            doc.update(
+                {
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "level": record.levelname,
+                    "name": record.name,
+                    "file": record.filename,
+                    "line": record.lineno,
+                }
+            )
             requests.post(f"{self.url}/{self.index}/_doc", json=doc, timeout=1)
         except Exception:
             pass
@@ -447,7 +466,25 @@ def setup_logger(name, log_file, level: int = logging.INFO, fmt: str = "text"):
         remote.setFormatter(formatter)
         logger.addHandler(remote)
 
-    return logger
+    structlog.configure(
+        wrapper_class=structlog.make_filtering_bound_logger(level),
+        processors=[
+            structlog.processors.add_log_level,
+            structlog.processors.TimeStamper(fmt="iso"),
+        ],
+    )
+    wrapped = structlog.wrap_logger(
+        logger,
+        processors=[
+            (
+                structlog.processors.JSONRenderer()
+                if fmt == "json"
+                else structlog.processors.KeyValueRenderer()
+            )
+        ],
+    )
+
+    return wrapped
 
 
 logger = setup_logger("wiki_scraper", "scraper.log")

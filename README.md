@@ -592,6 +592,11 @@ Em seguida utilize o `docker-compose.yml` para subir os serviços (API, worker e
 docker-compose up
 ```
 
+Além da API e do worker, o `docker-compose.yml` inclui serviços opcionais para
+Prometheus e Grafana. O Prometheus coleta as métricas expostas em
+`/metrics` e o Grafana fornece dashboards prontos mostrando contagens de
+`pages_scraped_total`, taxa de erros e uso de CPU/memória do worker.
+
 As imagens podem ser publicadas em um registro e implantadas em plataformas como Kubernetes ou AWS ECS para execução em escala.
 
 

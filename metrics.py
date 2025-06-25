@@ -1,6 +1,9 @@
 """Prometheus metrics used to monitor scraping performance."""
 
 from prometheus_client import Counter, Histogram, Gauge, start_http_server
+import psutil
+import threading
+import time
 
 scrape_success = Counter(
     "scrape_success_total", "Total de páginas raspadas com sucesso"
@@ -57,6 +60,17 @@ dataset_bias_detected = Gauge(
     "1 when dataset exhibits potential bias, 0 otherwise",
 )
 
+# System metrics
+cpu_usage_percent = Gauge(
+    "cpu_usage_percent",
+    "Current system CPU utilization percentage",
+)
+
+memory_usage_percent = Gauge(
+    "memory_usage_percent",
+    "Current system memory utilization percentage",
+)
+
 # Timestamp da última atualização dos parsers
 parser_update_timestamp = Gauge(
     "scraper_parser_update_timestamp",
@@ -67,3 +81,16 @@ parser_update_timestamp = Gauge(
 def start_metrics_server(port: int = 8001) -> None:
     """Inicia o servidor de métricas para Prometheus."""
     start_http_server(port)
+
+
+def start_system_metrics_loop(interval: int = 5) -> None:
+    """Atualiza métricas de CPU e memória em segundo plano."""
+
+    def _update() -> None:
+        while True:
+            cpu_usage_percent.set(psutil.cpu_percent())
+            memory_usage_percent.set(psutil.virtual_memory().percent)
+            time.sleep(interval)
+
+    thread = threading.Thread(target=_update, daemon=True)
+    thread.start()
