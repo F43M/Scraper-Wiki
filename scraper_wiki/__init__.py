@@ -58,6 +58,9 @@ from typing import List, Dict, Tuple, Optional, Set, Protocol
 from datetime import datetime
 import multiprocessing
 import signal
+from scraper_wiki.state import load_last_scraped, save_last_scraped
+from integrations.alerts import send_alert
+from integrations.dvc_utils import track_path
 import backoff
 import tenacity
 import numpy as np
@@ -206,6 +209,7 @@ class Config:
     SCRAPER_BACKEND = os.environ.get("SCRAPER_BACKEND", "selenium")
     LOG_SERVICE_URL = os.environ.get("LOG_SERVICE_URL")
     LOG_SERVICE_TYPE = os.environ.get("LOG_SERVICE_TYPE", "loki")
+    ALERT_WEBHOOK_URL = os.environ.get("ALERT_WEBHOOK_URL")
 
     # API endpoints and keys for optional plugins
     STACKOVERFLOW_API_KEY = os.environ.get("STACKOVERFLOW_API_KEY")
@@ -1757,6 +1761,7 @@ class DatasetBuilder:
         self.rev_limit = rev_limit
         self.min_complexity = min_complexity
         self.max_complexity = max_complexity
+        self.last_scraped = load_last_scraped()
 
         # Load checkpoints if available
         pages_path = os.path.join(Config.LOG_DIR, "checkpoint_pages.json")
@@ -1837,6 +1842,22 @@ class DatasetBuilder:
         start_time = time.perf_counter()
         try:
             wiki = WikipediaAdvanced(page_info["lang"])
+            key = f"{page_info['lang']}:{page_info['title']}"
+            last_ts = self.last_scraped.get(key)
+            revs = []
+            if last_ts:
+                revs = wiki.get_revision_history(page_info["title"], 1)
+                if revs:
+                    try:
+                        last_dt = datetime.fromisoformat(last_ts)
+                        rev_dt = datetime.fromisoformat(
+                            revs[0]["timestamp"].replace("Z", "+00:00")
+                        )
+                        if rev_dt <= last_dt:
+                            return None
+                    except Exception:
+                        pass
+
             page = wiki.fetch_page(page_info["title"])
 
             if not page or not page.exists():
@@ -1902,6 +1923,12 @@ class DatasetBuilder:
                 )
             metrics.scrape_success.inc()
             metrics.pages_scraped_total.inc()
+            ts = None
+            if revs:
+                ts = revs[0].get("timestamp")
+            if not ts:
+                ts = datetime.utcnow().isoformat()
+            self.last_scraped[key] = ts
             return qa_data
         except Exception as e:
             metrics.scrape_error.inc()
@@ -2709,6 +2736,8 @@ class DatasetBuilder:
             compression=Config.COMPRESSION,
         )
         logger.info(f"Dataset salvo usando backend {Config.STORAGE_BACKEND}")
+        track_path(output_dir)
+        save_last_scraped(self.last_scraped)
 
         if format == "qa":
             save_qa_dataset(sorted_data, Path(output_dir) / "qa_pairs.json")
@@ -2759,8 +2788,13 @@ class DatasetBuilder:
                     cf.write(
                         f"{datetime.utcnow().isoformat()} - v{new_version} size changed {old_size}->{len(sorted_data)}\n"
                     )
+            if diff_ratio > 0.5:
+                send_alert(
+                    f"Dataset size changed significantly: {old_size} -> {len(sorted_data)}"
+                )
         except Exception as e:  # pragma: no cover - unexpected I/O errors
             logger.error(f"Erro ao salvar dataset_info.json: {e}")
+            send_alert(f"Failed to save dataset info: {e}")
 
 
 # ============================
