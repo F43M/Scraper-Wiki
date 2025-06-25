@@ -22,6 +22,9 @@ requests_failed_total = Counter("requests_failed_total", "HTTP request failures"
 # Total de tentativas extras ao fazer requisições
 request_retries_total = Counter("request_retries_total", "HTTP request retries")
 
+# Number of times requests had to wait due to rate limiting
+rate_limited_total = Counter("rate_limited_total", "Number of rate limited events")
+
 # Histogram of processing time per page
 page_processing_seconds = Histogram(
     "page_processing_seconds", "Time spent processing a page in seconds"

@@ -7,8 +7,12 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 scraper_stub = ModuleType("scraper_wiki")
-scraper_stub.Config = SimpleNamespace(TIMEOUT=5, RATE_LIMIT_DELAY=0)
-scraper_stub.RateLimiter = lambda delay: SimpleNamespace(wait=lambda: None)
+scraper_stub.Config = SimpleNamespace(
+    TIMEOUT=5, RATE_LIMIT_DELAY=0, PLUGIN_RATE_LIMITS={"default": 0}
+)
+scraper_stub.RateLimiter = lambda delay, *a, **k: SimpleNamespace(
+    wait=lambda: None, async_wait=lambda: None
+)
 sys.modules.setdefault("scraper_wiki", scraper_stub)
 sys.modules.setdefault("html2text", SimpleNamespace(html2text=lambda x: x))
 

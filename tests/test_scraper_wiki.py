@@ -1316,12 +1316,19 @@ def test_worker_concurrency_env(monkeypatch):
 
 def test_rate_limiter_backoff(monkeypatch):
     recorded = []
-    rl = sw.RateLimiter(0.1)
+    metrics_calls = []
+    rl = sw.RateLimiter(
+        0.1,
+        metrics=SimpleNamespace(
+            rate_limited_total=SimpleNamespace(inc=lambda: metrics_calls.append(True))
+        ),
+    )
     monkeypatch.setattr(sw.time, "sleep", lambda d: recorded.append(d))
     rl.wait()
     rl.record_error()
     rl.wait()
     assert recorded == [0.1, 0.2]
+    assert metrics_calls == [True, True]
 
 
 def test_rate_limiter_range_and_async(monkeypatch):
@@ -1334,7 +1341,6 @@ def test_rate_limiter_range_and_async(monkeypatch):
         recorded_async.append(d)
 
     monkeypatch.setattr(sw.asyncio, "sleep", fake_async_sleep)
-    monkeypatch.setattr(sw.random, "uniform", lambda a, b: b)
     rl.wait()
 
     async def run():
@@ -1344,8 +1350,8 @@ def test_rate_limiter_range_and_async(monkeypatch):
 
     aio.run(run())
 
-    assert recorded_sync == [0.2]
-    assert recorded_async == [0.2]
+    assert recorded_sync == [0.1]
+    assert recorded_async == [0.1]
 
 
 def test_fetch_with_retry_failure_increments_counter(monkeypatch):

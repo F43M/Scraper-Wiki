@@ -4,7 +4,8 @@ from typing import List, Dict, Protocol, runtime_checkable
 
 import requests
 
-from scraper_wiki import Config, RateLimiter
+from scraper_wiki import Config, metrics
+from utils.rate_limiter import RateLimiter
 
 
 @runtime_checkable
@@ -23,8 +24,13 @@ class Plugin(Protocol):
 class BasePlugin:
     """Base class implementing rate limiting and deduplication."""
 
-    def __init__(self) -> None:
-        self.rate_limiter = RateLimiter(Config.RATE_LIMIT_DELAY)
+    def __init__(self, domain: str | None = None) -> None:
+        self.domain = domain or self.__class__.__name__.lower()
+        delay = Config.PLUGIN_RATE_LIMITS.get(
+            self.domain,
+            Config.PLUGIN_RATE_LIMITS.get("default", Config.RATE_LIMIT_DELAY),
+        )
+        self.rate_limiter = RateLimiter(delay, metrics=metrics)
         self._seen: set[str] = set()
 
     def request(self, url: str, **kwargs) -> requests.Response:
