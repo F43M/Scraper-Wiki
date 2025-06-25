@@ -1,4 +1,5 @@
 import sys
+import json
 from pathlib import Path
 
 # Ensure repo root on path
@@ -72,3 +73,24 @@ def test_detect_code_plagiarism_flags_duplicates():
     ]
     plag = dq.detect_code_plagiarism(recs, threshold=0.9)
     assert len(plag) == 1
+
+
+def test_deduplicate_by_simhash_no_false_positive():
+    records = [
+        {"content": "alpha beta gamma"},
+        {"content": "completely different"},
+        {"content": "another unrelated text"},
+    ]
+    unique, removed = dq.deduplicate_by_simhash(records)
+    assert removed == 0
+    assert len(unique) == 3
+
+
+def test_check_sensitive_embeddings_flags_near_match(tmp_path):
+    ref_path = tmp_path / "sens.json"
+    h = dq._embedding_to_simhash([0.1, 0.2])
+    ref_path.write_text(json.dumps([hex(h.value)]), encoding="utf-8")
+    hashes = dq.load_sensitive_hashes(str(ref_path))
+    recs = [{"content_embedding": [0.1, 0.21]}, {"content_embedding": [1.0, 0.0]}]
+    leaks = dq.check_sensitive_embeddings(recs, hashes, distance=12)
+    assert len(leaks) == 1
