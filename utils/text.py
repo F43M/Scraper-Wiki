@@ -8,6 +8,11 @@ from typing import Dict
 from bs4 import BeautifulSoup
 import spacy
 
+# Precompile regex patterns used across functions
+_WIKILINK_RE = re.compile(r"\[\[(?:[^|\]]*\|)?([^\]]+)\]\]")
+_CITATION_RE = re.compile(r"\[\d+\]")
+_WHITESPACE_RE = re.compile(r"\s+")
+
 try:
     from dateutil import parser as date_parser
 except Exception:  # pragma: no cover - optional dependency
@@ -25,15 +30,14 @@ def clean_text(text: str) -> str:
         sup.decompose()
     text = soup.get_text()
 
-    # Replace wiki style links [[Page|text]] -> text and [[Page]] -> Page
-    text = re.sub(r"\[\[([^|\]]+)\|([^\]]+)\]\]", r"\2", text)
-    text = re.sub(r"\[\[([^|\]]+)\]\]", r"\1", text)
+    # Handle wiki style links in a single pass
+    text = _WIKILINK_RE.sub(r"\1", text)
 
     # Normalize unicode characters
     text = unicodedata.normalize("NFKC", text)
 
-    text = re.sub(r"\[\d+\]", "", text)
-    text = re.sub(r"\s+", " ", text)
+    text = _CITATION_RE.sub("", text)
+    text = _WHITESPACE_RE.sub(" ", text)
     return text.strip()
 
 

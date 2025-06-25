@@ -118,6 +118,17 @@ from enrichment.generator import (
 from utils.sonarqube import analyze_code
 
 
+# Precompiled regex patterns for text cleaning
+_CLEAN_COMBINED_RE = re.compile(
+    r"\[\d+\]|\{\|.*?\|\}|\b(?:ver também|see also|véase também|voir aussi)\b.*",
+    flags=re.IGNORECASE | re.DOTALL,
+)
+_SECTION_RE = re.compile(
+    r"==\s*(?:referências|references|referencias|bibliografia|bibliography|bibliografía|ligações externas|external links|enlaces externos)\s*==.*",
+    flags=re.IGNORECASE | re.DOTALL,
+)
+
+
 # ============================
 # 🔧 Configurações Avançadas
 # ============================
@@ -871,32 +882,11 @@ def advanced_clean_text(
         if lang in ["en", "de"]:
             text = unidecode(text)
 
-        # Remove padrões específicos da Wikipedia
-        text = re.sub(r"\[\d+\]", "", text)  # Referências [1], [2], etc.
-        text = re.sub(
-            r"\b(ver também|see also|véase también|voir aussi)\b.*",
-            "",
-            text,
-            flags=re.IGNORECASE,
-        )
-        text = re.sub(r"\{\|.*?\|\}", "", text, flags=re.DOTALL)  # Remove tables
+        # Remove Wikipedia-specific markup in a single pass
+        text = _CLEAN_COMBINED_RE.sub("", text)
 
-        # Remove seções específicas
-        sections_to_remove = [
-            "referências",
-            "references",
-            "referencias",
-            "bibliografia",
-            "bibliography",
-            "bibliografía",
-            "ligações externas",
-            "external links",
-            "enlaces externos",
-        ]
-        for section in sections_to_remove:
-            text = re.sub(
-                rf"==\s*{section}\s*==.*", "", text, flags=re.IGNORECASE | re.DOTALL
-            )
+        # Remove specific sections
+        text = _SECTION_RE.sub("", text)
 
         if remove_stopwords or stem:
             removed = False
