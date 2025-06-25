@@ -103,6 +103,7 @@ from utils.code import (
 from utils.ast_tools import get_functions_complexity
 from utils.code_sniffer import scan as scan_code
 from utils.contextualizer import search_discussions
+from utils.rate_limiter import RateLimiter
 from processing.pipeline import get_pipeline
 from enrichment.generator import (
     generate_diagram,
@@ -158,6 +159,17 @@ class Config:
     RETRIES = 5
     TIMEOUT = 10
     RATE_LIMIT_DELAY = float(os.environ.get("RATE_LIMIT_DELAY", 0.5))
+    PLUGIN_RATE_LIMITS: Dict[str, float] = {}
+    _raw_plugin_limits = os.environ.get("PLUGIN_RATE_LIMITS")
+    if _raw_plugin_limits:
+        for part in _raw_plugin_limits.split(","):
+            if "=" in part:
+                name, val = part.split("=", 1)
+                try:
+                    PLUGIN_RATE_LIMITS[name.strip()] = float(val)
+                except ValueError:
+                    pass
+    PLUGIN_RATE_LIMITS.setdefault("default", RATE_LIMIT_DELAY)
     MAX_PAGES_PER_CATEGORY = 1000
     MIN_TEXT_LENGTH = 150  # mínimo de caracteres para considerar uma página
     MAX_TEXT_LENGTH = 10000  # máximo de caracteres a extrair por página
@@ -282,41 +294,6 @@ BASE_URLS = {
 def get_base_url(lang: str) -> str:
     """Return base Wikipedia URL for a given language."""
     return BASE_URLS.get(lang, f"https://{lang}.wikipedia.org")
-
-
-class RateLimiter:
-    """Simple exponential backoff rate limiter with jitter."""
-
-    def __init__(self, min_delay: float, max_delay: float | None = None):
-        if max_delay is None:
-            max_delay = min_delay
-        self.base_min = min_delay
-        self.base_max = max_delay
-        self.min_delay = min_delay
-        self.max_delay = max_delay
-        self.consecutive_failures = 0
-
-    def _sample_delay(self) -> float:
-        return random.uniform(self.min_delay, self.max_delay)
-
-    def wait(self):
-        time.sleep(self._sample_delay())
-
-    async def async_wait(self):
-        await asyncio.sleep(self._sample_delay())
-
-    def record_error(self):
-        self.consecutive_failures += 1
-        self.min_delay *= 2
-        self.max_delay *= 2
-
-    def record_success(self):
-        self.reset()
-
-    def reset(self):
-        self.consecutive_failures = 0
-        self.min_delay = self.base_min
-        self.max_delay = self.base_max
 
 
 # ============================

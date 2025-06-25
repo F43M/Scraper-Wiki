@@ -6,6 +6,7 @@ from .text import (
     normalize_infobox,
 )
 from .relation import extract_relations
+from .rate_limiter import RateLimiter
 from .cleaner import clean_wiki_text, split_sentences
 from .compression import compress_bytes, decompress_bytes, load_json_file
 from .code import (
@@ -43,4 +44,5 @@ __all__ = [
     "compress_bytes",
     "decompress_bytes",
     "load_json_file",
+    "RateLimiter",
 ]
