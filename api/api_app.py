@@ -1,3 +1,5 @@
+"""FastAPI server exposing dataset generation endpoints."""
+
 from typing import List, Optional
 from fastapi import FastAPI, Query as FastQuery, Request
 from fastapi.responses import JSONResponse
@@ -21,12 +23,16 @@ INFO_FILE = os.path.join(sw.Config.OUTPUT_DIR, "dataset_info.json")
 
 
 def load_dataset() -> List[dict]:
+    """Return dataset records from ``DATA_FILE`` if present."""
+
     if not os.path.exists(DATA_FILE):
         return []
     return load_json_file(DATA_FILE)
 
 
 def load_dataset_info() -> dict:
+    """Return metadata saved alongside the dataset."""
+
     if not os.path.exists(INFO_FILE):
         return {}
     try:
@@ -37,6 +43,8 @@ def load_dataset_info() -> dict:
 
 
 def load_progress() -> dict:
+    """Return scraper progress statistics."""
+
     if not os.path.exists(PROGRESS_FILE):
         return {}
     try:
@@ -53,6 +61,8 @@ def filter_dataset(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
 ) -> List[dict]:
+    """Filter records by language, category and date range."""
+
     result = data
     if langs:
         result = [d for d in result if d.get("language") in langs]

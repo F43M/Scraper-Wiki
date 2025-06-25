@@ -1,3 +1,5 @@
+"""Text cleaning and NLP helper functions."""
+
 import re
 import unicodedata
 from datetime import datetime
@@ -15,6 +17,8 @@ nlp = spacy.load("en_core_web_sm")
 
 
 def clean_text(text: str) -> str:
+    """Return ``text`` with basic wiki markup removed."""
+
     # Remove <sup> tags and their content
     soup = BeautifulSoup(text, "html.parser")
     for sup in soup.find_all("sup"):
@@ -34,6 +38,8 @@ def clean_text(text: str) -> str:
 
 
 def normalize_person(infobox: dict) -> dict:
+    """Normalize a person infobox returned by Wikipedia."""
+
     return {
         "name": infobox.get("name", ""),
         "birth_date": infobox.get("birth_date", ""),

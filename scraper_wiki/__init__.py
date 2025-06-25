@@ -1,5 +1,6 @@
 # 🚀 F43M Wikipedia Scraper Ultra Pro Max - GodMode++
 # CEO: Fabio | Engenharia de Nível Industrial
+"""Core scraping utilities and dataset builder."""
 
 import wikipediaapi
 
@@ -2098,6 +2099,8 @@ class DatasetBuilder:
     def _generate_questions(
         self, title: str, content: str, lang: str, keywords: List[str]
     ) -> List[dict]:
+        """Generate diverse questions for a given page."""
+
         questions = []
 
         # Pergunta básica sobre o título
@@ -2190,6 +2193,8 @@ class DatasetBuilder:
         return answers
 
     def _translate_question(self, question: str, lang: str) -> str:
+        """Translate common question fragments to ``lang``."""
+
         translations = {
             "pt": {
                 "What is": "O que é",
