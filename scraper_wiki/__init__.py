@@ -25,7 +25,7 @@ import logging
 
 try:
     import structlog
-except Exception:  # pragma: no cover - optional dependency
+except ImportError:  # pragma: no cover - optional dependency
     structlog = None
 import asyncio
 import inspect
@@ -40,7 +40,7 @@ from concurrent.futures import (
 
 try:  # optional heavy dependency
     from datasets import Dataset, concatenate_datasets
-except Exception:  # pragma: no cover - missing deps
+except ImportError:  # pragma: no cover - missing deps
     Dataset = object
 
     def concatenate_datasets(*args, **kwargs):
@@ -73,7 +73,7 @@ import spacy
 
 try:  # optional heavy dependency
     from sentence_transformers import SentenceTransformer
-except Exception:  # pragma: no cover - missing deps
+except ImportError:  # pragma: no cover - missing deps
     SentenceTransformer = object
 from sklearn.cluster import KMeans
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -117,6 +117,18 @@ from enrichment.generator import (
 )
 from utils.sonarqube import analyze_code
 
+
+HANDLED_EXCEPTIONS = (
+    requests.RequestException,
+    aiohttp.ClientError,
+    asyncio.TimeoutError,
+    json.JSONDecodeError,
+    pickle.PickleError,
+    zlib.error,
+    OSError,
+    sqlite3.Error,
+    ValueError,
+)
 
 # Precompiled regex patterns for text cleaning
 _CLEAN_COMBINED_RE = re.compile(
@@ -213,7 +225,7 @@ class Config:
             import torch  # type: ignore
 
             USE_GPU: bool = torch.cuda.is_available()
-        except Exception:  # pragma: no cover - optional dependency
+        except ImportError:  # pragma: no cover - optional dependency
             USE_GPU = False
     else:
         USE_GPU = _use_gpu_flag in {"1", "true", "yes"}
@@ -294,8 +306,11 @@ def _fetch_premium_proxy() -> str | None:
         resp = requests.get(Config.PROXY_PROVIDER_URL, headers=headers, timeout=5)
         resp.raise_for_status()
         return resp.text.strip()
-    except Exception as exc:  # pragma: no cover - network issues
-        logger.warning(f"Failed to fetch premium proxy: {exc}")
+    except requests.RequestException as exc:  # pragma: no cover - network issues
+        logger.warning(
+            "Failed to fetch premium proxy",
+            extra={"error_type": type(exc).__name__, "error_message": str(exc)},
+        )
         return None
 
 
@@ -431,8 +446,11 @@ class LokiHandler(logging.Handler):
                 ]
             }
             requests.post(self.url, json=payload, timeout=1)
-        except Exception:
-            pass
+        except requests.RequestException as exc:
+            logger.warning(
+                "Failed to send log to Loki",
+                extra={"error_type": type(exc).__name__, "error_message": str(exc)},
+            )
 
 
 class ElasticsearchHandler(logging.Handler):
@@ -459,8 +477,11 @@ class ElasticsearchHandler(logging.Handler):
                 }
             )
             requests.post(f"{self.url}/{self.index}/_doc", json=doc, timeout=1)
-        except Exception:
-            pass
+        except requests.RequestException as exc:
+            logger.warning(
+                "Failed to send log to Elasticsearch",
+                extra={"error_type": type(exc).__name__, "error_message": str(exc)},
+            )
 
 
 def setup_logger(name, log_file, level: int = logging.INFO, fmt: str = "text"):
@@ -515,14 +536,24 @@ def setup_logger(name, log_file, level: int = logging.INFO, fmt: str = "text"):
 logger = setup_logger("wiki_scraper", "scraper.log")
 
 
+def log_error(message: str, exc: Exception) -> None:
+    """Log ``message`` with error details in structured form."""
+    logger.error(
+        message, extra={"error_type": type(exc).__name__, "error_message": str(exc)}
+    )
+
+
 def log_failed_url(url: str) -> None:
     """Append a failing URL to ``failed_urls.log`` within :data:`Config.LOG_DIR`."""
     try:
         os.makedirs(Config.LOG_DIR, exist_ok=True)
         with open(os.path.join(Config.LOG_DIR, "failed_urls.log"), "a") as fh:
             fh.write(f"{url}\n")
-    except Exception:
-        pass
+    except OSError as exc:
+        logger.warning(
+            "Failed to write failed URL log",
+            extra={"error_type": type(exc).__name__, "error_message": str(exc)},
+        )
 
 
 # ============================
@@ -548,7 +579,7 @@ class FileCache(CacheBackend):
         hash_key = hashlib.md5(key.encode("utf-8")).hexdigest()
         return os.path.join(Config.CACHE_DIR, f"{hash_key}.pkl.gz")
 
-    @backoff.on_exception(backoff.expo, Exception, max_tries=3)
+    @backoff.on_exception(backoff.expo, HANDLED_EXCEPTIONS, max_tries=3)
     def get(self, key: str):
         cache_file = self._get_cache_path(key)
         if os.path.exists(cache_file):
@@ -558,14 +589,14 @@ class FileCache(CacheBackend):
                 data = pickle.loads(zlib.decompress(compressed_data))
                 self.hits += 1
                 return data
-            except Exception as e:
-                logger.warning(f"Erro ao ler cache {key}: {e}")
+            except HANDLED_EXCEPTIONS as e:
+                log_error(f"Erro ao ler cache {key}", e)
                 os.remove(cache_file)
 
         self.misses += 1
         return None
 
-    @backoff.on_exception(backoff.expo, Exception, max_tries=3)
+    @backoff.on_exception(backoff.expo, HANDLED_EXCEPTIONS, max_tries=3)
     def set(self, key: str, data, ttl: Optional[int] = None):
         cache_file = self._get_cache_path(key)
         try:
@@ -574,8 +605,8 @@ class FileCache(CacheBackend):
             with open(temp_file, "wb") as f:
                 f.write(compressed_data)
             os.replace(temp_file, cache_file)
-        except Exception as e:
-            logger.error(f"Erro ao salvar cache {key}: {e}")
+        except HANDLED_EXCEPTIONS as e:
+            log_error(f"Erro ao salvar cache {key}", e)
             if os.path.exists(temp_file):
                 os.remove(temp_file)
 
@@ -595,7 +626,7 @@ class RedisCache(CacheBackend):
     def __init__(self, url: str):
         try:
             import redis  # type: ignore
-        except Exception as exc:  # pragma: no cover - import error
+        except ImportError as exc:  # pragma: no cover - import error
             raise ImportError("redis package required for RedisCache") from exc
 
         self.client = redis.Redis.from_url(url)
@@ -607,9 +638,10 @@ class RedisCache(CacheBackend):
         if val is not None:
             try:
                 data = pickle.loads(zlib.decompress(val))
-            except Exception:
+            except (pickle.UnpicklingError, zlib.error, OSError) as exc:
                 self.client.delete(key)
                 self.misses += 1
+                log_error(f"Erro ao ler cache {key}", exc)
                 return None
             self.hits += 1
             return data
@@ -659,10 +691,11 @@ class SQLiteCache(CacheBackend):
                 return None
             try:
                 data = pickle.loads(zlib.decompress(value))
-            except Exception:
+            except (pickle.UnpicklingError, zlib.error, sqlite3.Error) as exc:
                 self.conn.execute("DELETE FROM cache WHERE key=?", (key,))
                 self.conn.commit()
                 self.misses += 1
+                log_error(f"Erro ao ler cache {key}", exc)
                 return None
             self.hits += 1
             return data

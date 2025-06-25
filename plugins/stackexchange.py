@@ -1,12 +1,16 @@
 """Stack Exchange scraping plugin."""
 
 from typing import List, Dict
+import logging
 
 import html2text
 import requests
 
-from scraper_wiki import Config, advanced_clean_text
+from scraper_wiki import Config, advanced_clean_text, log_error
 from .base import Plugin
+
+
+logger = logging.getLogger(__name__)
 
 
 class StackExchangePlugin(Plugin):
@@ -45,8 +49,11 @@ class StackExchangePlugin(Plugin):
 
                 ts = int(datetime.fromisoformat(since).timestamp())
                 params["fromdate"] = ts
-            except Exception:
-                pass
+            except (ValueError, TypeError) as exc:
+                logger.warning(
+                    "Invalid 'since' parameter",
+                    extra={"error_type": type(exc).__name__, "error_message": str(exc)},
+                )
         resp = requests.get(
             f"{self.endpoint}/questions", params=params, timeout=Config.TIMEOUT
         )
