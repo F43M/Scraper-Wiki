@@ -15,6 +15,10 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Dict, List
+import hashlib
+import json
+
+import mlflow
 
 import requests
 import torch
@@ -42,8 +46,11 @@ def prepare_bert_inputs(texts: List[str]) -> Dict[str, torch.Tensor]:
     ['input_ids', 'token_type_ids', 'attention_mask']
     """
 
-    tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
-    return tokenizer(texts, padding=True, truncation=True, return_tensors="pt")
+    with mlflow.start_run(nested=True):
+        mlflow.log_param("tokenizer_name", "bert-base-uncased")
+        mlflow.log_metric("num_texts", len(texts))
+        tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
+        return tokenizer(texts, padding=True, truncation=True, return_tensors="pt")
 
 
 def extract_image_dataset(records: List[dict], out_dir: Path) -> None:
@@ -61,17 +68,27 @@ def extract_image_dataset(records: List[dict], out_dir: Path) -> None:
 
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
+    dataset_version = hashlib.md5(
+        json.dumps(records, sort_keys=True, ensure_ascii=False).encode("utf-8")
+    ).hexdigest()
     captions = out_dir / "captions.txt"
-    with captions.open("w", encoding="utf-8") as cf:
-        for idx, rec in enumerate(records):
-            url = rec.get("image_url")
-            if not url:
-                continue
-            caption = rec.get("caption") or rec.get("title", "")
-            resp = requests.get(url, timeout=10)
-            resp.raise_for_status()
-            ext = Path(url).suffix or ".jpg"
-            name = f"{idx:05d}{ext}"
-            with open(out_dir / name, "wb") as img_f:
-                img_f.write(resp.content)
-            cf.write(f"{name}\t{caption}\n")
+    downloaded = 0
+    with mlflow.start_run(nested=True):
+        mlflow.log_param("dataset_version", dataset_version)
+        mlflow.log_param("output_dir", str(out_dir))
+        mlflow.log_metric("num_records", len(records))
+        with captions.open("w", encoding="utf-8") as cf:
+            for idx, rec in enumerate(records):
+                url = rec.get("image_url")
+                if not url:
+                    continue
+                caption = rec.get("caption") or rec.get("title", "")
+                resp = requests.get(url, timeout=10)
+                resp.raise_for_status()
+                ext = Path(url).suffix or ".jpg"
+                name = f"{idx:05d}{ext}"
+                with open(out_dir / name, "wb") as img_f:
+                    img_f.write(resp.content)
+                cf.write(f"{name}\t{caption}\n")
+                downloaded += 1
+        mlflow.log_metric("images_downloaded", downloaded)
