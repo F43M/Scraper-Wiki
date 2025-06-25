@@ -11,3 +11,4 @@ pdoc -o docs -d google integrations core plugins utils api
 See [docs/setup.md](docs/setup.md) for installation and configuration instructions and [docs/usage.md](docs/usage.md) for CLI and API examples.
 
 Additional deployment examples, including Kubernetes manifests and scaling guidance, are available in [docs/scaling.md](docs/scaling.md).
+Scheduling options using Airflow or cron are covered in [docs/scheduling.md](docs/scheduling.md).
