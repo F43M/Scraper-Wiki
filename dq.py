@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import difflib
 import hashlib
+import json
+import os
 import re
 from typing import Dict, List, Tuple
 
 import numpy as np
-from simhash import Simhash
+from simhash import Simhash, SimhashIndex
 
 
 def deduplicate_by_hash(records: List[Dict]) -> Tuple[List[Dict], int]:
@@ -73,7 +75,7 @@ def deduplicate_by_embedding(
 def deduplicate_by_simhash(
     records: List[Dict], distance: int = 3
 ) -> Tuple[List[Dict], int]:
-    """Remove near-duplicate records using Simhash of the text content.
+    """Remove near-duplicate records using Simhash with LSH.
 
     Parameters
     ----------
@@ -90,16 +92,16 @@ def deduplicate_by_simhash(
     if not records:
         return records, 0
 
-    hashes = [Simhash(rec.get("content", "")) for rec in records]
-    to_remove: set[int] = set()
+    objs = [(str(i), Simhash(rec.get("content", ""))) for i, rec in enumerate(records)]
+    index = SimhashIndex(objs, k=distance)
 
-    for i in range(len(records)):
+    to_remove: set[int] = set()
+    for i, (_, h) in enumerate(objs):
         if i in to_remove:
             continue
-        for j in range(i + 1, len(records)):
-            if j in to_remove:
-                continue
-            if hashes[i].distance(hashes[j]) <= distance:
+        for dup_id in index.get_near_dups(h):
+            j = int(dup_id)
+            if j != i and j > i:
                 to_remove.add(j)
 
     unique = [rec for idx, rec in enumerate(records) if idx not in to_remove]
@@ -144,6 +146,43 @@ def detect_leaks_by_embedding(
         if np.any(sims >= threshold):
             leaks.append(records[idx])
     return leaks
+
+
+def load_sensitive_hashes(
+    path: str = "reference/sensitive_embeddings.json",
+) -> List[Simhash]:
+    """Load hashed embedding simhashes from ``path``."""
+    if not os.path.exists(path):
+        return []
+    with open(path, "r", encoding="utf-8") as f:
+        hashes = json.load(f)
+    return [Simhash(int(h, 16)) for h in hashes]
+
+
+def _embedding_to_simhash(embedding: List[float]) -> Simhash:
+    """Return a Simhash computed from ``embedding``."""
+    feats = [f"{i}:{int(v * 100)}" for i, v in enumerate(embedding)]
+    return Simhash(feats)
+
+
+def check_sensitive_embeddings(
+    records: List[Dict], reference_hashes: List[Simhash], distance: int = 3
+) -> List[Dict]:
+    """Return records whose embeddings are near a sensitive reference."""
+    if not records or not reference_hashes:
+        return []
+
+    flagged: List[Dict] = []
+    for rec in records:
+        emb = rec.get("content_embedding")
+        if not isinstance(emb, list):
+            continue
+        sh = _embedding_to_simhash(emb)
+        for ref in reference_hashes:
+            if sh.distance(ref) <= distance:
+                flagged.append(rec)
+                break
+    return flagged
 
 
 def validate_semantics(records: List[Dict]) -> Tuple[List[Dict], int]:
