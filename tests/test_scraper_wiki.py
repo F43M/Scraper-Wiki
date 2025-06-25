@@ -1592,12 +1592,15 @@ def test_fetch_with_retry_429_increases_delay(monkeypatch):
     rl = sw.RateLimiter(0.1)
     monkeypatch.setattr(sw, "rate_limiter", rl)
 
-    class DummyError(Exception):
-        def __init__(self, status):
-            super().__init__()
-            self.status = status
+    multipliers = []
 
-    monkeypatch.setattr(sw.aiohttp, "ClientResponseError", DummyError)
+    def fake_wait_random_exponential(multiplier=1, max=10):
+        multipliers.append(multiplier)
+        return lambda state: 0
+
+    monkeypatch.setattr(
+        sw.tenacity, "wait_random_exponential", fake_wait_random_exponential
+    )
 
     class DummyResp:
         status = 429
@@ -1614,7 +1617,7 @@ def test_fetch_with_retry_429_increases_delay(monkeypatch):
             return ""
 
         def raise_for_status(self):
-            raise sw.aiohttp.ClientResponseError(self.status)
+            pass
 
     class DummySession:
         async def __aenter__(self):
@@ -1628,23 +1631,30 @@ def test_fetch_with_retry_429_increases_delay(monkeypatch):
 
     monkeypatch.setattr(sw.aiohttp, "ClientSession", lambda *a, **k: DummySession())
     monkeypatch.setattr(sw.aiohttp, "ClientTimeout", lambda *a, **k: None)
+    monkeypatch.setattr(sw.tenacity.nap, "sleep", lambda t: None)
     monkeypatch.setattr(sw, "log_failed_url", lambda url: None)
+    metrics_calls = {"c": 0}
     monkeypatch.setattr(
         sw,
         "metrics",
         SimpleNamespace(
             scrape_block=SimpleNamespace(inc=lambda: None),
             requests_failed_total=SimpleNamespace(inc=lambda: None),
+            requests_429_total=SimpleNamespace(
+                inc=lambda: metrics_calls.__setitem__("c", metrics_calls["c"] + 1)
+            ),
         ),
     )
 
     import pytest
 
-    with pytest.raises(sw.aiohttp.ClientResponseError):
+    with pytest.raises(sw.TooManyRequests):
         asyncio.run(sw.fetch_with_retry("http://x", retries=1))
 
     assert rl.consecutive_failures == 1
     assert rl.min_delay == 0.2
+    assert multipliers[0] == 5
+    assert metrics_calls["c"] == 1
 
 
 def test_fetch_with_retry_uses_proxy(monkeypatch):
