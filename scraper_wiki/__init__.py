@@ -22,7 +22,11 @@ import json
 import csv
 import random
 import logging
-import structlog
+
+try:
+    import structlog
+except Exception:  # pragma: no cover - optional dependency
+    structlog = None
 import asyncio
 import inspect
 from tqdm import tqdm
@@ -81,6 +85,7 @@ from utils.quality import (
     classify_stackoverflow_answer,
     balance_quality,
     generate_challenge_prompt,
+    evaluate_code_quality,
 )
 from utils.cleaner import clean_wiki_text, split_sentences
 from utils.code import (
@@ -154,6 +159,8 @@ class Config:
     MIN_TEXT_LENGTH = 150  # mínimo de caracteres para considerar uma página
     MAX_TEXT_LENGTH = 10000  # máximo de caracteres a extrair por página
     REMOVE_STOPWORDS = os.environ.get("REMOVE_STOPWORDS", "0") == "1"
+    MIN_CODE_QUALITY = float(os.environ.get("MIN_CODE_QUALITY", "1.0"))
+    MAX_LINT_ERRORS = int(os.environ.get("MAX_LINT_ERRORS", "10"))
 
     # Modelos de NLP
     NLP_MODELS = {
@@ -473,25 +480,27 @@ def setup_logger(name, log_file, level: int = logging.INFO, fmt: str = "text"):
         remote.setFormatter(formatter)
         logger.addHandler(remote)
 
-    structlog.configure(
-        wrapper_class=structlog.make_filtering_bound_logger(level),
-        processors=[
-            structlog.processors.add_log_level,
-            structlog.processors.TimeStamper(fmt="iso"),
-        ],
-    )
-    wrapped = structlog.wrap_logger(
-        logger,
-        processors=[
-            (
-                structlog.processors.JSONRenderer()
-                if fmt == "json"
-                else structlog.processors.KeyValueRenderer()
-            )
-        ],
-    )
+    if structlog:
+        structlog.configure(
+            wrapper_class=structlog.make_filtering_bound_logger(level),
+            processors=[
+                structlog.processors.add_log_level,
+                structlog.processors.TimeStamper(fmt="iso"),
+            ],
+        )
+        wrapped = structlog.wrap_logger(
+            logger,
+            processors=[
+                (
+                    structlog.processors.JSONRenderer()
+                    if fmt == "json"
+                    else structlog.processors.KeyValueRenderer()
+                )
+            ],
+        )
+        return wrapped
 
-    return wrapped
+    return logger
 
 
 logger = setup_logger("wiki_scraper", "scraper.log")
@@ -1959,6 +1968,14 @@ class DatasetBuilder:
         else:
             problems, fixed_version = scan_code(content)
 
+        quality_metrics = evaluate_code_quality(raw_code, code_lang)
+        if (
+            quality_metrics["score"] < Config.MIN_CODE_QUALITY
+            or quality_metrics["lint_errors"] > Config.MAX_LINT_ERRORS
+            or any("eval" in p or "exec" in p for p in problems)
+        ):
+            return {}
+
         # Extrai keywords para gerar perguntas variadas
         keywords = extract_keywords(content, lang)
 
@@ -2023,7 +2040,8 @@ class DatasetBuilder:
             "summary_embedding": summary_embedding.tolist(),
             "quality_score": (
                 extra_metadata.get("quality_score", 0.0) if extra_metadata else 0.0
-            ),
+            )
+            + quality_metrics["score"],
             "quality": None,
             "reason": "",
             "quality_level": None,
@@ -2042,6 +2060,11 @@ class DatasetBuilder:
                 "source": "wikipedia",
                 "source_url": f"{get_base_url(lang)}/wiki/{title.replace(' ', '_')}",
             },
+        }
+
+        record.setdefault("origin_metrics", {})["code_quality"] = {
+            "cyclomatic_complexity": quality_metrics["complexity"],
+            "lint_errors": quality_metrics["lint_errors"],
         }
 
         metrics_sq = analyze_code(content)

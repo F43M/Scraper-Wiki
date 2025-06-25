@@ -5,6 +5,44 @@ from __future__ import annotations
 from typing import Dict, List, Tuple
 import re
 from statistics import mean
+from .code_sniffer import scan
+from .ast_tools import get_functions_complexity
+from .code import normalize_indentation, remove_comments, detect_programming_language
+from .sonarqube import analyze_code
+
+
+def evaluate_code_quality(code: str, language: str | None = None) -> Dict[str, float]:
+    """Return static analysis metrics and a quality score for ``code``.
+
+    Parameters
+    ----------
+    code: str
+        Source code snippet.
+    language: str | None
+        Optional language hint. If ``None`` the language is detected.
+
+    Returns
+    -------
+    Dict[str, float]
+        Mapping with ``complexity``, ``lint_errors`` and ``score`` fields.
+    """
+
+    lang = language or detect_programming_language(code)
+    cleaned = normalize_indentation(remove_comments(code, lang))
+    problems, _ = scan(cleaned)
+    complexities = get_functions_complexity(cleaned, lang)
+    max_complexity = max(complexities.values()) if complexities else 1
+    sonar_metrics = analyze_code(cleaned)
+    lint_errors = len(problems) + int(sonar_metrics.get("code_smells", 0))
+    score = max(0.0, 10.0 - max_complexity - lint_errors)
+    return {
+        "language": lang,
+        "complexity": float(max_complexity),
+        "lint_errors": float(lint_errors),
+        "score": float(score),
+        "sonarqube": sonar_metrics,
+    }
+
 
 POSITIVE_WORDS = {
     "good",

@@ -193,6 +193,7 @@ class RecordType(graphene.ObjectType):
     subtopic = graphene.String()
     summary = graphene.String()
     created_at = graphene.String()
+    quality_score = graphene.Float()
 
 
 class Query(graphene.ObjectType):

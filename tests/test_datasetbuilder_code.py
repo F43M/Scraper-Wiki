@@ -110,7 +110,7 @@ def test_generate_qa_pairs_processes_code(monkeypatch):
     assert result["metadata"].get("code_language") == "python"
     assert result["context"] == "S"
     assert result["tests"] == []
-    assert result["quality_score"] == 0.0
+    assert result["quality_score"] > 0
     for field in [
         "problems",
         "fixed_version",
