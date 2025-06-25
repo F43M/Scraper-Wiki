@@ -22,6 +22,10 @@ class BaseQueue:
     def consume(self, queue: str):
         raise NotImplementedError
 
+    def clear(self, queue: str):
+        """Remove all pending messages from ``queue``."""
+        raise NotImplementedError
+
 
 class InMemoryQueue(BaseQueue):
     def __init__(self):
@@ -39,6 +43,9 @@ class InMemoryQueue(BaseQueue):
             msg = q.get()
             yield json.loads(msg)
             q.task_done()
+
+    def clear(self, queue: str):
+        self._get_queue(queue).queue.clear()
 
 
 class RabbitMQQueue(BaseQueue):
@@ -60,6 +67,9 @@ class RabbitMQQueue(BaseQueue):
                 self.channel.basic_ack(method.delivery_tag)
                 yield json.loads(body.decode())
 
+    def clear(self, queue: str):
+        self.channel.queue_purge(queue)
+
 
 class RedisQueue(BaseQueue):
     """Queue backend using Redis lists."""
@@ -77,6 +87,9 @@ class RedisQueue(BaseQueue):
             item = self.client.blpop(queue, timeout=1)
             if item:
                 yield json.loads(item[1])
+
+    def clear(self, queue: str):
+        self.client.delete(queue)
 
 
 _BACKEND = None
@@ -105,3 +118,8 @@ def publish(queue_name: str, message: dict):
 
 def consume(queue_name: str):
     yield from get_backend().consume(queue_name)
+
+
+def clear(queue_name: str) -> None:
+    """Clear all messages from ``queue_name``."""
+    get_backend().clear(queue_name)
