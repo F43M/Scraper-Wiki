@@ -19,6 +19,11 @@ pages_scraped_total = Counter("pages_scraped_total", "Pages successfully scraped
 # Falhas ao executar requisições HTTP
 requests_failed_total = Counter("requests_failed_total", "HTTP request failures")
 
+# HTTP 429 responses received
+requests_429_total = Counter(
+    "requests_429_total", "HTTP 429 responses from target servers"
+)
+
 # Total de tentativas extras ao fazer requisições
 request_retries_total = Counter("request_retries_total", "HTTP request retries")
 

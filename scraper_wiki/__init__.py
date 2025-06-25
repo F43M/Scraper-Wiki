@@ -1126,6 +1126,10 @@ class CaptchaDetected(Exception):
     """Raised when a CAPTCHA page is detected."""
 
 
+class TooManyRequests(CaptchaDetected):
+    """Raised when a HTTP 429 status is encountered."""
+
+
 async def fetch_with_retry(
     url: str,
     *,
@@ -1160,7 +1164,12 @@ async def fetch_with_retry(
                 async with session.get(
                     url, params=params, headers=headers, proxy=proxy
                 ) as resp:
-                    if resp.status in (429, 403):
+                    if resp.status == 429:
+                        metrics.scrape_block.inc()
+                        metrics.requests_429_total.inc()
+                        rate_limiter.record_error()
+                        raise TooManyRequests()
+                    if resp.status == 403:
                         metrics.scrape_block.inc()
                         rate_limiter.record_error()
                         raise CaptchaDetected()
@@ -1185,9 +1194,15 @@ async def fetch_with_retry(
             else:
                 fetch_semaphore.release()
 
+    def _wait_strategy(retry_state: tenacity.RetryCallState) -> float:
+        exc = retry_state.outcome.exception()
+        if isinstance(exc, TooManyRequests):
+            return tenacity.wait_random_exponential(multiplier=5, max=10)(retry_state)
+        return tenacity.wait_random_exponential(max=10)(retry_state)
+
     retryer = tenacity.AsyncRetrying(
         stop=tenacity.stop_after_attempt(retries),
-        wait=tenacity.wait_random_exponential(max=10),
+        wait=_wait_strategy,
         retry=tenacity.retry_if_exception_type(
             (aiohttp.ClientError, asyncio.TimeoutError, CaptchaDetected)
         ),
