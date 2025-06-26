@@ -544,3 +544,18 @@ def test_build_graph_command(tmp_path, monkeypatch):
     runner = CliRunner()
     result = runner.invoke(cli.app, ["build-graph", str(data_file), "--persist"])
     assert result.exit_code == 0
+
+
+def test_serve_command(monkeypatch):
+    called = {}
+
+    def fake_run(app, host="0.0.0.0", port=8000):
+        called["app"] = app
+        called["host"] = host
+        called["port"] = port
+
+    monkeypatch.setattr("uvicorn.run", fake_run)
+    runner = CliRunner()
+    result = runner.invoke(cli.app, ["serve", "--host", "127.0.0.1", "--port", "9000"])
+    assert result.exit_code == 0
+    assert called == {"app": "api.api_app:app", "host": "127.0.0.1", "port": 9000}
