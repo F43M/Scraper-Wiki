@@ -86,7 +86,7 @@ import dq
 import metrics
 from integrations import storage_sqlite
 from integrations.binary_storage import BinaryStorage
-from utils.text import clean_text, extract_entities
+from utils.text import clean_text, extract_entities, translate_text
 from utils.relation import extract_relations, extract_relations_regex
 from utils.quality import (
     classify_github_repo,
@@ -1877,9 +1877,12 @@ def cpu_process_page(
     videos: List[str] | None = None,
     revisions: List[dict] | None = None,
     rev_limit: int = 5,
+    translate_to: str | None = None,
 ) -> dict:
     """Executes CPU intensive operations for a page."""
-    builder = DatasetBuilder(include_revisions=revisions, rev_limit=rev_limit)
+    builder = DatasetBuilder(
+        include_revisions=revisions, rev_limit=rev_limit, translate_to=translate_to
+    )
     summary = summarize_text(content, lang)
     record = builder.generate_qa_pairs(
         title=title,
@@ -1918,6 +1921,7 @@ class DatasetBuilder:
         max_complexity: int | None = None,
         thread_executor: ThreadPoolExecutor | None = None,
         process_executor: ProcessPoolExecutor | None = None,
+        translate_to: str | None = None,
         **_,
     ):
         """Initialize the builder and optionally reuse executors.
@@ -1944,6 +1948,7 @@ class DatasetBuilder:
         self.min_complexity = min_complexity
         self.max_complexity = max_complexity
         self.last_scraped = load_last_scraped()
+        self.translate_to = translate_to
 
         self.thread_executor = thread_executor
         self.process_executor = process_executor
@@ -2086,6 +2091,7 @@ class DatasetBuilder:
                     videos,
                     revisions,
                     self.rev_limit,
+                    self.translate_to,
                 )
 
             # Sumariza o conteúdo
@@ -2099,6 +2105,18 @@ class DatasetBuilder:
                 lang=page_info["lang"],
                 category=page_info.get("category", ""),
             )
+            try:
+                from plugins import load_plugin
+
+                wikidata = load_plugin("wikidata")
+                items = wikidata.fetch_items(page_info["lang"], page_info["title"])
+                if items:
+                    parsed = wikidata.parse_item(items[0])
+                    qid = parsed.get("wikidata_id")
+                    if qid:
+                        qa_data.setdefault("metadata", {})["entity_ids"] = [qid]
+            except Exception:
+                pass
             qa_data["entities"] = extract_entities(clean_content)
             images = extract_images(getattr(page, "_html", ""))
             videos = extract_videos(getattr(page, "_html", ""))
@@ -2202,6 +2220,12 @@ class DatasetBuilder:
 
         tags = self._extract_tags(keywords, extra_metadata)
 
+        trans_content = content
+        trans_summary = summary
+        if self.translate_to:
+            trans_content = translate_text(content, self.translate_to)
+            trans_summary = translate_text(summary, self.translate_to)
+
         # Gera múltiplas perguntas baseadas no conteúdo
         questions = self._generate_questions(title, content, lang, keywords)
 
@@ -2215,9 +2239,14 @@ class DatasetBuilder:
 
         # Cria embeddings para busca semântica
         embeddings = self.embedding_model.encode(
-            [content, summary], show_progress_bar=False
+            [trans_content, trans_summary], show_progress_bar=False
         )
         content_embedding, summary_embedding = embeddings
+
+        if self.translate_to:
+            content = trans_content
+            summary = trans_summary
+            lang = self.translate_to
 
         # Classificação avançada de tópicos
         topic, subtopic = self._classify_topic(title, content, lang)
@@ -3022,6 +3051,7 @@ def main(
     depth: int = 1,
     revisions: bool = False,
     rev_limit: int = 5,
+    translate_to: str | None = None,
     client=None,
 ):
     """Gera o dataset utilizando os parâmetros fornecidos."""
@@ -3042,7 +3072,9 @@ def main(
         normalized = [normalize_category(c) or c for c in categories]
         cats = {c: Config.CATEGORIES.get(c, 1.0) for c in normalized}
 
-    builder = DatasetBuilder(include_revisions=revisions, rev_limit=rev_limit)
+    builder = DatasetBuilder(
+        include_revisions=revisions, rev_limit=rev_limit, translate_to=translate_to
+    )
 
     all_pages: List[dict] = []
     for lang in languages:
@@ -3147,6 +3179,7 @@ async def main_async(
     depth: int = 1,
     revisions: bool = False,
     rev_limit: int = 5,
+    translate_to: str | None = None,
 ) -> None:
     """Asynchronous version of :func:`main`."""
     start_time = time.perf_counter()
@@ -3166,7 +3199,9 @@ async def main_async(
         normalized = [normalize_category(c) or c for c in categories]
         cats = {c: Config.CATEGORIES.get(c, 1.0) for c in normalized}
 
-    builder = DatasetBuilder(include_revisions=revisions, rev_limit=rev_limit)
+    builder = DatasetBuilder(
+        include_revisions=revisions, rev_limit=rev_limit, translate_to=translate_to
+    )
 
     all_pages: List[dict] = []
     for lang in languages:

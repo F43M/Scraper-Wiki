@@ -117,6 +117,12 @@ def scrape(
         False, "--revisions", help="Inclui histórico de revisões", is_flag=True
     ),
     rev_limit: int = typer.Option(5, "--rev-limit", help="Número máximo de revisões"),
+    translate_to: str = typer.Option(
+        None,
+        "--translate",
+        help="Traduz conteúdo para o idioma fornecido",
+        show_default=False,
+    ),
     async_mode: bool = typer.Option(
         False, "--async", help="Usa scraping assíncrono", is_flag=True
     ),
@@ -163,6 +169,7 @@ def scrape(
                     depth=depth,
                     revisions=revisions,
                     rev_limit=rev_limit,
+                    translate_to=translate_to,
                 )
             )
         else:
@@ -175,6 +182,7 @@ def scrape(
                 depth=depth,
                 revisions=revisions,
                 rev_limit=rev_limit,
+                translate_to=translate_to,
                 client=client,
             )
         dataset_file = Path(scraper_wiki.Config.OUTPUT_DIR) / "wikipedia_qa.json"
