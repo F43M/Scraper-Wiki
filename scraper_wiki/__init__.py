@@ -2914,6 +2914,7 @@ def main(
     """Gera o dataset utilizando os parâmetros fornecidos."""
     start_time = time.perf_counter()
     metrics.start_metrics_server(int(os.environ.get("METRICS_PORT", "8001")))
+    metrics.start_system_metrics_loop()
     logger.info("🚀 Iniciando Wikipedia Scraper Ultra Pro Max - GodMode++")
 
     if rate_limit_delay is not None:
@@ -3037,6 +3038,7 @@ async def main_async(
     """Asynchronous version of :func:`main`."""
     start_time = time.perf_counter()
     metrics.start_metrics_server(int(os.environ.get("METRICS_PORT", "8001")))
+    metrics.start_system_metrics_loop()
     logger.info("🚀 Iniciando Wikipedia Scraper Ultra Pro Max - GodMode++ (async)")
 
     if rate_limit_delay is not None:
