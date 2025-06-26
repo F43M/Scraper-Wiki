@@ -60,7 +60,7 @@ from urllib.parse import urlparse, urljoin
 import html2text
 import ast
 from typing import List, Dict, Tuple, Optional, Set, Protocol
-from datetime import datetime
+from datetime import datetime, timedelta
 import multiprocessing
 import signal
 from scraper_wiki.state import load_last_scraped, save_last_scraped
@@ -202,6 +202,8 @@ class Config:
     MAX_PAGES_PER_CATEGORY = 1000
     MIN_TEXT_LENGTH = 150  # mínimo de caracteres para considerar uma página
     MAX_TEXT_LENGTH = 10000  # máximo de caracteres a extrair por página
+    PAGEVIEW_DAYS = int(os.environ.get("PAGEVIEW_DAYS", "30"))
+    MIN_PAGEVIEWS = int(os.environ.get("MIN_PAGEVIEWS", "0"))
     REMOVE_STOPWORDS = os.environ.get("REMOVE_STOPWORDS", "0") == "1"
     MIN_CODE_QUALITY = float(os.environ.get("MIN_CODE_QUALITY", "1.0"))
     MAX_LINT_ERRORS = int(os.environ.get("MAX_LINT_ERRORS", "10"))
@@ -563,14 +565,11 @@ def log_failed_url(url: str) -> None:
 
 
 class CacheBackend(Protocol):
-    def get(self, key: str):
-        ...
+    def get(self, key: str): ...
 
-    def set(self, key: str, data, ttl: Optional[int] = None):
-        ...
+    def set(self, key: str, data, ttl: Optional[int] = None): ...
 
-    def stats(self) -> dict:
-        ...
+    def stats(self) -> dict: ...
 
 
 class FileCache(CacheBackend):
@@ -1295,6 +1294,52 @@ async def fetch_all(urls: List[str]) -> List[str]:
     return [text for _, text in results]
 
 
+def fetch_pageviews(title: str, lang: str) -> int:
+    """Return the total pageviews for ``title`` in ``lang`` over ``Config.PAGEVIEW_DAYS`` days."""
+
+    return asyncio.run(fetch_pageviews_async(title, lang))
+
+
+async def fetch_pageviews_async(title: str, lang: str) -> int:
+    """Asynchronous helper for :func:`fetch_pageviews`."""
+
+    cache_key = f"pageviews_{lang}_{title}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    end = (datetime.utcnow() - timedelta(days=1)).strftime("%Y%m%d")
+    start = (datetime.utcnow() - timedelta(days=Config.PAGEVIEW_DAYS)).strftime(
+        "%Y%m%d"
+    )
+    quoted = requests.utils.quote(title, safe="")
+    url = (
+        "https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/"
+        f"{lang}.wikipedia/all-access/user/{quoted}/daily/{start}/{end}"
+    )
+    await rate_limiter.async_wait()
+    try:
+        status, text = await fetch_with_retry(
+            url, headers={"User-Agent": Config.get_random_user_agent()}
+        )
+    except Exception:
+        cache.set(cache_key, 0, ttl=Config.CACHE_TTL)
+        return 0
+
+    if status != 200:
+        cache.set(cache_key, 0, ttl=Config.CACHE_TTL)
+        return 0
+
+    try:
+        data = json.loads(text)
+        views = sum(int(it.get("views", 0)) for it in data.get("items", []))
+    except Exception:
+        views = 0
+
+    cache.set(cache_key, views, ttl=Config.CACHE_TTL)
+    return views
+
+
 def search_category(keyword: str, lang: str) -> Optional[str]:
     """Search for a similar category name using the Wikipedia API."""
     cache_key = f"search_category_{lang}_{keyword}"
@@ -1507,6 +1552,29 @@ class WikipediaAdvanced:
             logger.error(f"Erro ao obter links da categoria {category_name}: {e}")
             return []
 
+    def should_queue(self, title: str) -> bool:
+        """Return ``True`` if the page should be queued for processing."""
+
+        try:
+            page = self.fetch_page(title)
+        except Exception:
+            return False
+
+        if not page or not page.exists():
+            return False
+
+        categories = getattr(page, "categories", {})
+        for cat in categories:
+            lowered = cat.lower()
+            if "disambiguation" in lowered or "desambigua" in lowered:
+                return False
+
+        if len(clean_text(page.text)) < Config.MIN_TEXT_LENGTH:
+            return False
+
+        views = fetch_pageviews(title, self.lang)
+        return views >= Config.MIN_PAGEVIEWS
+
     def get_related_pages(self, page_title: str, limit: int = 10) -> List[dict]:
         cache_key = f"related_{self.lang}_{page_title}"
         cached = cache.get(cache_key)
@@ -1593,15 +1661,16 @@ class WikipediaAdvanced:
                     )
                     members.extend(sub_members)
                 elif member.ns == wikipediaapi.Namespace.MAIN:
-                    members.append(
-                        {
-                            "title": member.title,
-                            "url": member.fullurl,
-                            "lang": self.lang,
-                            "category": category_name,
-                            "depth": depth,
-                        }
-                    )
+                    if self.should_queue(member.title):
+                        members.append(
+                            {
+                                "title": member.title,
+                                "url": member.fullurl,
+                                "lang": self.lang,
+                                "category": category_name,
+                                "depth": depth,
+                            }
+                        )
 
                 if len(members) >= Config.MAX_PAGES_PER_CATEGORY:
                     break
@@ -1652,15 +1721,17 @@ class WikipediaAdvanced:
                         max_concurrency,
                     )
             elif member.ns == wikipediaapi.Namespace.MAIN:
-                return [
-                    {
-                        "title": member.title,
-                        "url": member.fullurl,
-                        "lang": self.lang,
-                        "category": category_name,
-                        "depth": depth,
-                    }
-                ]
+                if self.should_queue(member.title):
+                    return [
+                        {
+                            "title": member.title,
+                            "url": member.fullurl,
+                            "lang": self.lang,
+                            "category": category_name,
+                            "depth": depth,
+                        }
+                    ]
+                return []
             return []
 
         tasks = [handle_member(m) for m in category.categorymembers.values()]
@@ -1723,17 +1794,18 @@ class WikipediaAdvanced:
                 title = requests.utils.unquote(title).replace("_", " ")
                 if title in visited:
                     continue
-                results.append(
-                    {
-                        "title": title,
-                        "url": link,
-                        "lang": self.lang,
-                        "category": start_page,
-                        "depth": cur_depth,
-                    }
-                )
-                if cur_depth < depth:
-                    queue.append((title, cur_depth + 1))
+                if self.should_queue(title):
+                    results.append(
+                        {
+                            "title": title,
+                            "url": link,
+                            "lang": self.lang,
+                            "category": start_page,
+                            "depth": cur_depth,
+                        }
+                    )
+                    if cur_depth < depth:
+                        queue.append((title, cur_depth + 1))
 
         return results
 
@@ -1775,17 +1847,18 @@ class WikipediaAdvanced:
                 title = requests.utils.unquote(title).replace("_", " ")
                 if title in visited:
                     continue
-                results.append(
-                    {
-                        "title": title,
-                        "url": link,
-                        "lang": self.lang,
-                        "category": start_page,
-                        "depth": cur_depth,
-                    }
-                )
-                if cur_depth < depth:
-                    queue.append((title, cur_depth + 1))
+                if self.should_queue(title):
+                    results.append(
+                        {
+                            "title": title,
+                            "url": link,
+                            "lang": self.lang,
+                            "category": start_page,
+                            "depth": cur_depth,
+                        }
+                    )
+                    if cur_depth < depth:
+                        queue.append((title, cur_depth + 1))
 
         return results
 
@@ -2039,9 +2112,9 @@ class DatasetBuilder:
                 qa_data["videos"] = videos
                 qa_data["video_urls"] = videos
             if self.include_revisions:
-                qa_data.setdefault("metadata", {})[
-                    "revisions"
-                ] = wiki.get_revision_history(page_info["title"], self.rev_limit)
+                qa_data.setdefault("metadata", {})["revisions"] = (
+                    wiki.get_revision_history(page_info["title"], self.rev_limit)
+                )
             metrics.scrape_success.inc()
             metrics.pages_scraped_total.inc()
             ts = None
