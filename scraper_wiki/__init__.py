@@ -150,6 +150,7 @@ class Config:
 
     # Diretórios de saída
     OUTPUT_DIR = "datasets_wikipedia_pro"
+    RAW_DIR = "datasets/raw"
     CACHE_DIR = ".wiki_cache"
     LOG_DIR = "logs"
     ASSETS_DIR = os.environ.get("ASSETS_DIR", "assets")
@@ -562,11 +563,14 @@ def log_failed_url(url: str) -> None:
 
 
 class CacheBackend(Protocol):
-    def get(self, key: str): ...
+    def get(self, key: str):
+        ...
 
-    def set(self, key: str, data, ttl: Optional[int] = None): ...
+    def set(self, key: str, data, ttl: Optional[int] = None):
+        ...
 
-    def stats(self) -> dict: ...
+    def stats(self) -> dict:
+        ...
 
 
 class FileCache(CacheBackend):
@@ -1113,6 +1117,34 @@ def extract_videos(html: str) -> List[str]:
     except Exception as e:
         logger.error(f"Erro ao extrair videos: {e}")
         return []
+
+
+def dump_raw_page(
+    title: str,
+    lang: str,
+    category: str,
+    html: str,
+    text: str,
+    output_dir: str = Config.RAW_DIR,
+) -> None:
+    """Persist raw page ``html`` and ``text`` to ``output_dir``."""
+    try:
+        os.makedirs(output_dir, exist_ok=True)
+        safe = re.sub(r"[^a-zA-Z0-9_-]", "_", title)[:50]
+        path = Path(output_dir) / f"{lang}_{safe}.json"
+        data = {
+            "title": title,
+            "lang": lang,
+            "category": category,
+            "html": html,
+            "text": text,
+        }
+        tmp = str(path) + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        os.replace(tmp, path)
+    except Exception as exc:  # pragma: no cover - filesystem errors
+        logger.error(f"Erro ao salvar RAW para {title}: {exc}")
 
 
 def is_captcha_page(html: str) -> bool:
@@ -1947,6 +1979,13 @@ class DatasetBuilder:
 
             # Extrai e limpa o texto
             raw_text = clean_text(page.text)
+            dump_raw_page(
+                page_info["title"],
+                page_info["lang"],
+                page_info.get("category", ""),
+                getattr(page, "_html", ""),
+                raw_text,
+            )
             clean_content = advanced_clean_text(
                 raw_text,
                 page_info["lang"],
@@ -2000,9 +2039,9 @@ class DatasetBuilder:
                 qa_data["videos"] = videos
                 qa_data["video_urls"] = videos
             if self.include_revisions:
-                qa_data.setdefault("metadata", {})["revisions"] = (
-                    wiki.get_revision_history(page_info["title"], self.rev_limit)
-                )
+                qa_data.setdefault("metadata", {})[
+                    "revisions"
+                ] = wiki.get_revision_history(page_info["title"], self.rev_limit)
             metrics.scrape_success.inc()
             metrics.pages_scraped_total.inc()
             ts = None
@@ -2826,6 +2865,7 @@ class DatasetBuilder:
         )
         logger.info(f"Dataset salvo usando backend {Config.STORAGE_BACKEND}")
         track_path(output_dir)
+        track_path(Config.RAW_DIR)
         save_last_scraped(self.last_scraped)
 
         if format == "qa":
