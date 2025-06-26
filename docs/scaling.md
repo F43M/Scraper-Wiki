@@ -21,3 +21,16 @@ This document provides high level recommendations for deploying Scraper Wiki in 
 ## Autoscaling
 
 Horizontal Pod Autoscaling can be enabled on the worker deployments using CPU utilization targets. Increase the node count in your Terraform modules to ensure sufficient capacity.
+
+## Metrics Scraping
+
+All components expose Prometheus metrics on port **8001**. To scrape these
+metrics configure Prometheus as follows:
+
+```yaml
+scrape_configs:
+  - job_name: 'scraper-wiki'
+    static_configs:
+      - targets: ['<service-host>:8001']
+    metrics_path: /
+```

@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 from pathlib import Path
 from typing import List, Optional
 
@@ -211,6 +212,10 @@ def queue(
     ),
 ):
     """Enfileira um job de scraping."""
+    from metrics import start_metrics_server, start_system_metrics_loop
+
+    start_metrics_server(int(os.environ.get("METRICS_PORT", "8001")))
+    start_system_metrics_loop()
     lang = lang or None
     category = category or None
     cats = (
