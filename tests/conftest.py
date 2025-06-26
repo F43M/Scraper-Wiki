@@ -69,6 +69,20 @@ weaviate_stub = SimpleNamespace(
 )
 sys.modules.setdefault("weaviate", weaviate_stub)
 
+spacy_stub = ModuleType("spacy")
+spacy_stub.load = lambda *a, **k: None
+sys.modules.setdefault("spacy", spacy_stub)
+
+networkx_stub = ModuleType("networkx")
+networkx_stub.Graph = object
+sys.modules.setdefault("networkx", networkx_stub)
+
+requests_stub = ModuleType("requests")
+requests_stub.get = lambda *a, **k: SimpleNamespace(status_code=200, text="")
+requests_stub.post = lambda *a, **k: SimpleNamespace(status_code=200, text="")
+requests_stub.exceptions = SimpleNamespace(RequestException=Exception)
+sys.modules.setdefault("requests", requests_stub)
+
 sys.modules.setdefault("yaml", SimpleNamespace(safe_load=lambda *a, **k: {}))
 
 # Stub optional browser dependencies
