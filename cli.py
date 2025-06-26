@@ -398,5 +398,44 @@ def update_parsers_cmd():
     typer.echo("Parsers updated")
 
 
+@app.command("process-raw")
+def process_raw_cmd(
+    raw_dir: str = typer.Option(
+        "datasets/raw", "--raw-dir", help="Diretório de dumps brutos"
+    ),
+    fmt: str = typer.Option("all", "--format", help="Formato de saída"),
+):
+    """Processa arquivos brutos gerados previamente."""
+    from tqdm import tqdm
+
+    builder = scraper_wiki.DatasetBuilder()
+    path = Path(raw_dir)
+    files = sorted(path.glob("*.json"))
+    for fp in tqdm(files, desc="Processando dumps"):
+        data = json.loads(fp.read_text(encoding="utf-8"))
+        title = data.get("title", "")
+        lang = data.get("lang", "")
+        category = data.get("category", "")
+        html = data.get("html", "")
+        text = data.get("text", "")
+        clean = scraper_wiki.advanced_clean_text(
+            text, lang, remove_stopwords=scraper_wiki.Config.REMOVE_STOPWORDS
+        )
+        record = scraper_wiki.cpu_process_page(
+            title,
+            clean,
+            lang,
+            category,
+            scraper_wiki.extract_images(html),
+            scraper_wiki.extract_videos(html),
+            None,
+            builder.rev_limit,
+        )
+        builder.dataset.append(record)
+
+    builder.enhance_with_clustering()
+    builder.save_dataset(format=fmt)
+
+
 if __name__ == "__main__":
     app()
