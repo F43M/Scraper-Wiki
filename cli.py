@@ -170,6 +170,7 @@ def scrape(
                     revisions=revisions,
                     rev_limit=rev_limit,
                     translate_to=translate_to,
+                    incremental=incremental,
                 )
             )
         else:
@@ -184,6 +185,7 @@ def scrape(
                 rev_limit=rev_limit,
                 translate_to=translate_to,
                 client=client,
+                incremental=incremental,
             )
         dataset_file = Path(scraper_wiki.Config.OUTPUT_DIR) / "wikipedia_qa.json"
         if dataset_file.exists() and train:

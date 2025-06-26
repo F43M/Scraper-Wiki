@@ -2867,7 +2867,13 @@ class DatasetBuilder:
                         }
                     )
 
-    def save_dataset(self, format: str = "all", output_dir: str = Config.OUTPUT_DIR):
+    def save_dataset(
+        self,
+        format: str = "all",
+        output_dir: str = Config.OUTPUT_DIR,
+        *,
+        incremental: bool = False,
+    ):
         os.makedirs(output_dir, exist_ok=True)
 
         # Optionally generate synthetic question/answer pairs
@@ -2952,6 +2958,24 @@ class DatasetBuilder:
 
             if valid:
                 validated_data.append(item)
+
+        # Skip records already saved when incremental mode is on
+        if incremental:
+            try:
+                from provenance import tracker as prov
+
+                filtered = []
+                for rec in validated_data:
+                    h = prov.compute_record_hash(rec)
+                    if prov.dataset_hash_exists(h):
+                        self.duplicates_removed += 1
+                        continue
+                    prov.record_dataset_hash(rec)
+                    rec.setdefault("metadata", {})["record_hash"] = h
+                    filtered.append(rec)
+                validated_data = filtered
+            except Exception as e:  # pragma: no cover - db errors
+                logger.error(f"Erro verificação incremental: {e}")
 
         # Quality metrics
         try:
@@ -3098,6 +3122,7 @@ def main(
     rev_limit: int = 5,
     translate_to: str | None = None,
     client=None,
+    incremental: bool = False,
 ):
     """Gera o dataset utilizando os parâmetros fornecidos."""
     start_time = time.perf_counter()
@@ -3207,7 +3232,7 @@ def main(
             builder._update_progress()
 
     logger.info("💾 Salvando dataset completo...")
-    builder.save_dataset(format=fmt)
+    builder.save_dataset(format=fmt, incremental=incremental)
 
     logger.info("✅ Dataset finalizado com sucesso!")
     logger.info(f"📊 Estatísticas de cache: {cache.stats()}")
@@ -3225,6 +3250,7 @@ async def main_async(
     revisions: bool = False,
     rev_limit: int = 5,
     translate_to: str | None = None,
+    incremental: bool = False,
 ) -> None:
     """Asynchronous version of :func:`main`."""
     start_time = time.perf_counter()
@@ -3329,7 +3355,7 @@ async def main_async(
             builder._update_progress()
 
     logger.info("💾 Salvando dataset completo...")
-    builder.save_dataset(format=fmt)
+    builder.save_dataset(format=fmt, incremental=incremental)
 
     logger.info("✅ Dataset finalizado com sucesso!")
     logger.info(f"📊 Estatísticas de cache: {cache.stats()}")

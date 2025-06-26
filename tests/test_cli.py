@@ -398,6 +398,19 @@ def test_scrape_incremental_option(monkeypatch):
     assert captured.get("inc") is True
 
 
+def test_scrape_incremental_wikipedia(monkeypatch):
+    captured = {}
+
+    def fake_main(*args, **kwargs):
+        captured["inc"] = kwargs.get("incremental")
+
+    monkeypatch.setattr(cli.scraper_wiki, "main", fake_main)
+    runner = CliRunner()
+    result = runner.invoke(cli.app, ["scrape", "--incremental"])
+    assert result.exit_code == 0
+    assert captured.get("inc") is True
+
+
 def test_start_crawler_cli(monkeypatch):
     called = {}
     import crawling.distributed as dist
