@@ -1,7 +1,15 @@
 """FastAPI server exposing dataset generation endpoints."""
 
 from typing import List, Optional
-from fastapi import FastAPI, Query as FastQuery, Request, Depends, HTTPException, status
+from fastapi import (
+    FastAPI,
+    APIRouter,
+    Query as FastQuery,
+    Request,
+    Depends,
+    HTTPException,
+    status,
+)
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
@@ -17,7 +25,9 @@ from task_queue import publish, clear as clear_queue
 import asyncio
 from search import indexer
 
+
 app = FastAPI()
+api_router = APIRouter(prefix="/api")
 
 auth_scheme = HTTPBearer(auto_error=False)
 
@@ -128,8 +138,8 @@ class QueueItem(BaseModel):
     lang: Optional[str] = None
 
 
-@app.post("/scrape")
-async def scrape(params: ScrapeParams, _=Depends(require_token)):
+async def _handle_scrape(params: ScrapeParams) -> dict:
+    """Execute scraping using the provided parameters."""
     langs = params.lang
     if isinstance(langs, str):
         langs = [langs]
@@ -152,6 +162,25 @@ async def scrape(params: ScrapeParams, _=Depends(require_token)):
             params.format,
         )
     return {"status": "ok"}
+
+
+@app.post("/scrape")
+async def scrape(params: ScrapeParams, _=Depends(require_token)):
+    return await _handle_scrape(params)
+
+
+@api_router.post("/scrape")
+async def api_scrape(params: ScrapeParams, _=Depends(require_token)):
+    """API-prefixed scrape endpoint."""
+    return await _handle_scrape(params)
+
+
+@api_router.get("/plugins")
+async def list_plugins(_=Depends(require_token)):
+    """Return available plugin names."""
+    from plugins import AVAILABLE_PLUGINS
+
+    return sorted(AVAILABLE_PLUGINS)
 
 
 @app.get("/records", response_model=List[DatasetRecord])
@@ -311,3 +340,8 @@ async def graphql_endpoint(request: Request, _=Depends(require_token)):
 async def health_check():
     """Basic health check endpoint used by containers and load balancers."""
     return {"status": "ok"}
+
+
+# Register API router after all handlers so mounting static files won't override
+# these endpoints.
+app.include_router(api_router)
