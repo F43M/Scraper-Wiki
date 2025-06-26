@@ -92,6 +92,18 @@ def tmp_log_dir(tmp_path, monkeypatch):
     yield
 
 
+@pytest.fixture(autouse=True)
+def stub_wikidata_plugin(monkeypatch):
+    import plugins
+
+    plugin = SimpleNamespace(
+        fetch_items=lambda l, c: [{"id": "Q1"}],
+        parse_item=lambda item: {"wikidata_id": item["id"]},
+    )
+    monkeypatch.setattr(plugins, "load_plugin", lambda name: plugin)
+    yield
+
+
 class DummyEmbed:
     def encode(self, *args, **kwargs):
         import numpy as np
@@ -188,6 +200,27 @@ def test_generate_qa_pairs_extracts_tags(monkeypatch):
     assert {"tag": "python", "link": None} in result["tags"]
     for field in ["diagram_path", "theory_links", "explanations"]:
         assert field in result
+
+
+def test_generate_qa_pairs_translates(monkeypatch):
+    qb = sw.DatasetBuilder(translate_to="es")
+    monkeypatch.setattr(qb, "_generate_questions", lambda *a, **k: [])
+    monkeypatch.setattr(qb, "_generate_answers", lambda *a, **k: [])
+    monkeypatch.setattr(sw, "extract_relations", lambda *a, **k: [])
+    captured = {}
+
+    def fake_encode(texts, show_progress_bar=False):
+        captured["texts"] = texts
+        import numpy as np
+
+        return np.zeros((2, 3))
+
+    monkeypatch.setattr(qb.embedding_model, "encode", fake_encode)
+    monkeypatch.setattr(sw, "translate_text", lambda text, lang: f"{text}-{lang}")
+    qb.generate_qa_pairs(
+        title="T", content="content", summary="sum", lang="en", category="c"
+    )
+    assert captured["texts"] == ["content-es", "sum-es"]
 
 
 def test_advanced_clean_text_removes_html():
@@ -582,7 +615,13 @@ def test_process_page_uses_clean_text(monkeypatch):
     builder = sw.DatasetBuilder()
     res = builder.process_page({"title": "T", "lang": "en"})
 
-    assert res == {"entities": [], "images": [], "image_paths": [], "video_urls": []}
+    assert res == {
+        "entities": [],
+        "images": [],
+        "image_paths": [],
+        "video_urls": [],
+        "metadata": {"entity_ids": ["Q1"]},
+    }
     assert called["clean"] == "raw text"
     assert called["adv"] == ("cleaned", "en", True)
 
@@ -638,6 +677,7 @@ def test_process_page_increments_counter(monkeypatch):
         "images": [],
         "image_paths": [],
         "video_urls": [],
+        "metadata": {"entity_ids": ["Q1"]},
     }
     assert counts["pages"] == 1
 
@@ -693,6 +733,7 @@ def test_process_page_records_histogram(monkeypatch):
         "images": [],
         "image_paths": [],
         "video_urls": [],
+        "metadata": {"entity_ids": ["Q1"]},
     }
     assert observed["count"] == 1
 
@@ -746,6 +787,39 @@ def test_process_page_downloads_assets(monkeypatch, tmp_path):
 
     assert res["image_paths"] == [str(tmp_path / "img.jpg")]
     assert res["video_urls"] == ["http://x/v.mp4"]
+
+
+def test_process_page_adds_entity_ids(monkeypatch):
+    class DummyPage:
+        text = "t" * 200
+
+        def exists(self):
+            return True
+
+    class DummyWiki:
+        def __init__(self, lang):
+            pass
+
+        def fetch_page(self, title):
+            return DummyPage()
+
+    monkeypatch.setattr(sw.Config, "MIN_TEXT_LENGTH", 10)
+    monkeypatch.setattr(sw, "WikipediaAdvanced", DummyWiki)
+    monkeypatch.setattr(sw, "clean_text", lambda t: t)
+    monkeypatch.setattr(
+        sw, "advanced_clean_text", lambda t, lang, remove_stopwords=False: t
+    )
+    monkeypatch.setattr(sw, "summarize_text", lambda *a, **k: "")
+    monkeypatch.setattr(
+        sw.DatasetBuilder, "generate_qa_pairs", lambda *a, **k: {"ok": True}
+    )
+    monkeypatch.setattr(sw, "extract_entities", lambda text: [])
+    monkeypatch.setattr(sw, "extract_images", lambda html: [])
+    monkeypatch.setattr(sw, "extract_videos", lambda html: [])
+    monkeypatch.setattr(sw.binary_storage, "save", lambda url: url)
+    builder = sw.DatasetBuilder()
+    res = builder.process_page({"title": "T", "lang": "en"})
+    assert res["metadata"]["entity_ids"] == ["Q1"]
 
 
 def test_save_dataset_json_csv(tmp_path, monkeypatch):

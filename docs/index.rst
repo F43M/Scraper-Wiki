@@ -22,15 +22,21 @@ Example dataset entry:
         "title": "Title",
         "language": "en",
         "category": "History",
-   "quality_score": 0.0,
-   "tests": [],
-   "context": "Ada summary",
-   "docstring": "",
-   "raw_code": "",
-   "problems": [],
-   "fixed_version": "",
-   "lessons": "",
-   "origin_metrics": {},
-   "challenge": "",
-   "images": []
-   }
+        "quality_score": 0.0,
+        "tests": [],
+        "context": "Ada summary",
+        "docstring": "",
+        "raw_code": "",
+        "problems": [],
+        "fixed_version": "",
+        "lessons": "",
+        "origin_metrics": {},
+        "challenge": "",
+        "images": [],
+        "metadata": {
+            "length": 1000,
+            "source": "wikipedia",
+            "source_url": "https://en.wikipedia.org/wiki/Title",
+            "entity_ids": ["Q1"]
+        }
+    }
