@@ -51,6 +51,7 @@ from pathlib import Path
 import hashlib
 import pickle
 import zlib
+import uuid
 from bs4 import BeautifulSoup
 import requests
 import aiohttp
@@ -114,8 +115,10 @@ from enrichment.generator import (
     generate_diagram,
     generate_explanations,
     link_theory,
+    generate_synthetic_qa,
 )
 from utils.sonarqube import analyze_code
+from utils.gap_analysis import identify_gaps
 
 
 HANDLED_EXCEPTIONS = (
@@ -1922,6 +1925,7 @@ class DatasetBuilder:
         thread_executor: ThreadPoolExecutor | None = None,
         process_executor: ProcessPoolExecutor | None = None,
         translate_to: str | None = None,
+        synthetic_pairs_per_gap: int = 0,
         **_,
     ):
         """Initialize the builder and optionally reuse executors.
@@ -1949,6 +1953,7 @@ class DatasetBuilder:
         self.max_complexity = max_complexity
         self.last_scraped = load_last_scraped()
         self.translate_to = translate_to
+        self.synthetic_pairs_per_gap = synthetic_pairs_per_gap
 
         self.thread_executor = thread_executor
         self.process_executor = process_executor
@@ -2825,8 +2830,43 @@ class DatasetBuilder:
             self.dataset, self.min_complexity, self.max_complexity
         )
 
+    def augment_with_synthetic_data(self, min_ratio: float = 0.1) -> None:
+        """Augment dataset generating synthetic question/answer pairs."""
+
+        if self.synthetic_pairs_per_gap <= 0 or not self.dataset:
+            return
+
+        gaps = identify_gaps(self.dataset, min_ratio=min_ratio)
+        languages = gaps.get("languages", []) or ["en"]
+        topics = gaps.get("topics", []) or ["general"]
+
+        for lang in languages:
+            for topic in topics:
+                pairs = generate_synthetic_qa(
+                    topic, lang, n=self.synthetic_pairs_per_gap
+                )
+                for q in pairs:
+                    self.dataset.append(
+                        {
+                            "id": uuid.uuid4().hex,
+                            "language": lang,
+                            "category": "synthetic",
+                            "topic": topic,
+                            "content": "",
+                            "summary": "",
+                            "questions": [q["question"]],
+                            "answers": [q["answer"]],
+                            "relations": [],
+                            "created_at": datetime.utcnow().isoformat(),
+                            "metadata": {"synthetic": True},
+                        }
+                    )
+
     def save_dataset(self, format: str = "all", output_dir: str = Config.OUTPUT_DIR):
         os.makedirs(output_dir, exist_ok=True)
+
+        # Optionally generate synthetic question/answer pairs
+        self.augment_with_synthetic_data()
 
         if not self.dataset:
             logger.warning("Nenhum dado para salvar")

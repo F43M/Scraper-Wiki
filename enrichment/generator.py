@@ -92,3 +92,55 @@ def link_theory(text: str) -> List[str]:
 
 
 __all__ = ["generate_diagram", "generate_explanations", "link_theory"]
+
+
+def generate_synthetic_qa(topic: str, lang: str = "en", n: int = 1) -> List[dict]:
+    """Return ``n`` synthetic question/answer pairs for ``topic``.
+
+    The function attempts to use ``transformers`` text generation models if
+    available. When the dependency or model loading fails, simple heuristic
+    answers based on :func:`generate_explanations` are returned instead.
+
+    Parameters
+    ----------
+    topic : str
+        Topic used to craft the prompt for the language model.
+    lang : str
+        Language of the desired output.
+    n : int
+        Number of question/answer pairs to generate.
+
+    Returns
+    -------
+    List[dict]
+        List of dictionaries with ``question`` and ``answer`` keys.
+    """
+
+    try:  # pragma: no cover - optional dependency
+        from transformers import pipeline
+
+        generator = pipeline("text-generation", model="distilgpt2")
+    except Exception:  # pragma: no cover - fallback when transformers missing
+        generator = None
+
+    pairs: List[dict] = []
+    for _ in range(max(1, n)):
+        question = f"What is {topic}?"
+        if generator:
+            try:  # pragma: no cover - model inference
+                prompt = f"{question} Answer:"
+                res = generator(prompt, max_new_tokens=40, num_return_sequences=1)[0][
+                    "generated_text"
+                ]
+                answer = res.split("Answer:", 1)[-1].strip()
+            except Exception:  # pragma: no cover - inference failure
+                answer = generate_explanations(topic, lang)["medium"]
+        else:
+            answer = generate_explanations(topic, lang)["medium"]
+
+        pairs.append({"question": question, "answer": answer})
+
+    return pairs
+
+
+__all__.append("generate_synthetic_qa")
