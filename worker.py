@@ -17,7 +17,7 @@ def main_sync() -> None:
     start_metrics_server(int(os.environ.get("METRICS_PORT", "8001")))
     start_system_metrics_loop()
     builder = DatasetBuilder()
-    for task in consume("scrape_tasks"):
+    for task, ack in consume("scrape_tasks", manual_ack=True):
         url = task.get("url")
         if not url and {"title", "lang"} <= task.keys():
             url = f"{get_base_url(task['lang'])}/wiki/{task['title'].replace(' ', '_')}"
@@ -28,10 +28,11 @@ def main_sync() -> None:
         result = builder.process_page(task)
         if result:
             publish("scrape_results", result)
+        ack()
 
 
 async def _handle_task(
-    task: dict, builder: DatasetBuilder, sem: asyncio.Semaphore
+    task: dict, ack_fn, builder: DatasetBuilder, sem: asyncio.Semaphore
 ) -> None:
     async with sem:
         url = task.get("url")
@@ -44,6 +45,7 @@ async def _handle_task(
         result = await builder.process_page_async(task)
         if result:
             await asyncio.to_thread(publish, "scrape_results", result)
+        ack_fn()
 
 
 async def main_async() -> None:
@@ -52,10 +54,10 @@ async def main_async() -> None:
     start_system_metrics_loop()
     builder = DatasetBuilder()
     sem = asyncio.Semaphore(Config.WORKER_CONCURRENCY)
-    iterator = consume("scrape_tasks")
+    iterator = consume("scrape_tasks", manual_ack=True)
     while True:
-        task = await asyncio.to_thread(next, iterator)
-        asyncio.create_task(_handle_task(task, builder, sem))
+        task, ack = await asyncio.to_thread(next, iterator)
+        asyncio.create_task(_handle_task(task, ack, builder, sem))
 
 
 def main(async_mode: bool = False) -> None:

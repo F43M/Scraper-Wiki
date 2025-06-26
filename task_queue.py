@@ -19,7 +19,7 @@ class BaseQueue:
     def publish(self, queue: str, message: dict):
         raise NotImplementedError
 
-    def consume(self, queue: str):
+    def consume(self, queue: str, manual_ack: bool = False):
         raise NotImplementedError
 
     def clear(self, queue: str):
@@ -37,12 +37,16 @@ class InMemoryQueue(BaseQueue):
     def publish(self, queue: str, message: dict):
         self._get_queue(queue).put(json.dumps(message))
 
-    def consume(self, queue: str):
+    def consume(self, queue: str, manual_ack: bool = False):
         q = self._get_queue(queue)
         while True:
             msg = q.get()
-            yield json.loads(msg)
-            q.task_done()
+            data = json.loads(msg)
+            if manual_ack:
+                yield data, q.task_done
+            else:
+                yield data
+                q.task_done()
 
     def clear(self, queue: str):
         self._get_queue(queue).queue.clear()
@@ -60,12 +64,18 @@ class RabbitMQQueue(BaseQueue):
         body = json.dumps(message).encode()
         self.channel.basic_publish(exchange="", routing_key=queue, body=body)
 
-    def consume(self, queue: str):
+    def consume(self, queue: str, manual_ack: bool = False):
         self.channel.queue_declare(queue=queue, durable=True)
         for method, _, body in self.channel.consume(queue, inactivity_timeout=1):
             if body:
-                self.channel.basic_ack(method.delivery_tag)
-                yield json.loads(body.decode())
+                data = json.loads(body.decode())
+                if manual_ack:
+                    yield data, lambda tag=method.delivery_tag: self.channel.basic_ack(
+                        tag
+                    )
+                else:
+                    self.channel.basic_ack(method.delivery_tag)
+                    yield data
 
     def clear(self, queue: str):
         self.channel.queue_purge(queue)
@@ -82,11 +92,19 @@ class RedisQueue(BaseQueue):
     def publish(self, queue: str, message: dict):
         self.client.rpush(queue, json.dumps(message))
 
-    def consume(self, queue: str):
+    def consume(self, queue: str, manual_ack: bool = False):
         while True:
-            item = self.client.blpop(queue, timeout=1)
-            if item:
-                yield json.loads(item[1])
+            if manual_ack:
+                item = self.client.brpoplpush(queue, f"{queue}:processing", timeout=1)
+                if item:
+                    data = json.loads(item)
+                    yield data, lambda val=item: self.client.lrem(
+                        f"{queue}:processing", 1, val
+                    )
+            else:
+                item = self.client.blpop(queue, timeout=1)
+                if item:
+                    yield json.loads(item[1])
 
     def clear(self, queue: str):
         self.client.delete(queue)
@@ -116,8 +134,8 @@ def publish(queue_name: str, message: dict):
     get_backend().publish(queue_name, message)
 
 
-def consume(queue_name: str):
-    yield from get_backend().consume(queue_name)
+def consume(queue_name: str, manual_ack: bool = False):
+    yield from get_backend().consume(queue_name, manual_ack=manual_ack)
 
 
 def clear(queue_name: str) -> None:
