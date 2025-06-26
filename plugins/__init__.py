@@ -1,13 +1,12 @@
 """Plugin utilities and registry."""
 
-import importlib
+from importlib import import_module
 from typing import List, Optional
 from datetime import datetime
 
 from core.builder import DatasetBuilder
 from .base import Plugin
 from scraper_wiki.models import DatasetRecord
-from pydantic import ValidationError
 from integrations import storage_sqlite
 
 # Mapping of available plugin names to module paths
@@ -55,7 +54,7 @@ AVAILABLE_PLUGINS = {
 def load_plugin(name: str) -> Plugin:
     """Load a plugin by its registry name."""
     module_name = AVAILABLE_PLUGINS.get(name, name)
-    module = importlib.import_module(f"plugins.{module_name}")
+    module = import_module(f"plugins.{module_name}")
     plugin_cls = getattr(module, "Plugin")
     return plugin_cls()
 
@@ -72,7 +71,9 @@ def run_plugin(
     for lang in langs:
         for category in categories:
             key = f"{plugin.__class__.__name__}:{lang}:{category}"
-            since = storage_sqlite.get_last_processed(key) if incremental else None
+            since = (
+                storage_sqlite.get_last_processed(key) if incremental else None
+            )  # noqa: E501
             if since:
                 items = plugin.fetch_items(lang, category, since=since)
             else:
