@@ -365,6 +365,23 @@ def build_graph_cmd(
     )
 
 
+@app.command("merge-datasets")
+def merge_datasets_cmd(
+    datasets: List[str] = typer.Argument(..., help="Caminhos para arquivos JSON"),
+    output: str = typer.Option(
+        "merged_dataset.json", "--output", "-o", help="Arquivo de saída"
+    ),
+):
+    """Une múltiplos datasets em um único arquivo deduplicado."""
+    from processing.aggregator import merge_datasets
+
+    merged = merge_datasets(datasets)
+    Path(output).write_text(
+        json.dumps(merged, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    typer.echo(f"Salvo {len(merged)} registros em {output}")
+
+
 @app.command("start-crawler")
 def start_crawler_cmd(
     config: str = typer.Option(None, "--config", help="Path to cluster config")
