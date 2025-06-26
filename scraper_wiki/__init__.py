@@ -3026,6 +3026,7 @@ class DatasetBuilder:
                 old_info = {}
         old_version = old_info.get("version", "0.0.0")
         old_size = old_info.get("size", 0)
+        old_ids = set(old_info.get("record_ids", []))
         new_version = _bump(old_version)
 
         backend.save_dataset(
@@ -3054,6 +3055,23 @@ class DatasetBuilder:
             except Exception as e:
                 logger.error(f"Erro ao salvar dataset HuggingFace: {e}")
 
+        # Audit diff between current and previous dataset
+        current_ids = [item.get("id") for item in sorted_data if item.get("id")]
+        diff_path = os.path.join(output_dir, f"diff_{new_version}.json")
+        try:
+            with open(diff_path, "w", encoding="utf-8") as df:
+                json.dump(
+                    {
+                        "added": sorted(set(current_ids) - old_ids),
+                        "removed": sorted(old_ids - set(current_ids)),
+                    },
+                    df,
+                    ensure_ascii=False,
+                    indent=2,
+                )
+        except Exception as e:  # pragma: no cover - unexpected I/O errors
+            logger.error(f"Erro ao salvar diff file: {e}")
+
         # Write metadata about the dataset
         try:
             sources = {
@@ -3072,6 +3090,7 @@ class DatasetBuilder:
                 ),
                 "version": new_version,
                 "size": len(sorted_data),
+                "record_ids": current_ids,
             }
             with open(
                 os.path.join(output_dir, "dataset_info.json"), "w", encoding="utf-8"
@@ -3086,7 +3105,7 @@ class DatasetBuilder:
                     os.path.join(output_dir, "CHANGELOG.txt"), "a", encoding="utf-8"
                 ) as cf:
                     cf.write(
-                        f"{datetime.utcnow().isoformat()} - v{new_version} size changed {old_size}->{len(sorted_data)}\n"
+                        f"{datetime.utcnow().isoformat()} - v{new_version} size changed {old_size}->{len(sorted_data)} diff: diff_{new_version}.json\n"
                     )
             if diff_ratio > 0.5:
                 send_alert(
