@@ -161,3 +161,20 @@ def test_queue_management(monkeypatch):
     resp = client.post("/queue/clear")
     assert resp.status_code == 200
     assert "scrape_tasks" in cleared
+
+
+def test_jobs_endpoint(monkeypatch):
+    async def fake_main_async(*a, **k):
+        pass
+
+    monkeypatch.setattr(api_app.sw, "main_async", fake_main_async)
+
+    client = create_client(monkeypatch)
+    resp = client.post("/jobs", json={})
+    assert resp.status_code == 200
+    job_id = resp.json()["job_id"]
+    assert job_id
+
+    resp = client.get(f"/jobs/{job_id}")
+    assert resp.status_code == 200
+    assert resp.json()["job_id"] == job_id

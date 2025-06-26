@@ -1,8 +1,9 @@
 """FastAPI server exposing dataset generation endpoints."""
 
 from typing import List, Optional
-from fastapi import FastAPI, Query as FastQuery, Request
+from fastapi import FastAPI, Query as FastQuery, Request, Depends, HTTPException, status
 from fastapi.responses import JSONResponse
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from scraper_wiki.models import DatasetRecord
 import scraper_wiki as sw
@@ -18,9 +19,22 @@ from search import indexer
 
 app = FastAPI()
 
+auth_scheme = HTTPBearer(auto_error=False)
+
+
+def require_token(credentials: HTTPAuthorizationCredentials = Depends(auth_scheme)):
+    token = os.environ.get("API_TOKEN")
+    if token and (credentials is None or credentials.credentials != token):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"
+        )
+
+
 DATA_FILE = os.path.join(sw.Config.OUTPUT_DIR, "wikipedia_qa.json")
 PROGRESS_FILE = os.path.join(sw.Config.LOG_DIR, "progress.json")
 INFO_FILE = os.path.join(sw.Config.OUTPUT_DIR, "dataset_info.json")
+
+JOBS: dict[str, dict] = {}
 
 
 def load_dataset() -> List[dict]:
@@ -100,6 +114,14 @@ class ScrapeParams(BaseModel):
     plugin: str = "wikipedia"  # e.g. "infobox_parser" or "table_parser"
 
 
+class JobParams(ScrapeParams):
+    start_page: Optional[List[str]] | Optional[str] = None
+    depth: int = 1
+    rate_limit_delay: Optional[float] = None
+    revisions: bool = False
+    rev_limit: int = 5
+
+
 class QueueItem(BaseModel):
     url: Optional[str] = None
     title: Optional[str] = None
@@ -107,7 +129,7 @@ class QueueItem(BaseModel):
 
 
 @app.post("/scrape")
-async def scrape(params: ScrapeParams):
+async def scrape(params: ScrapeParams, _=Depends(require_token)):
     langs = params.lang
     if isinstance(langs, str):
         langs = [langs]
@@ -138,6 +160,7 @@ async def get_records(
     category: List[str] | None = FastQuery(None),
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
+    _=Depends(require_token),
 ):
     langs = lang if isinstance(lang, list) else ([lang] if lang else None)
     cats = (
@@ -153,25 +176,25 @@ async def get_records(
 
 
 @app.get("/stats")
-async def get_stats():
+async def get_stats(_=Depends(require_token)):
     return load_progress()
 
 
 @app.get("/search")
-async def search_endpoint(q: str):
+async def search_endpoint(q: str, _=Depends(require_token)):
     """Return records matching ``q`` from Elasticsearch."""
     results = await asyncio.to_thread(indexer.query_index, q)
     return results
 
 
 @app.get("/dataset/summary")
-async def dataset_summary():
+async def dataset_summary(_=Depends(require_token)):
     """Return metadata about the generated dataset."""
     return load_dataset_info()
 
 
 @app.post("/queue/add")
-async def queue_add(items: List[QueueItem]):
+async def queue_add(items: List[QueueItem], _=Depends(require_token)):
     """Add scraping tasks to the queue."""
     for item in items:
         publish("scrape_tasks", item.model_dump(exclude_none=True))
@@ -179,11 +202,70 @@ async def queue_add(items: List[QueueItem]):
 
 
 @app.post("/queue/clear")
-async def queue_clear():
+async def queue_clear(_=Depends(require_token)):
     """Remove all pending scraping tasks and results."""
     clear_queue("scrape_tasks")
     clear_queue("scrape_results")
     return {"status": "cleared"}
+
+
+@app.post("/jobs")
+async def start_job(params: JobParams, _=Depends(require_token)):
+    """Start a scraping job in the background and return its ID."""
+    langs = params.lang
+    if isinstance(langs, str):
+        langs = [langs]
+    cats = params.category
+    if isinstance(cats, str):
+        cats = [cats]
+    if cats is not None:
+        cats = [sw.normalize_category(c) or c for c in cats]
+    if isinstance(params.start_page, str):
+        start_pages = [params.start_page]
+    else:
+        start_pages = params.start_page
+
+    job_id = os.urandom(8).hex()
+
+    async def _run_job() -> None:
+        try:
+            await sw.main_async(
+                langs,
+                cats,
+                params.format,
+                params.rate_limit_delay,
+                start_pages=start_pages,
+                depth=params.depth,
+                revisions=params.revisions,
+                rev_limit=params.rev_limit,
+            )
+            JOBS[job_id]["status"] = "completed"
+        except Exception as exc:
+            JOBS[job_id]["status"] = "failed"
+            JOBS[job_id]["error"] = str(exc)
+
+    task = asyncio.create_task(_run_job())
+    JOBS[job_id] = {"task": task, "status": "running"}
+    return {"job_id": job_id}
+
+
+@app.get("/jobs/{job_id}")
+async def job_status(job_id: str, _=Depends(require_token)):
+    """Return status information for a running job."""
+    job = JOBS.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job["status"] == "running" and job["task"].done():
+        if job["task"].exception() is None:
+            job["status"] = "completed"
+        else:
+            job["status"] = "failed"
+            job["error"] = str(job["task"].exception())
+    return {
+        "job_id": job_id,
+        "status": job["status"],
+        "error": job.get("error"),
+    }
 
 
 class RecordType(graphene.ObjectType):
@@ -219,7 +301,7 @@ schema = graphene.Schema(query=Query)
 
 
 @app.post("/graphql")
-async def graphql_endpoint(request: Request):
+async def graphql_endpoint(request: Request, _=Depends(require_token)):
     body = await request.json()
     result = schema.execute(body.get("query"), variable_values=body.get("variables"))
     return JSONResponse(result.data)
