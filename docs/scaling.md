@@ -20,7 +20,9 @@ This document provides high level recommendations for deploying Scraper Wiki in 
 
 ## Autoscaling
 
-Horizontal Pod Autoscaling can be enabled on the worker deployments using CPU utilization targets. Increase the node count in your Terraform modules to ensure sufficient capacity.
+Horizontal Pod Autoscaling (HPA) can be enabled on the worker deployments using CPU utilization targets. An example configuration is provided in `k8s/hpa-worker.yaml` which scales the `scraper-worker` Deployment between one and ten replicas when average CPU usage exceeds **75%**. Adjust the `averageUtilization` threshold and `maxReplicas` values to match your cluster capacity and workload characteristics.
+
+HPA requires the Kubernetes **metrics server** to be installed so the cluster can collect resource metrics. Ensure your cluster has it running (e.g. `helm install metrics-server bitnami/metrics-server`) before applying the autoscaler. Increase the node count in your Terraform modules if additional capacity is needed.
 
 ## Metrics Scraping
 
