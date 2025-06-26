@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import re
 from pathlib import Path
 from typing import List, Optional
 
@@ -11,6 +12,18 @@ import dashboard
 from search import indexer
 
 app = typer.Typer(help="Scraper Wiki command line interface")
+
+
+def _sanitize_output(name: str) -> Path:
+    """Return sanitized output ``Path`` within Config.OUTPUT_DIR."""
+    base = Path(name).name
+    if not re.fullmatch(r"[\w.-]+", base):
+        raise typer.BadParameter("Invalid characters in output name")
+    out_dir = Path(scraper_wiki.Config.OUTPUT_DIR)
+    out_path = out_dir / base
+    if out_path.resolve().parent != out_dir.resolve():
+        raise typer.BadParameter("Output path outside output directory")
+    return out_path
 
 
 @app.callback(invoke_without_command=False)
@@ -386,10 +399,11 @@ def merge_datasets_cmd(
     from processing.aggregator import merge_datasets
 
     merged = merge_datasets(datasets)
-    Path(output).write_text(
+    out_path = _sanitize_output(output)
+    out_path.write_text(
         json.dumps(merged, ensure_ascii=False, indent=2), encoding="utf-8"
     )
-    typer.echo(f"Salvo {len(merged)} registros em {output}")
+    typer.echo(f"Salvo {len(merged)} registros em {out_path}")
 
 
 @app.command("start-crawler")
