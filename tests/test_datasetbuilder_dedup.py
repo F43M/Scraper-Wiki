@@ -126,3 +126,68 @@ def test_save_dataset_deduplicates(monkeypatch, tmp_path):
     assert len(builder.dataset) == 1
     out = (tmp_path / "wikipedia_qa.json").read_text(encoding="utf-8")
     assert len(json.loads(out)) == 1
+
+
+def test_save_dataset_incremental(monkeypatch, tmp_path):
+    class DummyEmbed:
+        pass
+
+    monkeypatch.setattr(
+        sw.NLPProcessor,
+        "get_embedding_model",
+        classmethod(lambda cls: DummyEmbed()),
+    )
+    monkeypatch.setattr(sw.Config, "MIN_TEXT_LENGTH", 1)
+    base_record = {
+        "id": "1",
+        "title": "T",
+        "language": "en",
+        "category": "c",
+        "topic": "ai",
+        "subtopic": "nlp",
+        "keywords": [],
+        "content": "text",
+        "summary": "sum",
+        "content_embedding": [0.1],
+        "summary_embedding": [0.1],
+        "questions": ["q"],
+        "answers": ["a"],
+        "relations": [],
+        "created_at": "now",
+        "metadata": {},
+    }
+
+    import provenance.tracker as tracker
+
+    db = tmp_path / "prov.sqlite"
+
+    monkeypatch.setattr(
+        tracker,
+        "record_dataset_hash",
+        lambda rec, db_path="provenance.sqlite": tracker.record_dataset_hash(
+            rec, db_path=str(db)
+        ),
+    )
+    monkeypatch.setattr(
+        tracker,
+        "dataset_hash_exists",
+        lambda h, db_path="provenance.sqlite": tracker.dataset_hash_exists(
+            h, db_path=str(db)
+        ),
+    )
+
+    monkeypatch.setattr(sw.dq, "strip_credentials", lambda t: t)
+    monkeypatch.setattr(sw.dq, "remove_pii", lambda t: t)
+    monkeypatch.setattr(sw.dq, "detect_code_plagiarism", lambda d: [])
+    monkeypatch.setattr(sw.dq, "deduplicate_by_simhash", lambda d: (d, 0))
+    monkeypatch.setattr(sw, "extract_entities", lambda text: [])
+
+    builder = sw.DatasetBuilder()
+    builder.dataset = [base_record]
+    builder.save_dataset("json", output_dir=tmp_path, incremental=True)
+
+    builder2 = sw.DatasetBuilder()
+    builder2.dataset = [base_record]
+    builder2.save_dataset("json", output_dir=tmp_path, incremental=True)
+
+    assert builder2.duplicates_removed == 1

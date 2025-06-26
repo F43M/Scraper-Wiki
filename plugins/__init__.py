@@ -94,7 +94,7 @@ def run_plugin(
                     latest = ts if latest is None or ts > latest else latest
             if incremental and latest:
                 storage_sqlite.set_last_processed(key, str(latest))
-    builder.save_dataset(fmt)
+    builder.save_dataset(fmt, incremental=incremental)
     return builder.dataset
 
 
