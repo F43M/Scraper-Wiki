@@ -426,6 +426,15 @@ def stop_crawler_cmd():
     stop_crawler()
 
 
+@app.command()
+def serve(host: str = "0.0.0.0", port: int = 8000) -> None:
+    """Launch the FastAPI server using ``uvicorn``."""
+
+    import uvicorn
+
+    uvicorn.run("api.api_app:app", host=host, port=port)
+
+
 @app.command("update-parsers")
 def update_parsers_cmd():
     """Refresh ANTLR grammars or ML models."""
