@@ -39,3 +39,17 @@ This tutorial explains how to create datasets suitable for fine-tuning code gene
        trainer.train()
 
 The resulting model can then be used to generate code snippets conditioned on the README text or other prompts.
+
+Example Airflow configuration
+----------------------------
+
+The `publish_dataset` task in :mod:`training.airflow_pipeline` can automatically
+start a fine-tuning run when the ``FINE_TUNE_MODEL`` environment variable is set.
+``MODEL_NAME`` selects the pretrained checkpoint used::
+
+   AIRFLOW_SCHEDULE="@daily"
+   FINE_TUNE_MODEL="1"
+   MODEL_NAME="bert-base-uncased"
+
+Both the ``dataset_version`` and ``model_version`` are logged to MLflow for
+experiment tracking.

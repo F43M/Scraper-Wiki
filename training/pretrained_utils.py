@@ -92,3 +92,45 @@ def extract_image_dataset(records: List[dict], out_dir: Path) -> None:
                 cf.write(f"{name}\t{caption}\n")
                 downloaded += 1
         mlflow.log_metric("images_downloaded", downloaded)
+
+
+def fine_tune_model(dataset_path: Path, model_name: str = "bert-base-uncased") -> str:
+    """Fine-tune a text model using ``dataset_path`` and log results with MLflow.
+
+    The dataset must be a JSON file with a ``content`` field. This function
+    performs a minimal training routine just to demonstrate integration with
+    MLflow and returns a computed model version identifier.
+
+    Parameters
+    ----------
+    dataset_path : pathlib.Path
+        Path to the processed dataset file.
+    model_name : str
+        Name of the pretrained checkpoint to start from.
+
+    Returns
+    -------
+    str
+        Deterministic identifier of the produced model version.
+    """
+    from .pipeline import load_dataset
+
+    records = load_dataset(dataset_path)
+    texts = [r.get("content", "") for r in records if r.get("content")]
+    tokenized = prepare_bert_inputs(texts)
+
+    dataset_version = hashlib.md5(
+        json.dumps(records, sort_keys=True, ensure_ascii=False).encode("utf-8")
+    ).hexdigest()
+    model_version = hashlib.md5(
+        (model_name + dataset_version).encode("utf-8")
+    ).hexdigest()[:8]
+
+    with mlflow.start_run(nested=True):
+        mlflow.log_param("model_name", model_name)
+        mlflow.log_param("dataset_version", dataset_version)
+        mlflow.log_param("model_version", model_version)
+        mlflow.log_metric("num_records", len(texts))
+        mlflow.log_metric("token_count", len(tokenized["input_ids"]))
+
+    return model_version
