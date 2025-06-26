@@ -22,18 +22,32 @@ def test_merge_datasets_deduplicates(tmp_path):
     assert len(merged) == 1
 
 
-def test_cli_merge_datasets(tmp_path):
+def test_cli_merge_datasets(tmp_path, monkeypatch):
     rec = {"id": "1", "language": "en", "content": "print('hi')", "created_at": "now"}
     f1 = tmp_path / "a.json"
     f2 = tmp_path / "b.json"
     f1.write_text(json.dumps([rec]), encoding="utf-8")
     f2.write_text(json.dumps([rec.copy()]), encoding="utf-8")
-    out = tmp_path / "out.json"
+
+    monkeypatch.setattr(cli.scraper_wiki.Config, "OUTPUT_DIR", str(tmp_path))
 
     runner = CliRunner()
     result = runner.invoke(
-        cli.app, ["merge-datasets", str(f1), str(f2), "--output", str(out)]
+        cli.app, ["merge-datasets", str(f1), str(f2), "--output", "out.json"]
     )
     assert result.exit_code == 0
-    data = json.loads(out.read_text(encoding="utf-8"))
+    data = json.loads((tmp_path / "out.json").read_text(encoding="utf-8"))
     assert len(data) == 1
+
+
+def test_cli_merge_datasets_invalid_name(tmp_path, monkeypatch):
+    rec = {"id": "1"}
+    f = tmp_path / "a.json"
+    f.write_text(json.dumps([rec]), encoding="utf-8")
+    monkeypatch.setattr(cli.scraper_wiki.Config, "OUTPUT_DIR", str(tmp_path))
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli.app, ["merge-datasets", str(f), "--output", "../bad.json"]
+    )
+    assert result.exit_code != 0
