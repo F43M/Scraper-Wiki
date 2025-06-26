@@ -2217,3 +2217,50 @@ def test_save_dataset_removes_pii(tmp_path, monkeypatch):
 
     data = json.loads((tmp_path / "wikipedia_qa.json").read_text(encoding="utf-8"))
     assert "<PII>" in data[0]["content"]
+
+
+def _make_record(i: str) -> dict:
+    return {
+        "id": i,
+        "title": "t",
+        "language": "en",
+        "category": "c",
+        "topic": "ai",
+        "subtopic": "nlp",
+        "keywords": [],
+        "content": "c" * 20,
+        "summary": "s" * 20,
+        "content_embedding": [0.0],
+        "summary_embedding": [0.0],
+        "questions": ["q"],
+        "answers": ["a"],
+        "relations": [],
+        "created_at": "now",
+        "metadata": {},
+    }
+
+
+def test_dataset_diff_written(tmp_path, monkeypatch):
+    builder = sw.DatasetBuilder()
+    monkeypatch.setattr(sw.Config, "MIN_TEXT_LENGTH", 5)
+    builder.dataset = [_make_record("1"), _make_record("2")]
+    builder.save_dataset("json", output_dir=tmp_path)
+
+    info = json.loads((tmp_path / "dataset_info.json").read_text(encoding="utf-8"))
+    ver1 = info["version"]
+    diff1 = json.loads((tmp_path / f"diff_{ver1}.json").read_text(encoding="utf-8"))
+    assert set(diff1["added"]) == {"1", "2"}
+    assert diff1["removed"] == []
+
+    builder.dataset = [_make_record("2"), _make_record("3")]
+    builder.save_dataset("json", output_dir=tmp_path)
+
+    info = json.loads((tmp_path / "dataset_info.json").read_text(encoding="utf-8"))
+    ver2 = info["version"]
+    diff2 = json.loads((tmp_path / f"diff_{ver2}.json").read_text(encoding="utf-8"))
+    assert diff2["added"] == ["3"]
+    assert diff2["removed"] == ["1"]
+    changelog = (
+        (tmp_path / "CHANGELOG.txt").read_text(encoding="utf-8").splitlines()[-1]
+    )
+    assert f"diff_{ver2}.json" in changelog
