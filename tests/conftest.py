@@ -81,6 +81,8 @@ requests_stub = ModuleType("requests")
 requests_stub.get = lambda *a, **k: SimpleNamespace(status_code=200, text="")
 requests_stub.post = lambda *a, **k: SimpleNamespace(status_code=200, text="")
 requests_stub.exceptions = SimpleNamespace(RequestException=Exception)
+requests_stub.RequestException = Exception
+requests_stub.Response = object
 sys.modules.setdefault("requests", requests_stub)
 
 sys.modules.setdefault("yaml", SimpleNamespace(safe_load=lambda *a, **k: {}))
