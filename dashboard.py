@@ -12,11 +12,13 @@ PROGRESS_FILE = Path("logs/progress.json")
 API_BASE = os.environ.get("API_BASE", "http://localhost:8000")
 PROM_URL = os.environ.get("PROMETHEUS_URL", "http://localhost:9090")
 LOG_FILE = Path(os.environ.get("LOG_FILE", "logs/scraper.log"))
+API_TOKEN = os.environ.get("API_TOKEN")
+HEADERS = {"Authorization": f"Bearer {API_TOKEN}"} if API_TOKEN else None
 
 
 def load_progress():
     try:
-        resp = requests.get(f"{API_BASE}/stats", timeout=5)
+        resp = requests.get(f"{API_BASE}/stats", timeout=5, headers=HEADERS)
         resp.raise_for_status()
         return resp.json()
     except Exception:
@@ -31,7 +33,7 @@ def load_progress():
 
 def load_dataset_info():
     try:
-        resp = requests.get(f"{API_BASE}/dataset/summary", timeout=5)
+        resp = requests.get(f"{API_BASE}/dataset/summary", timeout=5, headers=HEADERS)
         resp.raise_for_status()
         return resp.json()
     except Exception:
@@ -47,7 +49,9 @@ def tail_logs(lines: int = 20) -> str:
 
 def enqueue_tasks(tasks: list[dict]) -> bool:
     try:
-        resp = requests.post(f"{API_BASE}/queue/add", json=tasks, timeout=5)
+        resp = requests.post(
+            f"{API_BASE}/queue/add", json=tasks, timeout=5, headers=HEADERS
+        )
         return resp.status_code == 200
     except Exception:
         return False
@@ -55,7 +59,7 @@ def enqueue_tasks(tasks: list[dict]) -> bool:
 
 def clear_tasks() -> bool:
     try:
-        resp = requests.post(f"{API_BASE}/queue/clear", timeout=5)
+        resp = requests.post(f"{API_BASE}/queue/clear", timeout=5, headers=HEADERS)
         return resp.status_code == 200
     except Exception:
         return False
