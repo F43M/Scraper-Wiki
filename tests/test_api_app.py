@@ -118,6 +118,20 @@ def test_scrape_endpoint(monkeypatch):
     assert resp.json() == {"status": "ok"}
 
 
+def test_api_scrape_endpoint(monkeypatch):
+    client = create_client(monkeypatch)
+    resp = client.post("/api/scrape", json={"lang": "en", "category": "c"})
+    assert resp.status_code == 200
+    assert resp.json() == {"status": "ok"}
+
+
+def test_api_plugins_endpoint(monkeypatch):
+    client = create_client(monkeypatch)
+    resp = client.get("/api/plugins")
+    assert resp.status_code == 200
+    assert "wikipedia" in resp.json()
+
+
 def test_scrape_plugin_execution(monkeypatch, tmp_path):
     client = create_client(monkeypatch)
     monkeypatch.setattr(api_app.sw.Config, "OUTPUT_DIR", str(tmp_path))
