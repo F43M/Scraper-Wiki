@@ -88,17 +88,43 @@ def postprocess_dataset(ti) -> str:  # pragma: no cover - executed by Airflow
 
 
 def publish_dataset(ti) -> None:  # pragma: no cover - executed by Airflow
-    """Publish the processed dataset using configured storage backends."""
+    """Publish the processed dataset and optionally fine-tune a model."""
+    import mlflow
+    from pathlib import Path
+    from training import pretrained_utils
+
     path = ti.xcom_pull(task_ids="postprocess_dataset")
     if not path or not os.path.exists(path):
         raise FileNotFoundError(path)
     with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)
-    from scraper_wiki import DatasetBuilder
+    from scraper_wiki import Config, DatasetBuilder
 
     builder = DatasetBuilder()
     builder.dataset = data
     builder.save_dataset(format=os.environ.get("DATASET_FORMAT", "hf"))
+
+    dataset_info = Path(Config.OUTPUT_DIR) / "dataset_info.json"
+    dataset_version = None
+    if dataset_info.exists():
+        try:
+            dataset_version = json.loads(dataset_info.read_text(encoding="utf-8"))[
+                "version"
+            ]
+        except Exception:
+            dataset_version = None
+
+    fine_tune_flag = os.environ.get("FINE_TUNE_MODEL")
+    model_name = os.environ.get("MODEL_NAME", "bert-base-uncased")
+
+    with mlflow.start_run():
+        if dataset_version:
+            mlflow.log_param("dataset_version", dataset_version)
+        if fine_tune_flag:
+            model_version = pretrained_utils.fine_tune_model(
+                Path(path), model_name=model_name
+            )
+            mlflow.log_param("model_version", model_version)
 
 
 def create_dag() -> Any:

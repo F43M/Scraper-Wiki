@@ -29,3 +29,44 @@ def test_create_dag():
             "postprocess_dataset",
             "publish_dataset",
         }.issubset(dag.task_dict)
+
+
+def test_publish_dataset_fine_tune(tmp_path, monkeypatch):
+    """Fine-tune step is triggered when FINE_TUNE_MODEL is set."""
+    processed = tmp_path / "processed.json"
+    processed.write_text("[]", encoding="utf-8")
+
+    class DummyRun:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            pass
+
+    logged = {}
+    dummy_mlflow = ModuleType("mlflow")
+    dummy_mlflow.start_run = lambda *a, **k: DummyRun()
+    dummy_mlflow.log_param = lambda k, v: logged.setdefault(k, v)
+    dummy_mlflow.log_metric = lambda *a, **k: None
+    sys.modules["mlflow"] = dummy_mlflow
+
+    dummy_utils = ModuleType("training.pretrained_utils")
+
+    def fake_fine(path, model_name="bert-base-uncased"):
+        logged["fine"] = str(path)
+        return "ver1234"
+
+    dummy_utils.fine_tune_model = fake_fine
+    sys.modules["training.pretrained_utils"] = dummy_utils
+
+    builder = ModuleType("builder")
+    builder_obj = type(
+        "B", (), {"dataset": [], "save_dataset": lambda self, format: None}
+    )()
+    monkeypatch.setattr(pipe, "DatasetBuilder", lambda: builder_obj)
+
+    ti = type("TI", (), {"xcom_pull": lambda self, task_ids: str(processed)})()
+    monkeypatch.setenv("FINE_TUNE_MODEL", "1")
+    pipe.publish_dataset(ti)
+
+    assert logged.get("fine") == str(processed)
