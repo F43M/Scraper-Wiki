@@ -34,3 +34,29 @@ scrape_configs:
       - targets: ['<service-host>:8001']
     metrics_path: /
 ```
+
+## Worker Restarts
+
+Scraper workers are stateless and can be restarted at any time. When deploying
+with **systemd**, define a service similar to:
+
+```ini
+[Service]
+ExecStart=/usr/bin/python /opt/scraper-wiki/worker.py
+Restart=always
+```
+
+On **Kubernetes**, use a Deployment with `restartPolicy: Always` and scale the
+`worker` pod replicas as needed:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scraper-worker
+spec:
+  replicas: 4
+  template:
+    spec:
+      restartPolicy: Always
+```
