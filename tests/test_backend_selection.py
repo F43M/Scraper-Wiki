@@ -129,4 +129,10 @@ def test_get_backend_iceberg(monkeypatch, tmp_path):
 def test_get_backend_milvus(monkeypatch, tmp_path):
     storage_mod = _reload(monkeypatch, {})
     backend = storage_mod.get_backend("milvus", str(tmp_path))
-    assert isinstance(backend, storage_mod.VectorStorage)
+    assert isinstance(backend, storage_mod.MilvusVectorStore)
+
+
+def test_get_backend_weaviate(monkeypatch, tmp_path):
+    storage_mod = _reload(monkeypatch, {})
+    backend = storage_mod.get_backend("weaviate", str(tmp_path))
+    assert isinstance(backend, storage_mod.WeaviateVectorStore)

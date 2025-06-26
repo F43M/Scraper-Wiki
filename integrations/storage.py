@@ -361,9 +361,12 @@ except Exception:
     GraphStorage = None
 
 try:  # pragma: no cover - optional backends
-    from integrations.storage_vector import VectorStorage
+    from integrations.vector_storage import (
+        MilvusVectorStore,
+        WeaviateVectorStore,
+    )
 except Exception:
-    VectorStorage = None
+    MilvusVectorStore = WeaviateVectorStore = None
 
 
 def get_backend(name: str, output_dir: str):
@@ -396,22 +399,9 @@ def get_backend(name: str, output_dir: str):
         return GraphStorage(uri, user, pwd)
     if name in ["milvus", "weaviate"]:
         if name == "milvus":
-            try:
-                from pymilvus import connections, Collection
-            except Exception as e:
-                raise ImportError("pymilvus is required for Milvus backend") from e
             uri = os.environ.get("MILVUS_URI", "http://localhost:19530")
             col = os.environ.get("MILVUS_COLLECTION", "embeddings")
-            connections.connect(uri=uri)
-            client = Collection(col)
-        else:
-            try:
-                import weaviate
-            except Exception as e:
-                raise ImportError(
-                    "weaviate-client is required for Weaviate backend"
-                ) from e
-            uri = os.environ.get("WEAVIATE_URI", "http://localhost:8080")
-            client = weaviate.Client(uri)
-        return VectorStorage(client)
+            return MilvusVectorStore(uri, col)
+        uri = os.environ.get("WEAVIATE_URI", "http://localhost:8080")
+        return WeaviateVectorStore(uri)
     return LocalStorage(output_dir)

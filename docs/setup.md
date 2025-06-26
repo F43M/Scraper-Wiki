@@ -10,7 +10,7 @@ Heavy optional dependencies such as `tensorflow` and `transformers` can be skipp
 
 ## Environment Variables
 
-- `STORAGE_BACKEND`: `local`, `s3`, `mongodb`, `postgres`, `iceberg`, `neo4j`, `milvus`, or `weaviate`.
+- `STORAGE_BACKEND`: `local`, `s3`, `mongodb`, `postgres`, `iceberg`, `delta`, `datalake`, `neo4j`, `milvus`, or `weaviate`.
 - `S3_BUCKET`, `S3_ENDPOINT`: Configure S3/MinIO storage.
 - `MONGODB_URI`: MongoDB connection string.
 - `POSTGRES_DSN`: PostgreSQL DSN.

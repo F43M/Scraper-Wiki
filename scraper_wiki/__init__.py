@@ -263,6 +263,11 @@ class Config:
     SQLITE_PATH = os.path.join(CACHE_DIR, "cache.sqlite")
     CACHE_TTL: Optional[int] = int(os.environ.get("CACHE_TTL", "0")) or None
     STORAGE_BACKEND = os.environ.get("STORAGE_BACKEND", "local")
+    """Backend used for dataset storage.
+
+    Choices are ``local``, ``s3``, ``mongodb``, ``postgres``, ``iceberg``,
+    ``delta``, ``datalake``, ``neo4j``, ``milvus`` and ``weaviate``.
+    """
     COMPRESSION = os.environ.get("COMPRESSION", "none")
     SCRAPER_BACKEND = os.environ.get("SCRAPER_BACKEND", "selenium")
     LOG_SERVICE_URL = os.environ.get("LOG_SERVICE_URL")
