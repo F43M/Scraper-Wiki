@@ -11,7 +11,7 @@ from fastapi import (
     status,
 )
 from fastapi.responses import JSONResponse
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from api.security import auth_scheme, require_token, RateLimitMiddleware
 from pydantic import BaseModel
 from scraper_wiki.models import DatasetRecord
 import scraper_wiki as sw
@@ -27,17 +27,8 @@ from search import indexer
 
 
 app = FastAPI()
+app.add_middleware(RateLimitMiddleware)
 api_router = APIRouter(prefix="/api")
-
-auth_scheme = HTTPBearer(auto_error=False)
-
-
-def require_token(credentials: HTTPAuthorizationCredentials = Depends(auth_scheme)):
-    token = os.environ.get("API_TOKEN")
-    if token and (credentials is None or credentials.credentials != token):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"
-        )
 
 
 DATA_FILE = os.path.join(sw.Config.OUTPUT_DIR, "wikipedia_qa.json")
