@@ -118,6 +118,35 @@ def test_scrape_endpoint(monkeypatch):
     assert resp.json() == {"status": "ok"}
 
 
+def test_scrape_plugin_execution(monkeypatch, tmp_path):
+    client = create_client(monkeypatch)
+    monkeypatch.setattr(api_app.sw.Config, "OUTPUT_DIR", str(tmp_path))
+
+    called = {}
+
+    def fake_run_plugin(plugin, langs, categories, fmt, incremental=False):
+        called["plugin"] = plugin
+        called["langs"] = langs
+        called["categories"] = categories
+        (tmp_path / "wikipedia_qa.json").write_text("[]", encoding="utf-8")
+        return []
+
+    import plugins
+
+    monkeypatch.setattr(plugins, "run_plugin", fake_run_plugin)
+    monkeypatch.setattr(plugins, "load_plugin", lambda n: "plug")
+
+    resp = client.post(
+        "/scrape",
+        json={"plugin": "plug", "category": "term", "lang": "en", "format": "json"},
+    )
+    assert resp.status_code == 200
+    assert called["plugin"] == "plug"
+    assert called["langs"] == ["en"]
+    assert called["categories"] == ["term"]
+    assert (tmp_path / "wikipedia_qa.json").exists()
+
+
 def test_records_endpoint(monkeypatch):
     client = create_client(monkeypatch)
     resp = client.get("/records")
