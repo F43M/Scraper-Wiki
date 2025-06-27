@@ -4,13 +4,23 @@ Thank you for your interest in improving Scraper Wiki! This project follows a fe
 
 ## Setting up the environment
 
-Install the main dependencies:
+Install dependencies in stages:
 
 ```bash
-pip install -r requirements.txt
+pip install -r requirements-core.txt
 ```
 
-Heavy optional packages such as TensorFlow and transformers are not required for running the tests. Skip them if you only need a minimal environment.
+Machine learning features are optional:
+
+```bash
+pip install -r requirements-ml.txt
+```
+
+Workflow extras can be installed separately:
+
+```bash
+pip install -r requirements-workflow.txt
+```
 
 ## Running the test suite
 

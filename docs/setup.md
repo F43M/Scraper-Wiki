@@ -3,10 +3,20 @@
 ## Installation
 
 ```bash
-pip install -r requirements.txt
+pip install -r requirements-core.txt
 ```
 
-Heavy optional dependencies such as `tensorflow` and `transformers` can be skipped if not needed.
+For machine learning features install the second set:
+
+```bash
+pip install -r requirements-ml.txt
+```
+
+Tools like Airflow are provided separately:
+
+```bash
+pip install -r requirements-workflow.txt
+```
 
 ## Environment Variables
 
