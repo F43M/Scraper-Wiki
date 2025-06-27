@@ -40,6 +40,23 @@ Retrieve records:
 curl "http://localhost:8000/records?lang=pt&category=Programação"
 ```
 
+List plugins:
+
+```bash
+curl http://localhost:8000/api/plugins
+```
+
+Run a scrape via API:
+
+```bash
+curl -X POST http://localhost:8000/api/scrape \
+  -H "Content-Type: application/json" \
+  -d '{"lang": ["en"], "category": ["Science"], "format": "json"}'
+```
+
+The dashboard and web UI interact with these endpoints to populate options and
+submit scraping tasks on behalf of the user.
+
 ## Plugins
 
 Enable a plugin with `--plugin` or via API payload. Available options include `infobox_parser`, `table_parser`, `github_scraper`, `wikidata`, `stackoverflow` and more.
