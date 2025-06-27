@@ -4,20 +4,16 @@ This repository uses **pytest** for the test suite and `pdoc` for HTML documenta
 
 ## Installing Dependencies
 
-Install the main dependencies with:
+Install dependencies in stages:
 
 ```bash
-pip install -r requirements.txt
+pip install -r requirements-core.txt
+pip install -r requirements-ml.txt      # machine learning features
+pip install -r requirements-workflow.txt  # Airflow/MLflow tools
 ```
 
-The following packages are heavy and optional for a minimal setup:
-
-- `tensorflow`
-- `sentence-transformers`
-- `transformers`
-- `spacy`
-
-Skip them if you only want to run the lightweight parts of the project or the test suite.
+The second file installs heavy packages such as `tensorflow` and `transformers`.
+Skip it if you only need a minimal environment or to run the test suite.
 
 ## Running Tests
 
